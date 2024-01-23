@@ -29,17 +29,18 @@ folder_workplace <- "TEST_CINner_lite/"
 n_simulations <- 5
 t_end_time <- 1000
 t_tau_step <- 1
-n_selective_clones <- 2
-vec_time_points_s_mut <- t_end_time * c(0.5, 0.8)
-vec_hierarchy_s_mut <- c(0, 0)
+n_selective_clones <- 1
+vec_time_points_s_mut <- t_end_time * c(0.6)
+vec_hierarchy_s_mut <- c(0)
 expected_end_population <- 10^6
 vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
 n_sample <- 100000
 range_population <- c(0.8, 1.2) * expected_end_population
-range_clonal_perc <- c(10, 90)
+range_clonal_perc <- c(30, 70)
 choice_theta <- "constant"
 vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
 vec_theta_mean <- vec_theta_parameters
+bulk_coverage_model <- "binomial"
 bulk_coverage_variables <- c(0, 100)
 bulk_min_alt_readcounts <- 0
 #------------------------------------------------Create bulk simulations
@@ -64,13 +65,14 @@ simulator_batch(
     output_bulk = TRUE,
     output_sc = FALSE,
     compute_parallel = TRUE,
+    bulk_coverage_model = bulk_coverage_model,
     bulk_coverage_variables = bulk_coverage_variables,
     bulk_min_alt_readcounts = bulk_min_alt_readcounts,
     subfolder = folder_workplace
 )
 #--------------------------------------------------------Clean bulk data
 for (n_simulation in 1:n_simulations) {
-    filename <- paste0(folder_workplace, "ClonalTimes=", paste(vec_time_points_s_mut, collapse = ","), "_ClonalHierarchy=", paste(vec_hierarchy_s_mut, collapse = ","), "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
+    filename <- paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
     mut_table <- read.csv(filename)
     vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
     if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
