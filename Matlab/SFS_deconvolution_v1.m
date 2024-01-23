@@ -43,8 +43,6 @@ threshold_error         = 0.2;
 
 
 
-
-
 %---------------------------------------------------Input binomial table
 global          matrix_binomial_PDF
 filename        = ['/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/Matlab/Binomial_tables/Binomial_PDF_' ...
@@ -53,7 +51,7 @@ filename        = ['/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd212
     num2str(min_variant_read) '_' ...
     num2str(min_total_read) '_'...
     num2str(SFS_totalsteps_base) '_' ...
-    num2str(option_ploidy) '.mat'];
+    num2str(option_ploidy) '.mat']
 inputBinomialMatrix = matfile(filename);
 matrix_binomial_PDF = inputBinomialMatrix.matrix_binomial_PDF;
 %--------------------------------Fit the SFS for each of the simulations
