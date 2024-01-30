@@ -16,14 +16,6 @@ files_sources <- list.files(pattern = "*.r$")
 sapply(files_sources, source)
 setwd(R_workplace)
 
-
-# setwd("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/R/Version 4 (faster bulk; sc unwritten)/")
-# files_sources <- list.files(pattern = "*.r$")
-# sapply(files_sources, source)
-# setwd("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/R/240120 TEST for Koval (2 branching clones)/")
-
-
-
 folder_workplace <- "TEST_CINner_lite/"
 #---------------------------------------------------Set model parameters
 n_simulations <- 5
