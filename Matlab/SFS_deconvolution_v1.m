@@ -136,6 +136,7 @@ for n_simulation = 1:n_simulations
     fileID          = fopen(filename,'w');
     fprintf(fileID,'%.3f\t',vec_para_best_final);
     fclose(fileID);
+    
     %---------------------------------------Plot the SFS fitting results
     figure(1);clf;
     %   Plot the SFS data
