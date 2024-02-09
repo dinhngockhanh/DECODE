@@ -18,7 +18,7 @@ setwd(R_workplace)
 
 folder_workplace <- "TEST_SFS_DECONVOLUTION/"
 #---------------------------------------------------Set model parameters
-n_simulations <- 100
+n_simulations <- 5
 t_end_time <- 3000
 t_tau_step <- 1
 n_selective_clones <- 1
@@ -71,3 +71,4 @@ for (n_simulation in 1:n_simulations) {
     filename <- paste0(folder_workplace, "SFS_", n_simulation, ".txt")
     write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
 }
+# ===============================================================MOBSTER
