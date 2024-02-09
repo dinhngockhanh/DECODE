@@ -18,7 +18,7 @@ setwd(R_workplace)
 
 folder_workplace <- "TEST_SFS_DECONVOLUTION/"
 #---------------------------------------------------Set model parameters
-n_simulations <- 5
+n_simulations <- 100
 t_end_time <- 3000
 t_tau_step <- 1
 n_selective_clones <- 1
