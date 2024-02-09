@@ -11,6 +11,8 @@ R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDr
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(R.matlab)
+library(parallel)
+library(pbapply)
 
 setwd(R_libPaths_extra)
 files_sources <- list.files(pattern = "\\.[rR]$")
@@ -20,7 +22,7 @@ setwd(R_workplace)
 folder_workplace <- "TEST_SFS_DECONVOLUTION/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 5
+n_simulations <- 10
 t_end_time <- 3000
 t_tau_step <- 1
 n_selective_clones <- 1
