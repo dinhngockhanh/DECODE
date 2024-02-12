@@ -5,7 +5,6 @@ simulation_clonal_evolution <- function(t_end_time = 0,
                                         vec_propensity = 0,
                                         vec_propensity_sum = 0,
                                         range_clonal_perc = 0,
-                                        mindiff_clonal_perc = 0,
                                         range_population = 0,
                                         t_tau_step = 0) {
     #---------------------Create one simulation for the clonal evolution
@@ -96,36 +95,29 @@ simulation_clonal_evolution <- function(t_end_time = 0,
         )
     }
     #------------------------Decide the quality flag of clonal evolution
-    condition_cancer <- 0
-    condition_diff <- 0
-    condition_population <- 0
-    if (sum(vec_populations) > 0) {
-        vec_population_perc <- 100 * vec_populations / sum(vec_populations)
-        #   Check that selective clones' sizes are in wanted range
-        if ((min(vec_population_perc) >= range_clonal_perc[1]) &
-            (max(vec_population_perc) <= range_clonal_perc[2])) {
-            condition_cancer <- 1
-        }
-        #   Check that differences between clones' sizes are above threshold
-        if (min(diff(sort(vec_population_perc))) >= mindiff_clonal_perc) {
-            condition_diff <- 1
-        }
-        #   Check that total population size is in wanted range
-        if ((sum(vec_populations) >= range_population[1]) & (sum(vec_populations) <= range_population[2])) {
-            condition_population <- 1
-        }
-        # print("===========================================================")
-        # print(vec_population_perc)
-        # print(range_clonal_perc)
-        # print(condition_cancer)
-        # print("-----------------------------------------------------------")
-        # print(diff(sort(vec_population_perc)))
-        # print(mindiff_clonal_perc)
-        # print(condition_diff)
-        # print("-----------------------------------------------------------")
-        # print(sum(vec_populations))
-        # print(range_population)
-        # print(condition_population)
+    if (max(vec_populations) == 0) {
+        condition_population <- 0
+        condition_cancer <- 0
+        simulation <- list()
+        output <- list()
+        output$condition_population <- condition_population
+        output$condition_cancer <- condition_cancer
+        output$simulation <- simulation
+        return(output)
+    }
+    vec_population_perc <- 100 * vec_populations / sum(vec_populations)
+    #   Check that selective clones' populations are in wanted range
+    if ((min(vec_population_perc) < range_clonal_perc[1]) |
+        (max(vec_population_perc) > range_clonal_perc[2])) {
+        condition_cancer <- 0
+    } else {
+        condition_cancer <- 1
+    }
+    #   Check that total population size is in wanted range
+    if ((sum(vec_populations) < range_population[1]) | (sum(vec_populations) > range_population[2])) {
+        condition_population <- 0
+    } else {
+        condition_population <- 1
     }
     #---------------------------------------------Prepare output package
     simulation <- list()
@@ -136,7 +128,8 @@ simulation_clonal_evolution <- function(t_end_time = 0,
     simulation$record_vec_count_death <- record_vec_count_death
 
     output <- list()
-    output$conditioning <- c(condition_population, condition_cancer, condition_diff)
+    output$condition_population <- condition_population
+    output$condition_cancer <- condition_cancer
     output$simulation <- simulation
     return(output)
 }

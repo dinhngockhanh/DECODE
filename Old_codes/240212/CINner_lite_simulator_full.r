@@ -8,10 +8,7 @@ simulator_full <- function(file_prefix = "",
                            vec_propensity = c(0, 0),
                            vec_propensity_sum = c(0, 0),
                            range_clonal_perc = c(40, 60),
-                           mindiff_clonal_perc = 0,
                            range_population = c(800, 1200),
-                           ploidy = 1,
-                           truncal_mutations = 0,
                            choice_theta = "constant",
                            vec_theta_parameters = c(0.6, 0.6),
                            n_sample = 0,
@@ -51,10 +48,7 @@ simulator_full <- function(file_prefix = "",
                 vec_propensity,
                 vec_propensity_sum,
                 range_clonal_perc,
-                mindiff_clonal_perc,
                 range_population,
-                ploidy,
-                truncal_mutations,
                 choice_theta,
                 vec_theta_parameters,
                 n_sample,
@@ -98,10 +92,7 @@ simulator_full <- function(file_prefix = "",
         vec_propensity <<- vec_propensity
         vec_propensity_sum <<- vec_propensity_sum
         range_clonal_perc <<- range_clonal_perc
-        mindiff_clonal_perc <<- mindiff_clonal_perc
         range_population <<- range_population
-        ploidy <<- ploidy
-        truncal_mutations <<- truncal_mutations
         choice_theta <<- choice_theta
         vec_theta_parameters <<- vec_theta_parameters
         n_sample <<- n_sample
@@ -133,10 +124,7 @@ simulator_full <- function(file_prefix = "",
             "vec_propensity",
             "vec_propensity_sum",
             "range_clonal_perc",
-            "mindiff_clonal_perc",
             "range_population",
-            "ploidy",
-            "truncal_mutations",
             "choice_theta",
             "vec_theta_parameters",
             "n_sample",
@@ -165,10 +153,7 @@ simulator_full <- function(file_prefix = "",
                 vec_propensity,
                 vec_propensity_sum,
                 range_clonal_perc,
-                mindiff_clonal_perc,
                 range_population,
-                ploidy,
-                truncal_mutations,
                 choice_theta,
                 vec_theta_parameters,
                 n_sample,
@@ -200,10 +185,7 @@ simulator_one_simulation <- function(n_simulation,
                                      vec_propensity,
                                      vec_propensity_sum,
                                      range_clonal_perc,
-                                     mindiff_clonal_perc,
                                      range_population,
-                                     ploidy,
-                                     truncal_mutations,
                                      choice_theta,
                                      vec_theta_parameters,
                                      n_sample,
@@ -219,10 +201,12 @@ simulator_one_simulation <- function(n_simulation,
                                      bulk_min_alt_readcounts,
                                      subfolder) {
     #--------------------------------------Simulate the clonal evolution
-    conditioning <- 0
+    condition_population <- 0
+    condition_cancer <- 0
+    vec_condition <- c(condition_population, condition_cancer)
     print("")
     print("Simulating clonal evolution")
-    while (min(conditioning) == 0) {
+    while (min(vec_condition) == 0) {
         output <- simulation_clonal_evolution(
             t_end_time = t_end_time,
             n_selective_clones = n_selective_clones,
@@ -231,11 +215,12 @@ simulator_one_simulation <- function(n_simulation,
             vec_propensity = vec_propensity,
             vec_propensity_sum = vec_propensity_sum,
             range_clonal_perc = range_clonal_perc,
-            mindiff_clonal_perc = mindiff_clonal_perc,
             range_population = range_population,
             t_tau_step = t_tau_step
         )
-        conditioning <- output$conditioning
+        condition_population <- output$condition_population
+        condition_cancer <- output$condition_cancer
+        vec_condition <- c(condition_population, condition_cancer)
     }
     simulation <- output$simulation
     #------------Simulate the sample phylogeny from the clonal evolution
@@ -267,7 +252,6 @@ simulator_one_simulation <- function(n_simulation,
     simulation <- simulation_sequening_truth(
         simulation = simulation,
         choice_theta = choice_theta,
-        truncal_mutations = truncal_mutations,
         vec_theta_parameters = vec_theta_parameters,
         n_sample = n_sample,
         n_selective_clones = n_selective_clones
@@ -332,7 +316,6 @@ simulator_one_simulation <- function(n_simulation,
         simulation <- simulation_sequencing_bulk(
             simulation = simulation,
             n_sample = n_sample,
-            ploidy = ploidy,
             bulk_coverage_model = bulk_coverage_model,
             bulk_coverage_variables = bulk_coverage_variables,
             bulk_min_alt_readcounts = bulk_min_alt_readcounts

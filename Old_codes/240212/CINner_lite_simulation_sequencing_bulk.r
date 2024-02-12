@@ -1,6 +1,5 @@
 simulation_sequencing_bulk <- function(simulation = list(),
                                        n_sample = 0,
-                                       ploidy = 1,
                                        bulk_coverage_model = "",
                                        bulk_coverage_variables = c(0, 0),
                                        bulk_min_alt_readcounts = 0) {
@@ -11,8 +10,7 @@ simulation_sequencing_bulk <- function(simulation = list(),
     #--------------------------------Find the true VAF for all mutations
     mutation_VAF <- lengths(simulation$sample_mutational_table_truth_node_tips) / n_sample
     mutation_VAF <- mutation_VAF[mutation_VAF != 0]
-    mutation_true_VAF <- rep(mutation_VAF / ploidy, mutation_count)
-    mutation_node_markers <- rep(unlist(simulation$sample_mutational_table_truth_node_markers), mutation_count)
+    mutation_true_VAF <- rep(mutation_VAF, mutation_count)
     #-------------------Simulate the total read counts for all mutations
     mutation_readcount_tot <- rand_coverage(
         bulk_coverage_model = bulk_coverage_model,
@@ -30,13 +28,12 @@ simulation_sequencing_bulk <- function(simulation = list(),
     if (length(vec_delete) > 0) {
         mutation_readcount_tot <- mutation_readcount_tot[-vec_delete]
         mutation_readcount_alt <- mutation_readcount_alt[-vec_delete]
-        mutation_node_markers <- mutation_node_markers[-vec_delete]
     }
     #-------------------Find the reference read counts for all mutations
     mutation_readcount_ref <- mutation_readcount_tot - mutation_readcount_alt
     #---------------------------Create readcount table for the mutations
-    sample_mutational_table_bulk <- data.frame(mutation_readcount_ref, mutation_readcount_alt, mutation_node_markers)
-    colnames(sample_mutational_table_bulk) <- c("Ref_count", "Alt_count", "Marker")
+    sample_mutational_table_bulk <- data.frame(mutation_readcount_ref, mutation_readcount_alt)
+    colnames(sample_mutational_table_bulk) <- c("Ref_count", "Alt_count")
     #---------------------------------------------Prepare output package
     simulation$sample_mutational_table_bulk <- sample_mutational_table_bulk
     return(simulation)

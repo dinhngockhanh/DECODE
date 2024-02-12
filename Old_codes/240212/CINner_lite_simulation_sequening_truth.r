@@ -1,7 +1,6 @@
 simulation_sequening_truth <- function(simulation = list(),
                                        choice_theta = "",
                                        vec_theta_parameters = c(0.1, 0.1),
-                                       truncal_mutations = 0,
                                        n_sample = 0,
                                        n_selective_clones = 1) {
     phylogeny_origin <- simulation$phylogeny_origin
@@ -50,16 +49,16 @@ simulation_sequening_truth <- function(simulation = list(),
             }
         }
     }
-    # #   Make background nodes exclusive for each clone
-    # for (clone_daughter in n_selective_clones:1) {
-    #     for (clone_mother in (clone_daughter - 1):0) {
-    #         clonal_background[[clone_daughter + 1]] <-
-    #             setdiff(
-    #                 clonal_background[[clone_daughter + 1]],
-    #                 clonal_background[[clone_mother + 1]]
-    #             )
-    #     }
-    # }
+    #   Make background nodes exclusive for each clone
+    for (clone_daughter in n_selective_clones:1) {
+        for (clone_mother in (clone_daughter - 1):0) {
+            clonal_background[[clone_daughter + 1]] <-
+                setdiff(
+                    clonal_background[[clone_daughter + 1]],
+                    clonal_background[[clone_mother + 1]]
+                )
+        }
+    }
     #--------------------------Find the clonal identity of sampled cells
     sample_genotype <- phylogeny_genotype[n_sample:(2 * n_sample - 1)]
     #-------------Create the true cell-mutation matrix for sampled cells
@@ -105,10 +104,6 @@ simulation_sequening_truth <- function(simulation = list(),
         n = (2 * n_sample - 1),
         lambda = (phylogeny_theta * phylogeny_lifetime)
     )
-    #   Add truncal mutations
-    phylogeny_mutation_count[1] <- phylogeny_mutation_count[1] + truncal_mutations
-
-
     n_mutations <- sum(phylogeny_mutation_count)
     #-----------------Compute the cell-mutation matrix for sampled cells
     sample_mutational_table_truth_node_tips <- vector("list", length = (2 * n_sample - 1))
@@ -128,17 +123,10 @@ simulation_sequening_truth <- function(simulation = list(),
         node_hclust_index <- hclust_nodes[node]
         #   Find node marker
         node_marker <- ""
-        if (node %in% Reduce(intersect, clonal_background)) {
-            node_marker <- "Truncal"
-        } else {
-            for (clone in 0:n_selective_clones) {
-                if (is.element(node, clonal_background[[clone + 1]])) {
-                    if (node_marker == "") {
-                        node_marker <- paste0("Background_", clone)
-                    } else {
-                        node_marker <- paste0(node_marker, "&", clone)
-                    }
-                }
+        for (clone in 0:n_selective_clones) {
+            if (is.element(node, clonal_background[[clone + 1]])) {
+                node_marker <- paste("Background_", clone, sep = "")
+                break
             }
         }
         if (node_marker == "") {

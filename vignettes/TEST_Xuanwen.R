@@ -22,17 +22,23 @@ setwd(R_workplace)
 folder_workplace <- "TEST_SFS_DECONVOLUTION/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 10
-t_end_time <- 3000
+n_simulations <- 100
+
+
+
+t_end_time <- 1000
 t_tau_step <- 1
 n_selective_clones <- 1
 vec_time_points_s_mut <- t_end_time * c(0.6)
 vec_hierarchy_s_mut <- c(0)
 expected_end_population <- 10^6
 vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
-n_sample <- 10000
+n_sample <- 100000
 range_population <- c(0.8, 1.2) * expected_end_population
-range_clonal_perc <- c(30, 70)
+range_clonal_perc <- c(20, 100)
+# mindiff_clonal_perc <- 10
+ploidy <- 2
+truncal_mutations <- 500
 choice_theta <- "constant"
 vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
 vec_theta_mean <- vec_theta_parameters
@@ -53,6 +59,9 @@ simulator_batch(
     n_sample = n_sample,
     range_population = range_population,
     range_clonal_perc = range_clonal_perc,
+    # mindiff_clonal_perc = mindiff_clonal_perc,
+    ploidy = ploidy,
+    truncal_mutations = truncal_mutations,
     choice_theta = choice_theta,
     vec_theta_parameters = vec_theta_parameters,
     vec_theta_mean = vec_theta_mean,
