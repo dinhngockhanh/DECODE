@@ -45,45 +45,53 @@ vec_theta_mean <- vec_theta_parameters
 bulk_coverage_model <- "binomial"
 bulk_coverage_variables <- c(0, 100)
 bulk_min_alt_readcounts <- 0
-#------------------------------------------------Create bulk simulations
-dir.create(folder_workplace)
-simulator_batch(
-    n_simulations = n_simulations,
-    t_end_time = t_end_time,
-    t_tau_step = t_tau_step,
-    n_selective_clones = n_selective_clones,
-    vec_time_points_s_mut = vec_time_points_s_mut,
-    vec_hierarchy_s_mut = vec_hierarchy_s_mut,
-    expected_end_population = expected_end_population,
-    vec_expected_percent_select = vec_expected_percent_select,
-    n_sample = n_sample,
-    range_population = range_population,
-    range_clonal_perc = range_clonal_perc,
-    # mindiff_clonal_perc = mindiff_clonal_perc,
-    ploidy = ploidy,
-    truncal_mutations = truncal_mutations,
-    choice_theta = choice_theta,
-    vec_theta_parameters = vec_theta_parameters,
-    vec_theta_mean = vec_theta_mean,
-    save_rda = TRUE,
-    save_true_mutation_table = FALSE,
-    output_bulk = TRUE,
-    output_sc = FALSE,
-    compute_parallel = TRUE,
-    bulk_coverage_model = bulk_coverage_model,
-    bulk_coverage_variables = bulk_coverage_variables,
-    bulk_min_alt_readcounts = bulk_min_alt_readcounts,
-    subfolder = folder_workplace
-)
-#--------------------------------------------------------Clean bulk data
+# #------------------------------------------------Create bulk simulations
+# dir.create(folder_workplace)
+# simulator_batch(
+#     n_simulations = n_simulations,
+#     t_end_time = t_end_time,
+#     t_tau_step = t_tau_step,
+#     n_selective_clones = n_selective_clones,
+#     vec_time_points_s_mut = vec_time_points_s_mut,
+#     vec_hierarchy_s_mut = vec_hierarchy_s_mut,
+#     expected_end_population = expected_end_population,
+#     vec_expected_percent_select = vec_expected_percent_select,
+#     n_sample = n_sample,
+#     range_population = range_population,
+#     range_clonal_perc = range_clonal_perc,
+#     # mindiff_clonal_perc = mindiff_clonal_perc,
+#     ploidy = ploidy,
+#     truncal_mutations = truncal_mutations,
+#     choice_theta = choice_theta,
+#     vec_theta_parameters = vec_theta_parameters,
+#     vec_theta_mean = vec_theta_mean,
+#     save_rda = TRUE,
+#     save_true_mutation_table = FALSE,
+#     output_bulk = TRUE,
+#     output_sc = FALSE,
+#     compute_parallel = TRUE,
+#     bulk_coverage_model = bulk_coverage_model,
+#     bulk_coverage_variables = bulk_coverage_variables,
+#     bulk_min_alt_readcounts = bulk_min_alt_readcounts,
+#     subfolder = folder_workplace
+# )
+# #--------------------------------------------------------Clean bulk data
+# for (n_simulation in 1:n_simulations) {
+#     filename <- paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
+#     mut_table <- read.csv(filename)
+#     vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
+#     if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
+#     filename <- paste0(folder_workplace, "SFS_", n_simulation, ".txt")
+#     write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
+# }
+# ========================================GROUND TRUTH FOR SFS VARIABLES
 for (n_simulation in 1:n_simulations) {
-    filename <- paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
-    mut_table <- read.csv(filename)
-    vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
-    if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
-    filename <- paste0(folder_workplace, "SFS_", n_simulation, ".txt")
-    write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
+    simulation_variables <- read.csv(paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_simulation_variables.csv"))
+    print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(simulation_variables)
 }
+
+
 # ===============================================================MOBSTER
 library(mobster) # Load the mobster package
 df <- data.frame() # Create an empty data frame
