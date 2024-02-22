@@ -21,9 +21,9 @@ files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 
-folder_workplace <- "04_TEST_SFS_DECONVOLUTION/"
+folder_workplace <- "05_TEST_SFS_DECONVOLUTION/"
 #---------------------------------------------------Set model parameters
-n_simulations <- 8
+n_simulations <- 20
 
 
 
@@ -120,6 +120,8 @@ write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE
 
 # ===============================================================MOBSTER
 mob_df <- data.frame()
+model_list <- list()
+
 for (i in 1:n_simulations) {
     #   Import mutational data
     filename <- paste0(folder_workplace, "SFS_", i, ".txt")
@@ -137,6 +139,7 @@ for (i in 1:n_simulations) {
     )
     #   Find best MOBSTER model
     mob_model <- fit$best
+    model_list[[i]] <- mob_model # save model_list
     # png(paste0(folder_workplace, "MOBSTER_", i, ".png"))
     # plot(fit$best)
     # dev.off()
@@ -156,11 +159,11 @@ for (i in 1:n_simulations) {
 }
 write.csv(mob_df, paste0(folder_workplace, "Parameters_mobster.csv"), row.names = FALSE)
 # # ===============================================================COMPARISON
-filename_1 <- paste0(folder_workplace, "Parameters_true.csv")
-df <- read.csv(filename_1)
-filename_2 <- paste0(folder_workplace, "Parameters_mobster.csv")
-data_2 <- read.csv(filename_2)
-mob_df <- data_2
+## << load data directly from device >>
+# filename_1 <- paste0(folder_workplace, "Parameters_true.csv")
+# df <- read.csv(filename_1)
+# filename_2 <- paste0(folder_workplace, "Parameters_mobster.csv")
+# mob_df <- read.csv(filename_2)
 
 com_df <- mob_df # initialize com_df with mob_df
 
@@ -172,7 +175,7 @@ for (k in 1:(((dim(com_df)[2])-7)/3)){
 
 # rerange cl_num, (a, b) based on p
 p_cols <- grep("^p_", names(com_df), value = TRUE) # get columns represent p
-com_df[p_cols][is.na(com_df[p_cols])] <- -1 # replace NA with -1 for p
+com_df[p_cols][is.na(com_df[p_cols])] <- 0 # replace NA with 0 for p
 for (i in 1:(dim(com_df)[1])){
     p_row <- com_df[i, p_cols]
     p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE) # order
@@ -191,36 +194,40 @@ com_df <- com_df[, !(names(com_df) %in% cols_to_drop)]
 #== Compare Part ==
 ## Number of clusters
 freq_kbeta <- table(com_df$Kbeta_cluster)
+png(paste0(folder_workplace, "Kbeta_cluster.png"))
 barplot(freq_kbeta, main = "The Number of Clusters from MOBSTER", xlab = "Values", ylab = "Number of Clusters",  border = "black")
+dev.off()
 
-# compre p1
-plot(com_df$p_1, df$p_1, xlab = "p_1 from MOBSTER", ylab = "p_1 from Ground Truth", main = "Comparison of p_1", pch = 16, col = "blue")
-abline(a = 0, b = 1, lty = 2, main = "y = x")
+## p1,k1, p2,k2, ...
+k_cols <- grep("^K_", names(com_df), value = TRUE) # get columns represent K
+k_all_min <- min(com_df[k_cols], na.rm = TRUE)
+com_df[k_cols][is.na(com_df[k_cols])] <- k_all_min # replace NA with the min for K
 
-# compare p_2 还要改
-plot(com_df$p_2, df$p_2, xlab = "p_2 from MOBSTER", ylab = "p_2 from Ground Truth", main = "Comparison of p_2", pch = 16, col = "blue")
-abline(a = 0, b = 1, lty = 2, main = "y = x")
+for (pp in 1:length(p_cols)){
+    p_index <- paste0("p_", pp)
+    k_index <- paste0("K_", pp)
 
-# compare K_1
-plot(com_df$K_1, df$K_1, xlab = "K_1 from MOBSTER", ylab = "K_1 from Ground Truth", main = "Comparison of K_1", pch = 16, col = "blue")
-abline(a = 0, b = 1, lty = 2, main = "y = x")
+    point_type <- ifelse(com_df[p_index] == 0, 1, 16)
+    
+    p_min <- min(com_df[p_index], df[p_index], na.rm = TRUE)
+    p_max <- max(com_df[p_index], df[p_index], na.rm = TRUE) # make sure y=x is in the plot
+    png(paste0(folder_workplace, "p", pp, ".png"))
+    plot(unlist(com_df[p_index]), unlist(df[p_index]), xlab = "MOBSTER", ylab = "Ground Truth", main = paste0("Comparison of p_", pp), pch = point_type, col = "blue", xlim = c(p_min*0.9, p_max*1.1), , ylim = c(p_min*0.9, p_max*1.1))
+    abline(a = 0, b = 1, lty = 2)
+    dev.off()
+    
+    k_min <- min(com_df[k_index], df[k_index], na.rm = TRUE)
+    k_max <- max(com_df[k_index], df[k_index], na.rm = TRUE) # make sure y=x is in the plot
+    png(paste0(folder_workplace, "k", pp, ".png"))
+    plot(unlist(com_df[k_index]), unlist(df[k_index]), xlab = "MOBSTER", ylab = "Ground Truth", main = paste0("Comparison of K_", pp), pch = point_type, col = "blue", xlim = c(k_min*0.8, k_max*1.2), , ylim = c(k_min*0.8, k_max*1.2))
+    abline(a = 0, b = 1, lty = 2)
+    dev.off()
+}
 
-# compare K_2 还要改
-plot(com_df$K_2, df$K_2, xlab = "K_2 from MOBSTER", ylab = "K_2 from Ground Truth", main = "Comparison of K_2", pch = 16, col = "blue")
-abline(a = 0, b = 1, lty = 1, main = "y = x")
-
-#== Calculate Tail Part ==
-
-(2.41*(0.007246^2.41))/((0.125/3)^3.41)
-x <- seq(0.001, 10, by = 0.001)
-plot(x, (1.41 * (0.007246^1.41)) / (x^2.41), type = "l", xlab = "x", ylab = "y")
-y <- (2.41 * (0.007246^2.41)) / (x^3.41)
-plot(x, y, type = "l", xlab = "x", ylab = "y")
-
-x <- seq(0, 0.25, by = 0.001)
-y1 <- (1.41 * (0.007246^1.41)) / (x^2.41)
-y2 <- (2.41 * (0.007246^2.41)) / (x^3.41)
-plot(x, y1, type = "l", ylim = c(-1, 1), xlim = c(0, 0.25), xlab = "x", ylab = "y")
-lines(x, y2, col = "red")
-
-1.41*0.007246/0.41
+## Power of tail
+#### histogram
+png(paste0(folder_workplace, "alpha_hist.png"))
+hist(unlist(com_df$Tail_shape), xlab = "MOBSTER", main = "Comparison of alpha", breaks=30)
+dev.off()
+#### alternative choice: scatter plot
+plot(unlist(com_df$Tail_shape), unlist(df$alpha), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of alpha", pch = 16, col = "blue")
