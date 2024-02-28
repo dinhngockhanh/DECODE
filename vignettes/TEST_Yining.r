@@ -167,50 +167,48 @@ write.csv(mob_df, paste0(folder_workplace, "Parameters_mobster.csv"), row.names 
 
 com_df <- mob_df # initialize com_df with mob_df
 
-#== Rearrange Clusters Part ==
+# == Rearrange Clusters Part ==
 ## calculate p_i: can be inserted in Mobster part
-for (k in 1:(((dim(com_df)[2])-7)/3)){
-    com_df[paste0("p_", k)] <-com_df[paste0("a_", k)]/(com_df[paste0("a_", k)]+com_df[paste0("b_", k)])
+for (k in 1:(((dim(com_df)[2]) - 7) / 3)) {
+    com_df[paste0("p_", k)] <- com_df[paste0("a_", k)] / (com_df[paste0("a_", k)] + com_df[paste0("b_", k)])
 }
 
 # rerange cl_num, (a, b) based on p
 p_cols <- grep("^p_", names(com_df), value = TRUE) # get columns represent p
 com_df[p_cols][is.na(com_df[p_cols])] <- 0 # replace NA with 0 for p
-for (i in 1:(dim(com_df)[1])){
+for (i in 1:(dim(com_df)[1])) {
     p_row <- com_df[i, p_cols]
     p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE) # order
     cn <- 1
-    for (id in p_rowsorted_indices){
+    for (id in p_rowsorted_indices) {
         com_df[i, paste0("K_", id)] <- com_df[i, paste0("cl_num_", cn)]
         # com_df[i, paste0("re_a_", id)] <- com_df[i, paste0("a_", cn)]
         # com_df[i, paste0("re_b_", id)] <- com_df[i, paste0("b_", cn)]
         cn <- cn + 1
-  }
+    }
 }
 
-cols_to_drop <- grep("^(a_|b_|cl_num_)", names(com_df), value = TRUE)  # drop old columns
+cols_to_drop <- grep("^(a_|b_|cl_num_)", names(com_df), value = TRUE) # drop old columns
 com_df <- com_df[, !(names(com_df) %in% cols_to_drop)]
 
-#== Compare Part ==
+# == Compare Part ==
 ## Number of clusters
 freq_kbeta <- table(com_df$Kbeta_cluster)
 png(paste0(folder_workplace, "Kbeta_cluster.png"))
-barplot(freq_kbeta, main = "The Number of Clusters from MOBSTER", xlab = "Values", ylab = "Number of Clusters",  border = "black")
+barplot(freq_kbeta, main = "The Number of Clusters from MOBSTER", xlab = "Values", ylab = "Number of Clusters", border = "black")
 dev.off()
 
-## p
-p_min <- min(com_df[p_cols], df[p_cols], na.rm = TRUE)
-p_max <- max(com_df[p_cols], df[p_cols], na.rm = TRUE) # make sure y=x is in the plot
-com_df <- replace(com_df, com_df == 0, NA) # replace 0 with NA
-png(paste0(folder_workplace, "p.png"))
-plot(unlist(com_df["p_1"]), unlist(df["p_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of p", pch = 16, col = rainbow(1), xlim = c(p_min*0.9, p_max*1.1), ylim = c(p_min*0.9, p_max*1.1))
-for (pp in 2:length(p_cols)){
-    color_pp <- rainbow(pp)
+## p1,k1, p2,k2, ...
+k_cols <- grep("^K_", names(com_df), value = TRUE) # get columns represent K
+k_all_min <- min(com_df[k_cols], na.rm = TRUE)
+com_df[k_cols][is.na(com_df[k_cols])] <- k_all_min # replace NA with the min for K
+
+for (pp in 1:length(p_cols)) {
     p_index <- paste0("p_", pp)
     points(unlist(com_df[p_index]), unlist(df[p_index]), pch = 16, col = rainbow(pp))
 }
 abline(a = 0, b = 1, lty = 2)
-legend("topright", legend=c(p_cols), col=rainbow(length(p_cols)), pch=16)
+legend("topright", legend = c(p_cols), col = rainbow(length(p_cols)), pch = 16)
 dev.off()
 
 ## K
@@ -218,21 +216,21 @@ k_cols <- grep("^K_", names(com_df), value = TRUE)
 k_min <- min(com_df[k_cols], df[k_cols], na.rm = TRUE)
 k_max <- max(com_df[k_cols], df[k_cols], na.rm = TRUE) # make sure y=x is in the plot
 png(paste0(folder_workplace, "K.png"))
-plot(unlist(com_df["K_1"]), unlist(df["K_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of K", pch = 16, col = rainbow(1), xlim = c(k_min*0.9, k_max*1.1), ylim = c(k_min*0.9, k_max*1.1))
-for (kk in 2:length(k_cols)){
+plot(unlist(com_df["K_1"]), unlist(df["K_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of K", pch = 16, col = rainbow(1), xlim = c(k_min * 0.9, k_max * 1.1), ylim = c(k_min * 0.9, k_max * 1.1))
+for (kk in 2:length(k_cols)) {
     color_kk <- rainbow(kk)
     k_index <- paste0("K_", kk)
     points(unlist(com_df[k_index]), unlist(df[k_index]), pch = 16, col = color_kk)
     abline(a = 0, b = 1, lty = 2)
 }
-legend("topright", legend=c(k_cols), col=rainbow(length(k_cols)), pch=16)
+legend("topright", legend = c(k_cols), col = rainbow(length(k_cols)), pch = 16)
 dev.off()
 
 
 ## Power of tail
 #### histogram
 png(paste0(folder_workplace, "alpha_hist.png"))
-hist(unlist(com_df$Tail_shape), xlab = "MOBSTER", main = "Comparison of alpha", breaks=30)
+hist(unlist(com_df$Tail_shape), xlab = "MOBSTER", main = "Comparison of alpha", breaks = 30)
 dev.off()
 #### alternative choice: scatter plot
 plot(unlist(com_df$Tail_shape), unlist(df$alpha), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of alpha", pch = 16, col = "blue")
