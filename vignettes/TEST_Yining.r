@@ -22,6 +22,7 @@ sapply(files_sources, source)
 setwd(R_workplace)
 
 folder_workplace <- "05_TEST_SFS_DECONVOLUTION/"
+# ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
 n_simulations <- 20
 
@@ -117,7 +118,6 @@ for (n_simulation in 1:n_simulations) {
 }
 names(df) <- c("Simulation", "A", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_", 1:(n_selective_clones + 1)))
 write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE)
-
 # ===============================================================MOBSTER
 mob_df <- data.frame()
 model_list <- list()

@@ -86,22 +86,23 @@ for (n_simulation in 1:n_simulations) {
 }
 # =====================================================SFS DECONVOLUTION
 #---------------------------------------------------Set model parameters
-# Number of cells at T_N
+#   Number of cells at T_N
 N_end <- 1000
-# Minimum and maximum number of reads
+#   Minimum and maximum number of reads
 r_min <- 0
 r_max <- 500
-# Minimum variant read count to be accepted
+#   Minimum variant read count to be accepted
 min_variant_read <- 5
-# Minimum total read count to be accepted
+#   Minimum total read count to be accepted
 min_total_read <- 0
-# Number of steps to divide SFS frequencies in [0,1]
+#   Number of steps to divide SFS frequencies in [0,1]
 SFS_totalsteps <- 25
 SFS_totalsteps_base <- 100
-# Choice of ploidy, which changes the binomial rate
+#   Choice of ploidy, which changes the binomial rate
 option_ploidy <- 1
-# Maximum number of humps
+#   Maximum number of humps
 max_hump_count <- 1
+#   Assumption of coverage distribution
 option_dist_coverage <- "binomial"
 dist_coverage_var_1 <- 100
 #----------------------------------------------------Options for fitting
@@ -124,18 +125,18 @@ matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---------------------------------------------Deconvolution for each SFS
 table_parameters <- matrix(0, nrow = n_simulations, ncol = 2 * max_hump_count + 1)
 for (n_simulation in 1:n_simulations) {
-    #   Input the SFS data
+    #---Input the SFS data
     filename_2 <- paste0(R_workplace, "/", folder_workplace, "SFS_", n_simulation, ".txt")
     data <- read.table(filename_2, sep = " ", header = FALSE)
     vec_refcount <- as.numeric(data[, 1])
     vec_altcount <- as.numeric(data[, 2])
     vec_totcount <- vec_refcount + vec_altcount
-    # 	Prepare the total readcount distribution
+    #---Prepare the total readcount distribution
     L <- max(vec_totcount)
     TCGA_coverage_values <- 1:L
     TCGA_coverage_PDF <- rep(0, L)
     TCGA_coverage_PDF <- prep_distribution_patient(vec_totcount)
-    # 	Prepare the SFS library
+    #---Prepare the SFS library
     vec_SFS_positions <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
     library_SFS_component <- vector("list", 2 * N_SFS_positions)
     dim(library_SFS_component) <- c(2, N_SFS_positions)
@@ -148,7 +149,7 @@ for (n_simulation in 1:n_simulations) {
         vec_SFS <- SFS_expected(vec_para)
         library_SFS_component[[2, i]] <- vec_SFS
     }
-    # 	Prepare the real SFS
+    #---Prepare the real SFS
     no_mutations_total <- length(vec_refcount)
     vec_freq <- seq(1, SFS_totalsteps) / SFS_totalsteps
     vec_SFS_real <- rep(0, SFS_totalsteps)
@@ -163,14 +164,14 @@ for (n_simulation in 1:n_simulations) {
             vec_SFS_real[pos] <- vec_SFS_real[pos] + 1
         }
     }
-    #   SFS deconvolution
+    #---SFS deconvolution
     N_humps <- -1
     ratio_error <- 0
     err_best_final <- Inf
     while (ratio_error < threshold_stop && err_best_final > threshold_error && N_humps < max_hump_count) {
         N_humps <- N_humps + 1
         err_best_current <- Inf
-        vec_para_best_current <- c() # An empty numeric vector in R
+        vec_para_best_current <- c()
         N_fitting_rounds_current <- factorial(N_humps + 1) * N_fitting_rounds
         for (i in 1:N_fitting_rounds_current) {
             results <- fit_SFS_one_iteration(vec_SFS_real, N_humps, vec_SFS_positions, library_SFS_component)
