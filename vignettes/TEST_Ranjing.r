@@ -1,10 +1,10 @@
 # devtools::install_github("mg14/mg14")
 # devtools::install_github("gerstung-lab/MutationTimeR")
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
+R_workplace <- "/Users/apple/Desktop/MutationTimeR/SFS_CNA_deconvolution/vignettes"
 R_libPaths <- ""
-R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
-R_libPaths_CINner <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R_CINner"
+R_libPaths_extra <- "/Users/apple/Desktop/MutationTimeR/SFS_CNA_deconvolution/R"
+R_libPaths_CINner <- "/Users/apple/Desktop/MutationTimeR/SFS_CNA_deconvolution/R_CINner"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 
@@ -25,10 +25,10 @@ folder_workplace <- "MUTATIONTIMER"
 # ==================================================SET MODEL PARAMETERS
 n_simulations <- 8
 #---Passenger mutation rate (per nucleotide per cell division)
-passenger_mutation_rate <- 1e-9
+passenger_mutation_rate <- 1e-9 #1e-9 # try increase this
 #---Probabilities of CNA
-prob_CN_missegregation <- 3e-4
-prob_CN_chrom_arm_missegregation <- 3e-4
+prob_CN_missegregation <- 3e-4 # try to increase this 
+prob_CN_chrom_arm_missegregation <- 0 # 3e-4 # set this to 0 for now
 #---Parameters for chromosome arm selection rates
 s_rate_max <- 1.2
 s_rate_prob_loss <- 0.2
@@ -110,7 +110,7 @@ simulator_full_program(
     model = model_variables, model_prefix = model_name,
     n_simulations = n_simulations,
     stage_final = 3,
-    compute_parallel = TRUE,
+    compute_parallel = FALSE,
     folder_workplace = folder_workplace,
     R_libPaths = R_libPaths
 )
@@ -125,7 +125,7 @@ CINner_postprocessing(
     bulk_coverage_model = bulk_coverage_model,
     bulk_coverage_variables = bulk_coverage_variables,
     bulk_min_alt_readcounts = bulk_min_alt_readcounts,
-    compute_parallel = TRUE
+    compute_parallel = FALSE
 )
 # =========================================================MUTATIONTIMER
 for (i_simulation in 1:n_simulations) {

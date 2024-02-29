@@ -1,0 +1,16 @@
+"Time","Clonality","Clonal_fraction","Event","Chromosome","Start","End","Type","CN_parent","CN_child"
+0.0688356164383562,"clonal",1,"missegregation:+1","1",1,249000000,"+",2,3
+0.18236301369863,"clonal",1,"missegregation:+8","8",1,145500000,"+",2,3
+0.254280821917808,"clonal",1,"missegregation:+15","15",1,102000000,"+",2,3
+0.303595890410959,"clonal",1,"missegregation:+15","15",1,102000000,"+",3,4
+0.369349315068493,"clonal",1,"missegregation:+7","7",1,159500000,"+",2,3
+0.420719178082192,"clonal",1,"missegregation:+7","7",1,159500000,"+",3,4
+0.455650684931507,"clonal",1,"missegregation:+18","18",1,80500000,"+",2,3
+0.547602739726027,"clonal",1,"missegregation:+2","2",1,242500000,"+",2,3
+0.551198630136986,"clonal",1,"missegregation:+18","18",1,80500000,"+",3,4
+0.653424657534247,"subclonal",0.338,"missegregation:+16","16",1,90500000,"+",2,3
+0.622602739726027,"subclonal",0.285,"missegregation:+16","16",1,90500000,"+",2,3
+0.650342465753425,"subclonal",0.325,"missegregation:+16","16",1,90500000,"+",2,3
+0.675,"subclonal",0.052,"missegregation:+16","16",1,90500000,"+",2,3
+0.959075342465753,"subclonal",0.009,"missegregation:-12","12",1,133500000,"-",2,1
+0.986815068493151,"subclonal",0.001,"missegregation:-6","6",1,171000000,"-",2,1
