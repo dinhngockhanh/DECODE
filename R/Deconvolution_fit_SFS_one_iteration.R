@@ -1,31 +1,43 @@
 fit_SFS_one_iteration <- function(vec_SFS_real, N_humps, vec_SFS_positions, library_SFS_component) {
-  # Choose the hump locations at random
-  vec_p <- sort(sample(vec_SFS_positions, N_humps))
-  
-  # Define the fit function
-  func_fit <- function(vec_A_and_K) {
-    error_SFS_one_iteration(vec_A_and_K, vec_p, vec_SFS_positions, library_SFS_component, vec_SFS_real)
-  }
-  
-  # Initial values for A and K's
-  vec_A_and_K_initial <- c(1, rep(100, N_humps))
-  # Optimization using optim function
-  optim_results <- optim(par = vec_A_and_K_initial, fn = func_fit, 
-                         method = "Nelder-Mead",
-                         control = list(maxit = 100000,maxfun=100000),
-                         )
-  
-  # Extract the results
-  vec_A_and_K <- optim_results$par
-  err <- optim_results$value
-  
-  # Prepare the parameters to be returned
-  vec_para <- numeric(2 * N_humps + 1)
-  vec_para[1] <- vec_A_and_K[1]
-  for (i in 1:N_humps) {
-    vec_para[2 * i] <- vec_p[i]
-    vec_para[2 * i + 1] <- vec_A_and_K[i + 1]
-  }
-  
-  list(err = err, vec_para = vec_para)
+    #   Choose the hump locations at random
+    vec_p <- sort(sample(vec_SFS_positions, N_humps))
+    # 	Function for optimization
+    func_fit <- function(vec_A_and_K) {
+        error_SFS_one_iteration(vec_A_and_K, vec_p, vec_SFS_positions, library_SFS_component, vec_SFS_real)
+    }
+    #   Initial values for A and K's
+    vec_A_and_K_initial <- c(1, rep(100, N_humps))
+    #   Optimization using optim function
+    optim_results <- optim(
+        par = vec_A_and_K_initial,
+        fn = func_fit,
+        method = "Nelder-Mead",
+        control = list(maxit = 100000, maxfun = 100000)
+    )
+    # 	Extract the results
+    vec_A_and_K <- optim_results$par
+    err <- optim_results$value
+    # 	Prepare the parameters to be returned
+    vec_para <- numeric(2 * N_humps + 1)
+    vec_para[1] <- vec_A_and_K[1]
+    for (i in 1:N_humps) {
+        vec_para[2 * i] <- vec_p[i]
+        vec_para[2 * i + 1] <- vec_A_and_K[i + 1]
+    }
+    output <- list()
+    output$err <- err
+    output$vec_para <- vec_para
+    return(output)
+}
+
+error_SFS_one_iteration <- function(vec_A_and_K, vec_p, vec_SFS_positions, library_SFS_component, vec_SFS_real) {
+    #--------------------------------------Check point to make sure A, K > 0
+    if (min(vec_A_and_K) < 0) {
+        return(Inf)
+    }
+    #-------------------------Compute the expected SFS with input parameters
+    vec_SFS_model <- compute_SFS_one_iteration(vec_A_and_K, vec_p, vec_SFS_positions, library_SFS_component)
+    #-----------------Compute the 1-norm error between expected and real SFS
+    output <- sum(abs(vec_SFS_model - vec_SFS_real)) / sum(abs(vec_SFS_model))
+    return(output)
 }
