@@ -1,10 +1,13 @@
 fit_SFS_likelihood <- function(mutation_altcounts,
                                mutation_refcounts,
-                               hump_freq_candidates,
+                               mutation_identity = NULL,
+                               list_frequencies,
                                matrix_binomial_PDF,
-                               Binomial_table_n_sample,
+                               matrix_binomial_sample_size,
+                               matrix_binomial_sfs_stepcount,
+                               matrix_binomial_ploidy,
+                               sample_size,
                                SFS_totalsteps,
-                               Binomial_table_SFS_totalsteps,
                                r_min,
                                r_max,
                                option_dist_coverage,
@@ -34,28 +37,32 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     }
     #---Prepare the SFS library
     cat("Prepare the SFS library...\n")
-    library_SFS_component <- vector("list", 2 * length(hump_freq_candidates))
-    dim(library_SFS_component) <- c(2, length(hump_freq_candidates))
+    library_SFS_component <- list()
+    library_SFS_component$SFS_exact <- list()
+    library_SFS_component$SFS_expected <- list()
+    library_SFS_component$SFS_expected_normalized <- list()
     vec_para <- c(1)
-    vec_SFS <- SFS_expected(vec_para)
-    vec_SFS <- vec_SFS / sum(vec_SFS) ##################################
-    library_SFS_component[[1, 1]] <- vec_SFS
+    output <- compute_SFS(vec_para)
+    library_SFS_component$SFS_exact[[1]] <- output$SFS_exact
+    library_SFS_component$SFS_expected[[1]] <- output$SFS_expected
+    library_SFS_component$SFS_expected_normalized[[1]] <- output$SFS_expected / sum(output$SFS_expected)
     if (compute_parallel == FALSE) {
         #---------------------------Build SFS library in sequential mode
         pb <- txtProgressBar(
             min = 0,
-            max = length(hump_freq_candidates),
+            max = length(list_frequencies),
             style = 3,
             width = 50,
             char = "="
         )
-        for (i in seq_along(hump_freq_candidates)) {
+        for (i in seq_along(list_frequencies)) {
             setTxtProgressBar(pb, i)
-            p <- hump_freq_candidates[i]
+            p <- list_frequencies[i]
             vec_para <- c(0, p, 1)
-            vec_SFS <- SFS_expected(vec_para)
-            vec_SFS <- vec_SFS / sum(vec_SFS) ##########################
-            library_SFS_component[[2, i]] <- vec_SFS
+            output <- compute_SFS(vec_para)
+            library_SFS_component$SFS_exact[[i + 1]] <- output$SFS_exact
+            library_SFS_component$SFS_expected[[i + 1]] <- output$SFS_expected
+            library_SFS_component$SFS_expected_normalized[[i + 1]] <- output$SFS_expected / sum(output$SFS_expected)
         }
     } else {
         #-----------------------------Build SFS library in parallel mode
@@ -69,19 +76,19 @@ fit_SFS_likelihood <- function(mutation_altcounts,
         }
         cl <- makePSOCKcluster(numCores - 1)
         #   Prepare input parameters
-        SFS_expected <<- SFS_expected
+        compute_SFS <<- compute_SFS
         SFS_Griffiths_Tavare <<- SFS_Griffiths_Tavare
         pdf_coverage <<- pdf_coverage
-        N_end <<- Binomial_table_n_sample
+        N_end <<- matrix_binomial_sample_size
         SFS_totalsteps <<- SFS_totalsteps
-        SFS_totalsteps_base <<- Binomial_table_SFS_totalsteps
+        SFS_totalsteps_base <<- matrix_binomial_sfs_stepcount
         r_min <<- r_min
         r_max <<- r_max
         option_dist_coverage <<- option_dist_coverage
         dist_coverage_var_1 <<- dist_coverage_var_1
         matrix_binomial_PDF <<- matrix_binomial_PDF
         clusterExport(cl, varlist = c(
-            "SFS_expected",
+            "compute_SFS",
             "SFS_Griffiths_Tavare",
             "pdf_coverage",
             "N_end",
@@ -94,14 +101,15 @@ fit_SFS_likelihood <- function(mutation_altcounts,
             "matrix_binomial_PDF"
         ))
         #   Build SFS library in parallel mode
-        output <- pblapply(cl = cl, X = 1:length(hump_freq_candidates), FUN = function(i) {
-            p <- hump_freq_candidates[i]
+        output <- pblapply(cl = cl, X = 1:length(list_frequencies), FUN = function(i) {
+            p <- list_frequencies[i]
             vec_para <- c(0, p, 1)
-            vec_SFS <- SFS_expected(vec_para)
-            vec_SFS <- vec_SFS / sum(vec_SFS) ##########################
+            return(compute_SFS(vec_para))
         })
-        for (i in seq_along(hump_freq_candidates)) {
-            library_SFS_component[[2, i]] <- output[[i]]
+        for (i in seq_along(list_frequencies)) {
+            library_SFS_component$SFS_exact[[i + 1]] <- output[[i]]$SFS_exact
+            library_SFS_component$SFS_expected[[i + 1]] <- output[[i]]$SFS_expected
+            library_SFS_component$SFS_expected_normalized[[i + 1]] <- output[[i]]$SFS_expected / sum(output[[i]]$SFS_expected)
         }
     }
     #---SFS deconvolution
@@ -119,24 +127,24 @@ fit_SFS_likelihood <- function(mutation_altcounts,
         if (N_humps == 0) {
             #   If 0 humps: the SFS consists of only neutral component
             vec_para_best_current <- 1
-            log_L <- error_SFS_one_iteration_likelihood(vec_para_best_current, c(), hump_freq_candidates, library_SFS_component, vec_SFS_real)
+            log_L <- error_SFS_one_iteration_likelihood(vec_para_best_current, c(), list_frequencies, library_SFS_component, vec_SFS_real)
             AIC_current <- compute_AIC(log_L, num_parameters)
             AIC_best_current <- AIC_current
         } else {
             #   Find number of hump frequency combinations there are
-            N_trials_true <- choose(length(hump_freq_candidates), N_humps)
+            N_trials_true <- choose(length(list_frequencies), N_humps)
             N_trials <- min(N_trials_true, max_trials)
             #   Find best parameter set
             if (N_trials_true <= N_trials) {
                 #   If there are not too many choices: find the best fit among all combinations
-                tmp <- combn(hump_freq_candidates, N_humps)
+                tmp <- combn(list_frequencies, N_humps)
                 for (i in 1:ncol(tmp)) {
                     vec_p <- tmp[, i]
                     results <- fit_SFS_given_humpcount_likelihood(
                         vec_SFS_real = vec_SFS_real,
                         vec_p = vec_p,
                         N_humps = N_humps,
-                        hump_freq_candidates = hump_freq_candidates,
+                        list_frequencies = list_frequencies,
                         library_SFS_component = library_SFS_component
                     )
                     log_L <- results$log_L
@@ -153,7 +161,7 @@ fit_SFS_likelihood <- function(mutation_altcounts,
                     results <- fit_SFS_given_humpcount_likelihood(
                         vec_SFS_real = vec_SFS_real,
                         N_humps = N_humps,
-                        hump_freq_candidates = hump_freq_candidates,
+                        list_frequencies = list_frequencies,
                         library_SFS_component = library_SFS_component
                     )
                     log_L <- results$log_L
@@ -187,10 +195,10 @@ fit_SFS_likelihood <- function(mutation_altcounts,
         }
     }
     #---Report the best fit
-    N_humps <- (length(vec_para_best_final) - 1) / 2
-    report <- paste0("\n\n\nBEST FIT:\n", N_humps, " humps: AIC = ", round(AIC_best_final, 3), "; neutral: pi = ", round(vec_para_best_final[1], 3))
+    N_humps_best_final <- (length(vec_para_best_final) - 1) / 2
+    report <- paste0("\n\n\nBEST FIT:\n", N_humps_best_final, " humps: AIC = ", round(AIC_best_final, 3), "; neutral: pi = ", round(vec_para_best_final[1], 3))
     if (length(vec_para_best_final) > 1) {
-        for (i in 1:N_humps) {
+        for (i in 1:N_humps_best_final) {
             report <- paste0(report, "; pi = ", round(vec_para_best_final[2 * i + 1], 3), " at freq = ", round(vec_para_best_final[2 * i], 3))
         }
     }
@@ -206,35 +214,45 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     } else {
         vec_p <- vec_para_best_final[seq(2, length(vec_para_best_final) - 1, by = 2)]
     }
-    vec_SFS_model <- compute_SFS_one_iteration(vec_A_and_K, vec_p, hump_freq_candidates, library_SFS_component)
+    vec_SFS_model <- compute_SFS_one_iteration(vec_A_and_K, vec_p, list_frequencies, library_SFS_component)
     vec_SFS_model <- vec_SFS_model / sum(vec_SFS_model) * sum(vec_SFS_real)
     lines(bar_centers, vec_SFS_model, col = "red", lwd = 2)
     dev.off()
-
-
-
-    #---Translation to parameters of cancer evolution
-    print("***********************************************************")
-    Ks_data <- vec_A_and_K[2:length(vec_A_and_K)] * sum(vec_SFS_real)
-    print(Ks_data)
-    print("***********************************************************")
-
-
-
-    #---Return the best fit
+    #---Translation to parameters of cancer evolution in the sample
+    deconvolution <- data.frame()
+    deconvolution[1, "Total_N"] <- sum(vec_SFS_real)
+    deconvolution[1, "Tail"] <- TRUE
+    deconvolution[1, "Tail_power"] <- 2
+    deconvolution[1, "Tail_mutcount_observed"] <-
+        vec_A_and_K[1] * sum(vec_SFS_real)
+    deconvolution[1, "Tail_mutcount_predicted"] <-
+        vec_A_and_K[1] * sum(vec_SFS_real) *
+            sum(library_SFS_component$SFS_exact[[1]]) / sum(library_SFS_component$SFS_expected[[1]]) *
+            sample_size / matrix_binomial_sample_size
+    deconvolution[1, "Cluster_count"] <- N_humps_best_final
+    for (k in 1:N_humps_best_final) {
+        deconvolution[1, paste0("Cluster_frequency_", k)] <- vec_p[k] / matrix_binomial_ploidy
+        deconvolution[1, paste0("Cluster_mutcount_observed_", k)] <-
+            vec_A_and_K[k + 1] * sum(vec_SFS_real)
+        deconvolution[1, paste0("Cluster_mutcount_predicted_", k)] <-
+            vec_A_and_K[k + 1] * sum(vec_SFS_real) *
+                sum(library_SFS_component$SFS_exact[[which(list_frequencies == vec_p[k]) + 1]]) /
+                sum(library_SFS_component$SFS_expected[[which(list_frequencies == vec_p[k]) + 1]])
+    }
+    #---Return the SFS deconvolution results
     output <- list()
     output$vec_para_best_final <- vec_para_best_final
     output$AIC_best_final <- AIC_best_final
     output$vec_SFS_real <- vec_SFS_real
     output$vec_SFS_model <- vec_SFS_model
+    output$deconvolution <- deconvolution
     return(output)
 }
 
-
-fit_SFS_given_humpcount_likelihood <- function(vec_SFS_real, vec_p = NULL, N_humps, hump_freq_candidates, library_SFS_component) {
+fit_SFS_given_humpcount_likelihood <- function(vec_SFS_real, vec_p = NULL, N_humps, list_frequencies, library_SFS_component) {
     if (is.null(vec_p)) {
         # 	Choose the hump locations at random
-        vec_p <- sort(sample(hump_freq_candidates, N_humps, replace = FALSE), decreasing = TRUE)
+        vec_p <- sort(sample(list_frequencies, N_humps, replace = FALSE), decreasing = TRUE)
     } else {
         vec_p <- sort(vec_p, decreasing = TRUE)
     }
@@ -247,7 +265,7 @@ fit_SFS_given_humpcount_likelihood <- function(vec_SFS_real, vec_p = NULL, N_hum
     # 	Function for optimization
     func_fit <- function(parameters) {
         vec_A_and_K <- parameter_transform(parameters)
-        loglikelihood <- error_SFS_one_iteration_likelihood(vec_A_and_K, vec_p, hump_freq_candidates, library_SFS_component, vec_SFS_real)
+        loglikelihood <- error_SFS_one_iteration_likelihood(vec_A_and_K, vec_p, list_frequencies, library_SFS_component, vec_SFS_real)
         return(loglikelihood)
     }
     # 	Initial values for parameters
@@ -276,9 +294,9 @@ fit_SFS_given_humpcount_likelihood <- function(vec_SFS_real, vec_p = NULL, N_hum
     return(output)
 }
 
-error_SFS_one_iteration_likelihood <- function(vec_A_and_K, vec_p, hump_freq_candidates, library_SFS_component, vec_SFS_real) {
+error_SFS_one_iteration_likelihood <- function(vec_A_and_K, vec_p, list_frequencies, library_SFS_component, vec_SFS_real) {
     #----------------Compute the SFS probability distribution from model
-    vec_SFS_model <- compute_SFS_one_iteration(vec_A_and_K, vec_p, hump_freq_candidates, library_SFS_component)
+    vec_SFS_model <- compute_SFS_one_iteration(vec_A_and_K, vec_p, list_frequencies, library_SFS_component)
     # print(sum(vec_SFS_model))
     vec_SFS_model_normalized <- vec_SFS_model / sum(vec_SFS_model)
     # vec_SFS_model_normalized <- pmax(vec_SFS_model_normalized, 10^-10)
