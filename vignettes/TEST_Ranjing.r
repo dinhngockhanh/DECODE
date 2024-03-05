@@ -1,10 +1,14 @@
 # devtools::install_github("mg14/mg14")
 # devtools::install_github("gerstung-lab/MutationTimeR")
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_workplace <- "/Users/apple/Desktop/MutationTimeR/SFS_CNA_deconvolution/vignettes"
-R_libPaths <- ""
-R_libPaths_extra <- "/Users/apple/Desktop/MutationTimeR/SFS_CNA_deconvolution/R"
-R_libPaths_CINner <- "/Users/apple/Desktop/MutationTimeR/SFS_CNA_deconvolution/R_CINner"
+# R_workplace <- "/Users/apple/SFS_CNA_deconvolution/vignettes"
+# R_libPaths <- ""
+# R_libPaths_extra <- "/Users/apple/SFS_CNA_deconvolution/R"
+# R_libPaths_CINner <- "/Users/apple/SFS_CNA_deconvolution/R_CINner"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Ranjing - HPC
+R_workplace <- "/burg/iicd/users/rz2647/R_workplace/vignettes"
+R_libPaths <- "/burg/iicd/users/rz2647/R_libPaths"
+R_libPaths_extra <- "/burg/iicd/users/rz2647/R_libPaths_extra/R"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 
@@ -139,6 +143,17 @@ for (i_simulation in 1:n_simulations) {
     #   Run MutationTimeR
     mutationtimer <- mutationTime(mut_vcf, cn_granges, n.boot = 10)
     mcols(cn_granges) <- cbind(mcols(cn_granges), mutationtimer$T)
+
+    # save MutationTime information to csv
+    mutationtimer_csv <- data.frame(
+        Sample = rownames(mutationtimer$T),
+        T = mutationtimer$T
+    )
+    print(mutationtimer_csv)
+    print(mutationtimer_csv_filename)
+    mutationtimer_csv_filename <- paste0(folder_workplace, "/", model_name, "_simulation_", i_simulation, "_mutationtimer.csv")
+    write.csv(mutationtimer_csv, mutationtimer_csv_filename, row.names = FALSE)
+
     #   Plot MutationTimeR results
     png_filename <- paste0(folder_workplace, "/", model_name, "_simulation_", i_simulation, "_mutationtimer.png")
     png(png_filename, width = 500, height = 750)
