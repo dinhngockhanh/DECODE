@@ -1,14 +1,10 @@
 # devtools::install_github("mg14/mg14")
 # devtools::install_github("gerstung-lab/MutationTimeR")
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_workplace <- "/Users/apple/SFS_CNA_deconvolution/vignettes"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/apple/SFS_CNA_deconvolution/R"
-# R_libPaths_CINner <- "/Users/apple/SFS_CNA_deconvolution/R_CINner"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Ranjing - HPC
-R_workplace <- "/burg/iicd/users/rz2647/R_workplace/vignettes"
-R_libPaths <- "/burg/iicd/users/rz2647/R_libPaths"
-R_libPaths_extra <- "/burg/iicd/users/rz2647/R_libPaths_extra/R"
+R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
+R_libPaths <- ""
+R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
+R_libPaths_CINner <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R_CINner"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 
@@ -27,11 +23,12 @@ setwd(R_workplace)
 model_name <- "MUTATIONTIMER"
 folder_workplace <- "MUTATIONTIMER"
 # ==================================================SET MODEL PARAMETERS
-n_simulations <- 8
+n_simulations <- 1
 #---Passenger mutation rate (per nucleotide per cell division)
-passenger_mutation_rate <- 1e-9 #1e-9 # try increase this
+passenger_mutation_rate <- 1e-10 # 1e-9 # try increase this
+# passenger_mutation_rate <- 1e-9 # 1e-9 # try increase this
 #---Probabilities of CNA
-prob_CN_missegregation <- 3e-4 # try to increase this 
+prob_CN_missegregation <- 3e-4 # try to increase this
 prob_CN_chrom_arm_missegregation <- 0 # 3e-4 # set this to 0 for now
 #---Parameters for chromosome arm selection rates
 s_rate_max <- 1.2
