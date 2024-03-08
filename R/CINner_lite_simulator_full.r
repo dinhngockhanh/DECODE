@@ -27,7 +27,8 @@ simulator_full <- function(file_prefix = "",
                            bulk_coverage_model = "binomial",
                            bulk_coverage_variables = c(0, 100),
                            bulk_min_alt_readcounts = 0,
-                           subfolder = "") {
+                           subfolder = "",
+                           R_libPaths = NULL) {
     if (compute_parallel == FALSE) {
         #-------------------------Compute simulations in sequential mode
         pb <- txtProgressBar(
@@ -80,6 +81,11 @@ simulator_full <- function(file_prefix = "",
             numCores <- n_cores
         }
         cl <- makePSOCKcluster(numCores - 1)
+        if (is.null(R_libPaths) == FALSE) {
+            R_libPaths <<- R_libPaths
+            clusterExport(cl, varlist = c("R_libPaths"))
+            clusterEvalQ(cl = cl, .libPaths(R_libPaths))
+        }
         #   Prepare input parameters
         simulator_one_simulation <<- simulator_one_simulation
         simulation_clonal_evolution <<- simulation_clonal_evolution

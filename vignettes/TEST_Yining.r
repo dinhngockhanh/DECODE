@@ -75,7 +75,8 @@ simulator_batch(
     bulk_coverage_model = bulk_coverage_model,
     bulk_coverage_variables = bulk_coverage_variables,
     bulk_min_alt_readcounts = bulk_min_alt_readcounts,
-    subfolder = folder_workplace
+    subfolder = folder_workplace,
+    R_libPaths = R_libPaths
 )
 #--------------------------------------------------------Clean bulk data
 for (n_simulation in 1:n_simulations) {

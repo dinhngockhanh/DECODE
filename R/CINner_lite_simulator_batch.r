@@ -27,7 +27,8 @@ simulator_batch <- function(n_simulations = 0,
                             bulk_coverage_model = "binomial",
                             bulk_coverage_variables = c(0, 100),
                             bulk_min_alt_readcounts = 0,
-                            subfolder = "") {
+                            subfolder = "",
+                            R_libPaths = NULL) {
     #------------------------------Make table of time point combinations
     if (length(vec_time_points_s_mut) != length(vec_hierarchy_s_mut)) {
         print("ERROR: lengths of vec_time_points_s_mut and vec_hierarchy_s_mut are not correct")
@@ -140,7 +141,8 @@ simulator_batch <- function(n_simulations = 0,
             bulk_coverage_model = bulk_coverage_model,
             bulk_coverage_variables = bulk_coverage_variables,
             bulk_min_alt_readcounts = bulk_min_alt_readcounts,
-            subfolder = subfolder
+            subfolder = subfolder,
+            R_libPaths = R_libPaths
         )
     }
     #-----------------------------------------Output table of parameters
