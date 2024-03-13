@@ -1,15 +1,15 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
+R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
+R_libPaths <- ""
+R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
 # R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/DATA"
 # R_libPaths <- ""
 # R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
-R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
-R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
+# R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
+# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
+# R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(data.table)
@@ -74,7 +74,7 @@ simulator_batch(
     save_true_mutation_table = FALSE,
     output_bulk = TRUE,
     output_sc = FALSE,
-    compute_parallel = TRUE,
+    compute_parallel = FALSE,
     bulk_coverage_model = bulk_coverage_model,
     bulk_coverage_variables = bulk_coverage_variables,
     bulk_min_alt_readcounts = bulk_min_alt_readcounts,

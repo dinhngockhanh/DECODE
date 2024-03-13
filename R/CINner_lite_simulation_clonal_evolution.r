@@ -17,7 +17,11 @@ simulation_clonal_evolution <- function(t_end_time = 0,
     t_previous <- 0
     t_now <- 0
     i_next_selective_mut <- 1
-    t_next_selective_mut <- vec_s_mut_time[i_next_selective_mut]
+    if (length(vec_s_mut_time) == 0) {
+        t_next_selective_mut <- Inf
+    } else {
+        t_next_selective_mut <- vec_s_mut_time[i_next_selective_mut]
+    }
     #   Prepare the record of clonal evolution
     record_t_previous <- c()
     record_t_now <- c()
