@@ -33,7 +33,7 @@ n_simulations <- 1000
 
 t_end_time <- 1000
 t_tau_step <- 1
-n_selective_clones <- 1 # 
+n_selective_clones <- 1 #
 vec_time_points_s_mut <- t_end_time * c(0.6) # c()
 vec_hierarchy_s_mut <- c(0) # c()
 expected_end_population <- 10^6
@@ -194,7 +194,7 @@ for (i in 1:(dim(com_df)[1])) {
 cols_to_drop <- grep("^(a_|b_|cl_num_)", names(com_df), value = TRUE) # drop old columns
 com_df <- com_df[, !(names(com_df) %in% cols_to_drop)]
 
-#== Compare Part ==
+# == Compare Part ==
 # # # << load data directly from device >>
 # df <- read.csv("C:/Users/Mayin/Desktop/df.csv")
 # com_df <- read.csv("C:/Users/Mayin/Desktop/com_df.csv")
@@ -214,8 +214,8 @@ p_max <- max(success_kbeta_df[p_cols], df[success_row_ind, p_cols], na.rm = TRUE
 # com_df <- replace(com_df, com_df == 0, NA) # replace 0 with NA
 # p_df <-  # select only Kbeta_cluster == 2
 png(paste0(folder_workplace, "p.png"))
-plot(unlist(success_kbeta_df["p_1"]), unlist(df[success_row_ind,  "p_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of p", pch = 16, col = rainbow(1), xlim = c(p_min*0.9, p_max*1.1), ylim = c(p_min*0.9, p_max*1.1))
-for (pp in 2:length(p_cols)){
+plot(unlist(success_kbeta_df["p_1"]), unlist(df[success_row_ind, "p_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of p", pch = 16, col = rainbow(1), xlim = c(p_min * 0.9, p_max * 1.1), ylim = c(p_min * 0.9, p_max * 1.1))
+for (pp in 2:length(p_cols)) {
     color_pp <- rainbow(pp)[pp]
     p_index <- paste0("p_", pp)
     points(unlist(success_kbeta_df[p_index]), unlist(df[success_row_ind, p_index]), pch = 16, col = color_pp)
@@ -229,21 +229,21 @@ k_cols <- grep("^K_", names(com_df), value = TRUE)
 k_min <- min(success_kbeta_df[k_cols], df[success_row_ind, k_cols], na.rm = TRUE)
 k_max <- max(success_kbeta_df[k_cols], df[success_row_ind, k_cols], na.rm = TRUE) # make sure y=x is in the plot
 png(paste0(folder_workplace, "K.png"))
-plot(unlist(success_kbeta_df["K_1"]), unlist(df[success_row_ind, "K_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of K", pch = 16, col = rainbow(1), xlim = c(k_min*0.9, k_max*1.1), ylim = c(k_min*0.9, k_max*1.1))
-for (kk in 2:length(k_cols)){
+plot(unlist(success_kbeta_df["K_1"]), unlist(df[success_row_ind, "K_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of K", pch = 16, col = rainbow(1), xlim = c(k_min * 0.9, k_max * 1.1), ylim = c(k_min * 0.9, k_max * 1.1))
+for (kk in 2:length(k_cols)) {
     color_kk <- rainbow(kk)[kk]
     k_index <- paste0("K_", kk)
     points(unlist(success_kbeta_df[k_index]), unlist(df[success_row_ind, k_index]), pch = 16, col = color_kk)
 }
 abline(a = 0, b = 1, lty = 2)
-legend("topright", legend=c(k_cols), col=rainbow(length(k_cols)), pch=16)
+legend("topright", legend = c(k_cols), col = rainbow(length(k_cols)), pch = 16)
 dev.off()
 
 
 ## Power of tail
 #### histogram
 png(paste0(folder_workplace, "alpha_hist.png"))
-hist(unlist(com_df$Tail_shape), xlab = "MOBSTER", main = "Comparison of alpha", breaks=30)
+hist(unlist(com_df$Tail_shape), xlab = "MOBSTER", main = "Comparison of alpha", breaks = 30)
 dev.off()
 #### alternative choice: scatter plot
 # plot(unlist(com_df$Tail_shape), unlist(df$alpha), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of alpha", pch = 16, col = "blue")
