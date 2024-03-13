@@ -1,12 +1,12 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
-R_libPaths <- ""
-R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
-# R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/DATA"
+# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
 # R_libPaths <- ""
-# R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
+# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
+R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/DATA"
+R_libPaths <- ""
+R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
 # R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
 # R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
 # R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
@@ -25,7 +25,7 @@ files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 
-folder_workplace <- "[0310]_clone0_x1000/"
+folder_workplace <- "[0313]_clone0_x10/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
 n_simulations <- 1000
@@ -33,9 +33,9 @@ n_simulations <- 1000
 
 t_end_time <- 1000
 t_tau_step <- 1
-n_selective_clones <- 1 #
-vec_time_points_s_mut <- t_end_time * c(0.6) # c()
-vec_hierarchy_s_mut <- c(0) # c()
+n_selective_clones <- 0 # 1
+vec_time_points_s_mut <- t_end_time * c() # c(0.6)
+vec_hierarchy_s_mut <- c() # c(0)
 expected_end_population <- 10^6
 vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
 n_sample <- 100000
@@ -49,7 +49,7 @@ vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
 vec_theta_mean <- vec_theta_parameters
 bulk_coverage_model <- "binomial"
 bulk_coverage_variables <- c(0, 100)
-bulk_min_alt_readcounts <- 0 # CHANGE TO 4
+bulk_min_alt_readcounts <- 4 # CHANGE TO 4
 #------------------------------------------------Create bulk simulations
 dir.create(folder_workplace)
 simulator_batch(
@@ -74,7 +74,7 @@ simulator_batch(
     save_true_mutation_table = FALSE,
     output_bulk = TRUE,
     output_sc = FALSE,
-    compute_parallel = FALSE,
+    compute_parallel = TRUE,
     bulk_coverage_model = bulk_coverage_model,
     bulk_coverage_variables = bulk_coverage_variables,
     bulk_min_alt_readcounts = bulk_min_alt_readcounts,
