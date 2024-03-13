@@ -6,10 +6,11 @@
 # R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/DATA"
 # R_libPaths <- ""
 # R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
 R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
 R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
 R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
+R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" # where the binomial tables are located
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(data.table)
@@ -25,7 +26,7 @@ files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 
-folder_workplace <- "[0310]_clone0_x1000/"
+folder_workplace <- "[0313]_clone0+clone1_x1000/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
 n_simulations <- 1000
@@ -122,6 +123,7 @@ for (n_simulation in 1:n_simulations) {
 }
 names(df) <- c("Simulation", "A", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_", 1:(n_selective_clones + 1)))
 write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE)
+
 # ===============================================================MOBSTER
 mob_df <- data.frame()
 model_list <- list()
@@ -162,7 +164,109 @@ for (i in 1:n_simulations) {
     }
 }
 write.csv(mob_df, paste0(folder_workplace, "Parameters_mobster.csv"), row.names = FALSE)
-# # ===============================================================COMPARISON
+
+# =============================================================== SFS DEVOLOUTION
+#---------------------------------------------------Set model parameters
+# 	Total number of sampled cells in binomial table construction
+matrix_binomial_sample_size <- 1000
+# 	Minimum and maximum number of reads
+r_min <- 0
+r_max <- 500
+# 	Minimum variant read count to be accepted
+min_variant_read <- 5
+# 	Minimum total read count to be accepted
+min_total_read <- 0
+# 	Number of steps to divide SFS frequencies in [0,1]
+SFS_totalsteps <- 25
+matrix_binomial_sfs_stepcount <- 100
+# 	Choice of ploidy, which changes the binomial rate
+matrix_binomial_ploidy <- 2
+#   Assumption of coverage distribution
+option_dist_coverage <- "binomial"
+dist_coverage_var_1 <- 100
+#----------------------------------------------------Options for fitting
+# 	Candidates for where the hump frequencies are
+N_SFS_positions <- 50
+list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
+# #---------------------------------------------------Input binomial table
+cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
+filename_1 <- paste0(
+    R_libPaths_binomial_table, "/Binomial_PDF_",
+    matrix_binomial_sample_size, "_",
+    r_max, "_",
+    min_variant_read, "_",
+    min_total_read, "_",
+    matrix_binomial_sfs_stepcount, "_",
+    matrix_binomial_ploidy, ".mat"
+)
+inputBinomialMatrix <- readMat(filename_1)
+matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
+#---------------------------------------------Deconvolution for each SFS
+deconvolution_df <- data.frame()
+for (n_simulation in 1:n_simulations) {
+    cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+    cat(paste0("SFS DECONVOLUTION FOR SIMULATION-", n_simulation, "...\n"))
+    #---Input the SFS data
+    filename_2 <- paste0(R_workplace, "/", folder_workplace, "SFS_", n_simulation, ".txt")
+    data <- read.table(filename_2, sep = " ", header = FALSE)
+    mutation_refcounts <- as.numeric(data[, 1])
+    mutation_altcounts <- as.numeric(data[, 2])
+    mutation_identity <- data[, 3]
+    #---Perform SFS deconvolution
+    results <- fit_SFS_likelihood(
+        mutation_altcounts = mutation_altcounts,
+        mutation_refcounts = mutation_refcounts,
+        mutation_identity = mutation_identity,
+        list_frequencies = list_frequencies,
+        matrix_binomial_PDF = matrix_binomial_PDF,
+        matrix_binomial_sample_size = matrix_binomial_sample_size,
+        matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+        matrix_binomial_ploidy = matrix_binomial_ploidy,
+        sample_size = n_sample,
+        SFS_totalsteps = SFS_totalsteps,
+        r_min = r_min,
+        r_max = r_max,
+        option_dist_coverage = option_dist_coverage,
+        dist_coverage_var_1 = dist_coverage_var_1,
+        max_trials = 10000,
+        compute_parallel = TRUE
+    )
+    vec_para_best_final <- results$vec_para_best_final
+
+    deconvolution <- results$deconvolution
+    if (n_simulation == 1) {
+        deconvolution_df <- deconvolution
+    } else {
+        if (deconvolution$Cluster_count > max(deconvolution_df$Cluster_count)) {
+            for (k in (deconvolution_df$Cluster_count + 1):deconvolution$Cluster_count) {
+                deconvolution_df[1, paste0("Cluster_frequency_", k)] <- NA
+                deconvolution_df[1, paste0("Cluster_mutcount_observed_", k)] <- NA
+                deconvolution_df[1, paste0("Cluster_mutcount_predicted_", k)] <- NA
+            }
+        } else if (deconvolution$Cluster_count < max(deconvolution_df$Cluster_count)) {
+            for (k in (deconvolution$Cluster_count + 1):deconvolution_df$Cluster_count) {
+                deconvolution[1, paste0("Cluster_frequency_", k)] <- NA
+                deconvolution[1, paste0("Cluster_mutcount_observed_", k)] <- NA
+                deconvolution[1, paste0("Cluster_mutcount_predicted_", k)] <- NA
+            }
+        }
+        deconvolution_df <- rbind(deconvolution_df, deconvolution)
+    }
+    #---Store the best fit
+    N_humps <- (length(vec_para_best_final) - 1) / 2
+    filename <- paste0(R_workplace, "/", folder_workplace, "SFS_deconvolution_parameters_", n_simulation, ".txt")
+    fileID <- file(filename, "w")
+    writeLines(paste(sprintf("%.3f", vec_para_best_final), collapse = "\t"), fileID)
+    close(fileID)
+}
+deconvolution_df <- cbind(
+    data.frame(Simulation = 1:n_simulations),
+    deconvolution_df
+)
+write.csv(deconvolution_df, paste0(folder_workplace, "Parameters_deconvolution.csv"), row.names = FALSE)
+
+# # =============================================================== COMPARISON FOR MOBSTER
 # # << load data directly from device >>
 # filename_1 <- paste0(folder_workplace, "Parameters_true.csv")
 # df <- read.csv(filename_1)
