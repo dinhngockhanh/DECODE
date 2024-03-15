@@ -37,6 +37,9 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     }
     #---Prepare the SFS library
     cat("Prepare the SFS library...\n")
+    N_end <<- matrix_binomial_sample_size
+    SFS_totalsteps_base <<- matrix_binomial_sfs_stepcount
+    matrix_binomial_PDF <<- matrix_binomial_PDF
     library_SFS_component <- list()
     library_SFS_component$SFS_exact <- list()
     library_SFS_component$SFS_expected <- list()
@@ -79,14 +82,11 @@ fit_SFS_likelihood <- function(mutation_altcounts,
         compute_SFS <<- compute_SFS
         SFS_Griffiths_Tavare <<- SFS_Griffiths_Tavare
         pdf_coverage <<- pdf_coverage
-        N_end <<- matrix_binomial_sample_size
         SFS_totalsteps <<- SFS_totalsteps
-        SFS_totalsteps_base <<- matrix_binomial_sfs_stepcount
         r_min <<- r_min
         r_max <<- r_max
         option_dist_coverage <<- option_dist_coverage
         dist_coverage_var_1 <<- dist_coverage_var_1
-        matrix_binomial_PDF <<- matrix_binomial_PDF
         clusterExport(cl, varlist = c(
             "compute_SFS",
             "SFS_Griffiths_Tavare",
