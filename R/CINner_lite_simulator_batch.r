@@ -85,7 +85,8 @@ simulator_batch <- function(n_simulations = 0,
             vec_propensity_sum[i] <- vec_b_rate[i] + vec_d_rate[i]
         }
         #   Update table of parameters
-        codename <- paste("ClonalTimes=", vec_s_mut_time[1], sep = "")
+        codename <- "ClonalTimes="
+        if (length(vec_s_mut_time) > 0) codename <- paste(codename, vec_s_mut_time[1], sep = "")
         if (n_selective_clones > 1) {
             for (i in 2:length(vec_s_mut_time)) {
                 codename <- paste(codename, ",", vec_s_mut_time[i], sep = "")

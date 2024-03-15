@@ -49,7 +49,7 @@ vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
 vec_theta_mean <- vec_theta_parameters
 bulk_coverage_model <- "binomial"
 bulk_coverage_variables <- c(0, 100)
-bulk_min_alt_readcounts <- 4 # CHANGE TO 4
+bulk_min_alt_readcounts <- 0 # CHANGE TO 4
 #------------------------------------------------Create bulk simulations
 dir.create(folder_workplace)
 simulator_batch(
@@ -100,8 +100,10 @@ for (n_simulation in 1:n_simulations) {
     MRCA_ages <- simulation_variables$MRCA_ages
     #   Find clonal sizes in sample, including subclones
     ns_combined <- ns
-    for (i in length(vec_hierarchy_s_mut):1) {
-        ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
+    if (length(vec_hierarchy_s_mut) > 0) {
+        for (i in length(vec_hierarchy_s_mut):1) {
+            ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
+        }
     }
     #   Compute actual clonal growth rates
     growth_rates <- log(Ns) / (t_end_time - MRCA_ages)
@@ -113,8 +115,10 @@ for (n_simulation in 1:n_simulations) {
     ps <- ns_combined / n_sample / ploidy
     #   Find expected number of mutations in each binomial hump
     Ks <- vec_theta_parameters * MRCA_ages
-    for (i in length(vec_hierarchy_s_mut):1) {
-        Ks[i + 1] <- Ks[i + 1] - Ks[vec_hierarchy_s_mut[i] + 1]
+    if (length(vec_hierarchy_s_mut) > 0) {
+        for (i in length(vec_hierarchy_s_mut):1) {
+            Ks[i + 1] <- Ks[i + 1] - Ks[vec_hierarchy_s_mut[i] + 1]
+        }
     }
     Ks[1] <- Ks[1] + truncal_mutations
     #   Save the results
