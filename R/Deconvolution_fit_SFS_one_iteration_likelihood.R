@@ -1,6 +1,5 @@
-fit_SFS_likelihood <- function(mutation_altcounts,
-                               mutation_refcounts,
-                               mutation_identity = NULL,
+fit_SFS_likelihood <- function(mutation_table,
+                               criterion = "BIC",
                                list_frequencies,
                                matrix_binomial_PDF,
                                matrix_binomial_sample_size,
@@ -14,8 +13,16 @@ fit_SFS_likelihood <- function(mutation_altcounts,
                                dist_coverage_var_1,
                                max_trials = 10000,
                                compute_parallel = TRUE,
-                               n_cores = NULL) {
+                               n_cores = NULL,
+                               data_marker_colors) {
+    mutation_refcounts <- mutation_table$Ref_count
+    mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
+    if ("Marker" %in% colnames(mutation_table)) {
+        mutation_markers <- mutation_table$Marker
+    } else {
+        mutation_markers <- c()
+    }
     #---Prepare the total readcount distribution
     cat("Prepare the total readcount distribution...\n")
     TCGA_coverage_PDF <- prep_distribution_patient(mutation_totcounts)
@@ -37,6 +44,7 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     }
     #---Prepare the SFS library
     cat("Prepare the SFS library...\n")
+    list_frequencies_tmp <- sort(unique(c(0, list_frequencies)))
     N_end <<- matrix_binomial_sample_size
     SFS_totalsteps_base <<- matrix_binomial_sfs_stepcount
     matrix_binomial_PDF <<- matrix_binomial_PDF
@@ -44,11 +52,6 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     library_SFS_component$SFS_exact <- list()
     library_SFS_component$SFS_expected <- list()
     library_SFS_component$SFS_expected_normalized <- list()
-    vec_para <- c(1)
-    output <- compute_SFS(vec_para)
-    library_SFS_component$SFS_exact[[1]] <- output$SFS_exact
-    library_SFS_component$SFS_expected[[1]] <- output$SFS_expected
-    library_SFS_component$SFS_expected_normalized[[1]] <- output$SFS_expected / sum(output$SFS_expected)
     if (compute_parallel == FALSE) {
         #---------------------------Build SFS library in sequential mode
         pb <- txtProgressBar(
@@ -58,14 +61,18 @@ fit_SFS_likelihood <- function(mutation_altcounts,
             width = 50,
             char = "="
         )
-        for (i in seq_along(list_frequencies)) {
+        for (i in seq_along(list_frequencies_tmp)) {
             setTxtProgressBar(pb, i)
-            p <- list_frequencies[i]
-            vec_para <- c(0, p, 1)
+            p <- list_frequencies_tmp[i]
+            if (p == 0) {
+                vec_para <- c(1)
+            } else {
+                vec_para <- c(0, p, 1)
+            }
             output <- compute_SFS(vec_para)
-            library_SFS_component$SFS_exact[[i + 1]] <- output$SFS_exact
-            library_SFS_component$SFS_expected[[i + 1]] <- output$SFS_expected
-            library_SFS_component$SFS_expected_normalized[[i + 1]] <- output$SFS_expected / sum(output$SFS_expected)
+            library_SFS_component$SFS_exact[[i]] <- output$SFS_exact
+            library_SFS_component$SFS_expected[[i]] <- output$SFS_expected
+            library_SFS_component$SFS_expected_normalized[[i]] <- output$SFS_expected / sum(output$SFS_expected)
         }
     } else {
         #-----------------------------Build SFS library in parallel mode
@@ -101,35 +108,49 @@ fit_SFS_likelihood <- function(mutation_altcounts,
             "matrix_binomial_PDF"
         ))
         #   Build SFS library in parallel mode
-        output <- pblapply(cl = cl, X = 1:length(list_frequencies), FUN = function(i) {
-            p <- list_frequencies[i]
-            vec_para <- c(0, p, 1)
+        output <- pblapply(cl = cl, X = 1:length(list_frequencies_tmp), FUN = function(i) {
+            p <- list_frequencies_tmp[i]
+            if (p == 0) {
+                vec_para <- c(1)
+            } else {
+                vec_para <- c(0, p, 1)
+            }
             return(compute_SFS(vec_para))
         })
-        for (i in seq_along(list_frequencies)) {
-            library_SFS_component$SFS_exact[[i + 1]] <- output[[i]]$SFS_exact
-            library_SFS_component$SFS_expected[[i + 1]] <- output[[i]]$SFS_expected
-            library_SFS_component$SFS_expected_normalized[[i + 1]] <- output[[i]]$SFS_expected / sum(output[[i]]$SFS_expected)
+        for (i in seq_along(list_frequencies_tmp)) {
+            library_SFS_component$SFS_exact[[i]] <- output[[i]]$SFS_exact
+            library_SFS_component$SFS_expected[[i]] <- output[[i]]$SFS_expected
+            library_SFS_component$SFS_expected_normalized[[i]] <- output[[i]]$SFS_expected / sum(output[[i]]$SFS_expected)
         }
+        stopCluster(cl)
     }
     #---SFS deconvolution
     compute_AIC <- function(log_L, num_params) {
         return(2 * num_params - 2 * log_L)
     }
+    compute_BIC <- function(log_L, num_params, num_samples) {
+        return(num_params * log(num_samples) - 2 * log_L)
+    }
     N_humps <- 0
     AIC_best_final <- Inf
+    BIC_best_final <- Inf
     N_fitting_rounds <- 200
     while (TRUE) {
         num_parameters <- 1 + 2 * N_humps
         AIC_best_current <- Inf
-        vec_para_best_current <- c()
+        BIC_best_current <- Inf
+        vec_para_AIC_best_current <- c()
+        vec_para_BIC_best_current <- c()
         #   Find best parameter set, given the number of humps
         if (N_humps == 0) {
             #   If 0 humps: the SFS consists of only neutral component
-            vec_para_best_current <- 1
-            log_L <- error_SFS_one_iteration_likelihood(vec_para_best_current, c(), list_frequencies, library_SFS_component, vec_SFS_real)
+            vec_para_AIC_best_current <- 1
+            vec_para_BIC_best_current <- 1
+            log_L <- error_SFS_one_iteration_likelihood(vec_para_AIC_best_current, c(), list_frequencies, library_SFS_component, vec_SFS_real)
             AIC_current <- compute_AIC(log_L, num_parameters)
             AIC_best_current <- AIC_current
+            BIC_current <- compute_BIC(log_L, num_parameters, mutation_count)
+            BIC_best_current <- BIC_current
         } else {
             #   Find number of hump frequency combinations there are
             N_trials_true <- choose(length(list_frequencies), N_humps)
@@ -150,9 +171,14 @@ fit_SFS_likelihood <- function(mutation_altcounts,
                     log_L <- results$log_L
                     vec_para <- results$parameters
                     AIC_current <- compute_AIC(log_L, num_parameters)
+                    BIC_current <- compute_BIC(log_L, num_parameters, mutation_count)
                     if (AIC_current < AIC_best_current) {
                         AIC_best_current <- AIC_current
-                        vec_para_best_current <- vec_para
+                        vec_para_AIC_best_current <- vec_para
+                    }
+                    if (BIC_current < BIC_best_current) {
+                        BIC_best_current <- BIC_current
+                        vec_para_BIC_best_current <- vec_para
                     }
                 }
             } else {
@@ -169,34 +195,63 @@ fit_SFS_likelihood <- function(mutation_altcounts,
                     AIC_current <- compute_AIC(log_L, num_parameters)
                     if (AIC_current < AIC_best_current) {
                         AIC_best_current <- AIC_current
-                        vec_para_best_current <- vec_para
+                        vec_para_AIC_best_current <- vec_para
+                    }
+                    if (BIC_current < BIC_best_current) {
+                        BIC_best_current <- BIC_current
+                        vec_para_BIC_best_current <- vec_para
                     }
                 }
             }
         }
         #   Report the best fit for the current hump count
-        report <- paste0(N_humps, " humps: AIC = ", round(AIC_best_current, 3), "; neutral: pi = ", round(vec_para_best_current[1], 3))
-        if (length(vec_para_best_current) > 1) {
-            for (i in 1:N_humps) {
-                report <- paste0(report, "; pi = ", round(vec_para_best_current[2 * i + 1], 3), " at freq = ", round(vec_para_best_current[2 * i], 3))
+        if (criterion == "AIC") {
+            report <- paste0(N_humps, " humps: AIC = ", round(AIC_best_current, 3), "; neutral: pi = ", round(vec_para_AIC_best_current[1], 3))
+            if (length(vec_para_AIC_best_current) > 1) {
+                for (i in 1:N_humps) {
+                    report <- paste0(report, "; pi = ", round(vec_para_AIC_best_current[2 * i + 1], 3), " at freq = ", round(vec_para_AIC_best_current[2 * i], 3))
+                }
+            }
+        } else if (criterion == "BIC") {
+            report <- paste0(N_humps, " humps: BIC = ", round(BIC_best_current, 3), "; neutral: pi = ", round(vec_para_BIC_best_current[1], 3))
+            if (length(vec_para_BIC_best_current) > 1) {
+                for (i in 1:N_humps) {
+                    report <- paste0(report, "; pi = ", round(vec_para_BIC_best_current[2 * i + 1], 3), " at freq = ", round(vec_para_BIC_best_current[2 * i], 3))
+                }
             }
         }
         report <- paste0(report, "\n")
         cat(report)
-        #   Check if the increased hump count leads to lower AIC...
-        if (AIC_best_current < AIC_best_final) {
-            #   ... if yes, then update the best fit and continue with 1 more hump
-            AIC_best_final <- AIC_best_current
-            vec_para_best_final <- vec_para_best_current
-            N_humps <- N_humps + 1
-        } else {
-            #   ... if no, then stop
-            break
+        #   Check if the increased hump count leads to lower criterion score...
+        if (criterion == "AIC") {
+            if (AIC_best_current < AIC_best_final) {
+                #   ... if yes, then update the best fit and continue with 1 more hump
+                AIC_best_final <- AIC_best_current
+                vec_para_best_final <- vec_para_AIC_best_current
+                N_humps <- N_humps + 1
+            } else {
+                #   ... if no, then stop
+                break
+            }
+        } else if (criterion == "BIC") {
+            if (BIC_best_current < BIC_best_final) {
+                #   ... if yes, then update the best fit and continue with 1 more hump
+                BIC_best_final <- BIC_best_current
+                vec_para_best_final <- vec_para_BIC_best_current
+                N_humps <- N_humps + 1
+            } else {
+                #   ... if no, then stop
+                break
+            }
         }
     }
     #---Report the best fit
     N_humps_best_final <- (length(vec_para_best_final) - 1) / 2
-    report <- paste0("\n\n\nBEST FIT:\n", N_humps_best_final, " humps: AIC = ", round(AIC_best_final, 3), "; neutral: pi = ", round(vec_para_best_final[1], 3))
+    if (criterion == "AIC") {
+        report <- paste0("\n\n\nBEST FIT:\n", N_humps_best_final, " humps: AIC = ", round(AIC_best_final, 3), "; neutral: pi = ", round(vec_para_best_final[1], 3))
+    } else if (criterion == "BIC") {
+        report <- paste0("\n\n\nBEST FIT:\n", N_humps_best_final, " humps: BIC = ", round(BIC_best_final, 3), "; neutral: pi = ", round(vec_para_best_final[1], 3))
+    }
     if (length(vec_para_best_final) > 1) {
         for (i in 1:N_humps_best_final) {
             report <- paste0(report, "; pi = ", round(vec_para_best_final[2 * i + 1], 3), " at freq = ", round(vec_para_best_final[2 * i], 3))
@@ -205,18 +260,74 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     report <- paste0(report, "\n\n\n\n")
     cat(report)
     #---Plot the SFS deconvolution
-    filename_plot <- paste0(R_workplace, "/", folder_workplace, "SFS_", n_simulation, ".png")
-    png(filename_plot)
-    bar_centers <- barplot(height = vec_SFS_real, names.arg = vec_freq, col = "blue", main = "SFS Fitting Results")
+    color_scheme <- c(
+        data_marker_colors,
+        "Fit: Neutral" = "gray",
+        "Fit: Cluster 1" = "red",
+        "Fit: Cluster 2" = "blue",
+        "Fit: Cluster 3" = "green",
+        "Fit: Cluster 4" = "purple"
+    )
+    #   Prepare the data for plotting
+    if (is.null(mutation_markers)) {
+        df_data <- data.frame(frequency = vec_freq, count = vec_SFS_real, fill = "Data")
+    } else {
+        unique_markers <- unique(mutation_markers)
+        df_data <- data.frame(
+            ID = rep(1:length(vec_freq), length(unique_markers)),
+            frequency = rep(vec_freq, length(unique_markers)),
+            count = rep(0, SFS_totalsteps * length(unique_markers)),
+            fill = rep(unique_markers, each = SFS_totalsteps)
+        )
+        for (j in 1:length(mutation_altcounts)) {
+            no_variant <- mutation_altcounts[j]
+            no_total <- mutation_refcounts[j] + mutation_altcounts[j]
+            if (no_variant >= min_variant_read && no_total >= min_total_read) {
+                VAF <- no_variant / no_total
+                pos <- which(vec_freq >= VAF)[1]
+                df_data$count[which(df_data$ID == pos & df_data$fill == mutation_markers[j])] <- df_data$count[which(df_data$ID == pos & df_data$fill == mutation_markers[j])] + 1
+            }
+        }
+        df_data$fill <- paste0("Data: ", gsub("_", " ", df_data$fill))
+    }
+    #   Prepare the deconvolution inference for plotting
+    N_humps <- (length(vec_para_best_final) - 1) / 2
     vec_A_and_K <- vec_para_best_final[seq(1, length(vec_para_best_final), by = 2)]
-    if (length(vec_para_best_final) == 1) {
+    if (N_humps == 0) {
         vec_p <- c()
     } else {
         vec_p <- vec_para_best_final[seq(2, length(vec_para_best_final) - 1, by = 2)]
+        sorted_indices <- order(vec_p, decreasing = TRUE)
+        vec_p <- vec_p[sorted_indices]
+        vec_A_and_K <- c(vec_A_and_K[1], vec_A_and_K[sorted_indices + 1])
     }
-    vec_SFS_model <- compute_SFS_one_iteration(vec_A_and_K, vec_p, list_frequencies, library_SFS_component)
-    vec_SFS_model <- vec_SFS_model / sum(vec_SFS_model) * sum(vec_SFS_real)
-    lines(bar_centers, vec_SFS_model, col = "red", lwd = 2)
+    df_fit <- data.frame()
+    SFS_neutral <- mutation_count * vec_A_and_K[1] * library_SFS_component$SFS_expected_normalized[[1]]
+    df_fit <- rbind(df_fit, data.frame(frequency = vec_freq, count = SFS_neutral, fill = "Fit: Neutral"))
+    if (N_humps > 0) {
+        for (i in 1:N_humps) {
+            SFS_hump <- mutation_count * vec_A_and_K[i + 1] * library_SFS_component$SFS_expected_normalized[[which(list_frequencies == vec_p[i]) + 1]]
+            df_fit <- rbind(df_fit, data.frame(frequency = vec_freq, count = SFS_hump, fill = paste0("Fit: Cluster ", i)))
+        }
+    }
+    filename_plot <- paste0(R_workplace, "/", folder_workplace, "DECONVOLUTION_", n_simulation, ".png")
+    png(filename_plot, res = 150, width = 30, height = 15, units = "in")
+    p <- ggplot() +
+        geom_bar(data = df_data, aes(x = frequency, y = count, fill = fill), stat = "identity") +
+        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.5) +
+        scale_fill_manual(values = color_scheme, name = "") +
+        guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
+        xlab("Variant Allele Frequency") +
+        ylab("Mutation count") +
+        theme(
+            text = element_text(size = 40),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5)
+        )
+    print(p)
     dev.off()
     #---Translation to parameters of cancer evolution in the sample
     deconvolution <- data.frame()
@@ -243,8 +354,8 @@ fit_SFS_likelihood <- function(mutation_altcounts,
     output <- list()
     output$vec_para_best_final <- vec_para_best_final
     output$AIC_best_final <- AIC_best_final
-    output$vec_SFS_real <- vec_SFS_real
-    output$vec_SFS_model <- vec_SFS_model
+    output$SFS_data <- df_data
+    output$SFS_fitted <- df_fit
     output$deconvolution <- deconvolution
     return(output)
 }

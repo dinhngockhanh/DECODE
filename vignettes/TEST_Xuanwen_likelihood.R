@@ -13,27 +13,27 @@ R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDr
 library(parallel)
 library(pbapply)
 library(R.matlab)
+library(ggplot2)
 
 setwd(R_libPaths_extra)
 files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 
-folder_workplace <- "TEST_SFS_DECONVOLUTION/"
+folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 10
-
+n_simulations <- 20
 
 
 t_end_time <- 1000
 t_tau_step <- 1
-n_selective_clones <- 1
-vec_time_points_s_mut <- t_end_time * c(0.6)
-vec_hierarchy_s_mut <- c(0)
+n_selective_clones <- 0 # 1
+vec_time_points_s_mut <- t_end_time * c() # c(0.6)
+vec_hierarchy_s_mut <- c() # c(0)
 expected_end_population <- 10^6
 vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
-n_sample <- 10000 # CHANGE from 100000 to 10000
+n_sample <- 100000
 range_population <- c(0.8, 1.2) * expected_end_population
 range_clonal_perc <- c(20, 100)
 # mindiff_clonal_perc <- 10
@@ -44,78 +44,78 @@ vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
 vec_theta_mean <- vec_theta_parameters
 bulk_coverage_model <- "binomial"
 bulk_coverage_variables <- c(0, 100)
-bulk_min_alt_readcounts <- 0
-#------------------------------------------------Create bulk simulations
-dir.create(folder_workplace)
-simulator_batch(
-    n_simulations = n_simulations,
-    t_end_time = t_end_time,
-    t_tau_step = t_tau_step,
-    n_selective_clones = n_selective_clones,
-    vec_time_points_s_mut = vec_time_points_s_mut,
-    vec_hierarchy_s_mut = vec_hierarchy_s_mut,
-    expected_end_population = expected_end_population,
-    vec_expected_percent_select = vec_expected_percent_select,
-    n_sample = n_sample,
-    range_population = range_population,
-    range_clonal_perc = range_clonal_perc,
-    # mindiff_clonal_perc = mindiff_clonal_perc,
-    ploidy = ploidy,
-    truncal_mutations = truncal_mutations,
-    choice_theta = choice_theta,
-    vec_theta_parameters = vec_theta_parameters,
-    vec_theta_mean = vec_theta_mean,
-    save_rda = TRUE,
-    save_true_mutation_table = FALSE,
-    output_bulk = TRUE,
-    output_sc = FALSE,
-    compute_parallel = TRUE,
-    bulk_coverage_model = bulk_coverage_model,
-    bulk_coverage_variables = bulk_coverage_variables,
-    bulk_min_alt_readcounts = bulk_min_alt_readcounts,
-    subfolder = folder_workplace
-)
-#--------------------------------------------------------Clean bulk data
-for (n_simulation in 1:n_simulations) {
-    filename <- paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
-    mut_table <- read.csv(filename)
-    vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
-    if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
-    filename <- paste0(folder_workplace, "SFS_", n_simulation, ".txt")
-    write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
-}
-# ========================================GROUND TRUTH FOR SFS VARIABLES
-df <- data.frame()
-for (n_simulation in 1:n_simulations) {
-    #   Retrieve clonal MRCA ages and sizes in population & sample
-    simulation_variables <- read.csv(paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_simulation_variables.csv"))
-    Ns <- simulation_variables$Count_in_population
-    ns <- simulation_variables$Count_in_sample
-    MRCA_ages <- simulation_variables$MRCA_ages
-    #   Find clonal sizes in sample, including subclones
-    ns_combined <- ns
-    for (i in length(vec_hierarchy_s_mut):1) {
-        ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
-    }
-    #   Compute actual clonal growth rates
-    growth_rates <- log(Ns) / (t_end_time - MRCA_ages)
-    #   Find expected number of neutral mutations
-    A <- sum(vec_theta_parameters * ns / growth_rates)
-    #   Find expected power of neutral mutations
-    alpha <- 2
-    #   Find expected binomial hump locations
-    ps <- ns_combined / n_sample / ploidy
-    #   Find expected number of mutations in each binomial hump
-    Ks <- vec_theta_parameters * MRCA_ages
-    for (i in length(vec_hierarchy_s_mut):1) {
-        Ks[i + 1] <- Ks[i + 1] - Ks[vec_hierarchy_s_mut[i] + 1]
-    }
-    Ks[1] <- Ks[1] + truncal_mutations
-    #   Save the results
-    df <- rbind(df, c(n_simulation, A, alpha, ps, Ks))
-}
-names(df) <- c("Simulation", "A", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_", 1:(n_selective_clones + 1)))
-write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE)
+bulk_min_alt_readcounts <- 4
+# #------------------------------------------------Create bulk simulations
+# dir.create(folder_workplace)
+# simulator_batch(
+#     n_simulations = n_simulations,
+#     t_end_time = t_end_time,
+#     t_tau_step = t_tau_step,
+#     n_selective_clones = n_selective_clones,
+#     vec_time_points_s_mut = vec_time_points_s_mut,
+#     vec_hierarchy_s_mut = vec_hierarchy_s_mut,
+#     expected_end_population = expected_end_population,
+#     vec_expected_percent_select = vec_expected_percent_select,
+#     n_sample = n_sample,
+#     range_population = range_population,
+#     range_clonal_perc = range_clonal_perc,
+#     # mindiff_clonal_perc = mindiff_clonal_perc,
+#     ploidy = ploidy,
+#     truncal_mutations = truncal_mutations,
+#     choice_theta = choice_theta,
+#     vec_theta_parameters = vec_theta_parameters,
+#     vec_theta_mean = vec_theta_mean,
+#     save_rda = TRUE,
+#     save_true_mutation_table = FALSE,
+#     output_bulk = TRUE,
+#     output_sc = FALSE,
+#     compute_parallel = TRUE,
+#     bulk_coverage_model = bulk_coverage_model,
+#     bulk_coverage_variables = bulk_coverage_variables,
+#     bulk_min_alt_readcounts = bulk_min_alt_readcounts,
+#     subfolder = folder_workplace
+# )
+# #--------------------------------------------------------Clean bulk data
+# for (n_simulation in 1:n_simulations) {
+#     filename <- paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
+#     mut_table <- read.csv(filename)
+#     vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
+#     if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
+#     filename <- paste0(folder_workplace, "SFS_", n_simulation, ".txt")
+#     write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
+# }
+# # ========================================GROUND TRUTH FOR SFS VARIABLES
+# df <- data.frame()
+# for (n_simulation in 1:n_simulations) {
+#     #   Retrieve clonal MRCA ages and sizes in population & sample
+#     simulation_variables <- read.csv(paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_simulation_variables.csv"))
+#     Ns <- simulation_variables$Count_in_population
+#     ns <- simulation_variables$Count_in_sample
+#     MRCA_ages <- simulation_variables$MRCA_ages
+#     #   Find clonal sizes in sample, including subclones
+#     ns_combined <- ns
+#     for (i in length(vec_hierarchy_s_mut):1) {
+#         ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
+#     }
+#     #   Compute actual clonal growth rates
+#     growth_rates <- log(Ns) / (t_end_time - MRCA_ages)
+#     #   Find expected number of neutral mutations
+#     A <- sum(vec_theta_parameters * ns / growth_rates)
+#     #   Find expected power of neutral mutations
+#     alpha <- 2
+#     #   Find expected binomial hump locations
+#     ps <- ns_combined / n_sample / ploidy
+#     #   Find expected number of mutations in each binomial hump
+#     Ks <- vec_theta_parameters * MRCA_ages
+#     for (i in length(vec_hierarchy_s_mut):1) {
+#         Ks[i + 1] <- Ks[i + 1] - Ks[vec_hierarchy_s_mut[i] + 1]
+#     }
+#     Ks[1] <- Ks[1] + truncal_mutations
+#     #   Save the results
+#     df <- rbind(df, c(n_simulation, A, alpha, ps, Ks))
+# }
+# names(df) <- c("Simulation", "A", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_", 1:(n_selective_clones + 1)))
+# write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE)
 # =====================================================SFS DECONVOLUTION
 #---------------------------------------------------Set model parameters
 # 	Total number of sampled cells in binomial table construction
@@ -128,7 +128,7 @@ min_variant_read <- 5
 # 	Minimum total read count to be accepted
 min_total_read <- 0
 # 	Number of steps to divide SFS frequencies in [0,1]
-SFS_totalsteps <- 25
+SFS_totalsteps <- 100
 matrix_binomial_sfs_stepcount <- 100
 # 	Choice of ploidy, which changes the binomial rate
 matrix_binomial_ploidy <- 2
@@ -139,20 +139,31 @@ dist_coverage_var_1 <- 100
 # 	Candidates for where the hump frequencies are
 N_SFS_positions <- 50
 list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
-#---------------------------------------------------Input binomial table
-cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
-cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
-filename_1 <- paste0(
-    R_libPaths_binomial_table, "/Binomial_PDF_",
-    matrix_binomial_sample_size, "_",
-    r_max, "_",
-    min_variant_read, "_",
-    min_total_read, "_",
-    matrix_binomial_sfs_stepcount, "_",
-    matrix_binomial_ploidy, ".mat"
+#---------------------------------------------------Options for plotting
+data_marker_colors <- c(
+    "Data" = "black",
+    "Data: Foreground 0" = rgb(0.2, 0.2, 0.2),
+    "Data: Foreground 1" = rgb(0.5, 0.5, 0.5),
+    "Data: Foreground 2" = rgb(0.7, 0.7, 0.7),
+    "Data: Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
+    "Data: Background 1" = rgb(0.6350, 0.0780, 0.1840),
+    "Data: Background 2" = rgb(0.4660, 0.6740, 0.1880),
+    "Data: Truncal" = rgb(0.3010, 0.7450, 0.9330)
 )
-inputBinomialMatrix <- readMat(filename_1)
-matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
+# #---------------------------------------------------Input binomial table
+# cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+# cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
+# filename_1 <- paste0(
+#     R_libPaths_binomial_table, "/Binomial_PDF_",
+#     matrix_binomial_sample_size, "_",
+#     r_max, "_",
+#     min_variant_read, "_",
+#     min_total_read, "_",
+#     matrix_binomial_sfs_stepcount, "_",
+#     matrix_binomial_ploidy, ".mat"
+# )
+# inputBinomialMatrix <- readMat(filename_1)
+# matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---------------------------------------------Deconvolution for each SFS
 deconvolution_df <- data.frame()
 for (n_simulation in 1:n_simulations) {
@@ -160,15 +171,12 @@ for (n_simulation in 1:n_simulations) {
     cat(paste0("SFS DECONVOLUTION FOR SIMULATION-", n_simulation, "...\n"))
     #---Input the SFS data
     filename_2 <- paste0(R_workplace, "/", folder_workplace, "SFS_", n_simulation, ".txt")
-    data <- read.table(filename_2, sep = " ", header = FALSE)
-    mutation_refcounts <- as.numeric(data[, 1])
-    mutation_altcounts <- as.numeric(data[, 2])
-    mutation_identity <- data[, 3]
+    mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
+    colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
     #---Perform SFS deconvolution
     results <- fit_SFS_likelihood(
-        mutation_altcounts = mutation_altcounts,
-        mutation_refcounts = mutation_refcounts,
-        mutation_identity = mutation_identity,
+        mutation_table = mutation_table,
+        criterion = "BIC",
         list_frequencies = list_frequencies,
         matrix_binomial_PDF = matrix_binomial_PDF,
         matrix_binomial_sample_size = matrix_binomial_sample_size,
@@ -181,7 +189,8 @@ for (n_simulation in 1:n_simulations) {
         option_dist_coverage = option_dist_coverage,
         dist_coverage_var_1 = dist_coverage_var_1,
         max_trials = 10000,
-        compute_parallel = TRUE
+        compute_parallel = TRUE,
+        data_marker_colors = data_marker_colors
     )
     vec_para_best_final <- results$vec_para_best_final
 
@@ -196,7 +205,7 @@ for (n_simulation in 1:n_simulations) {
                 deconvolution_df[1, paste0("Cluster_mutcount_predicted_", k)] <- NA
             }
         } else if (deconvolution$Cluster_count < max(deconvolution_df$Cluster_count)) {
-            for (k in (deconvolution$Cluster_count + 1):deconvolution_df$Cluster_count) {
+            for (k in (deconvolution$Cluster_count + 1):max(deconvolution_df$Cluster_count)) {
                 deconvolution[1, paste0("Cluster_frequency_", k)] <- NA
                 deconvolution[1, paste0("Cluster_mutcount_observed_", k)] <- NA
                 deconvolution[1, paste0("Cluster_mutcount_predicted_", k)] <- NA
