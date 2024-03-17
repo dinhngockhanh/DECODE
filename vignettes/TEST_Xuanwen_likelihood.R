@@ -23,7 +23,7 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 20
+n_simulations <- 1000
 
 
 t_end_time <- 1000
@@ -150,20 +150,20 @@ data_marker_colors <- c(
     "Data: Background 2" = rgb(0.4660, 0.6740, 0.1880),
     "Data: Truncal" = rgb(0.3010, 0.7450, 0.9330)
 )
-# #---------------------------------------------------Input binomial table
-# cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
-# cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
-# filename_1 <- paste0(
-#     R_libPaths_binomial_table, "/Binomial_PDF_",
-#     matrix_binomial_sample_size, "_",
-#     r_max, "_",
-#     min_variant_read, "_",
-#     min_total_read, "_",
-#     matrix_binomial_sfs_stepcount, "_",
-#     matrix_binomial_ploidy, ".mat"
-# )
-# inputBinomialMatrix <- readMat(filename_1)
-# matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
+#---------------------------------------------------Input binomial table
+cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
+filename_1 <- paste0(
+    R_libPaths_binomial_table, "/Binomial_PDF_",
+    matrix_binomial_sample_size, "_",
+    r_max, "_",
+    min_variant_read, "_",
+    min_total_read, "_",
+    matrix_binomial_sfs_stepcount, "_",
+    matrix_binomial_ploidy, ".mat"
+)
+inputBinomialMatrix <- readMat(filename_1)
+matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---------------------------------------------Deconvolution for each SFS
 deconvolution_df <- data.frame()
 for (n_simulation in 1:n_simulations) {
@@ -225,3 +225,14 @@ deconvolution_df <- cbind(
     deconvolution_df
 )
 write.csv(deconvolution_df, paste0(folder_workplace, "Parameters_deconvolution.csv"), row.names = FALSE)
+# ============================================================COMPARISON
+groundtruth_df <- read.csv(paste0(folder_workplace, "Parameters_true.csv"))
+mobster_df <- read.csv(paste0(folder_workplace, "Parameters_mobster.csv"))
+deconvolution_df <- read.csv(paste0(folder_workplace, "Parameters_deconvolution.csv"))
+plot_deconvolution_components(
+    groundtruth_df = groundtruth_df,
+    mobster_df = mobster_df,
+    deconvolution_df = deconvolution_df,
+    cluster_count = n_selective_clones + 1,
+    folder_workplace = folder_workplace
+)

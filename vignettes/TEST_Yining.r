@@ -28,7 +28,7 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 20
+n_simulations <- 1000
 
 
 t_end_time <- 1000
@@ -49,7 +49,7 @@ vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
 vec_theta_mean <- vec_theta_parameters
 bulk_coverage_model <- "binomial"
 bulk_coverage_variables <- c(0, 100)
-bulk_min_alt_readcounts <- 4 # CHANGE TO 4
+bulk_min_alt_readcounts <- 4
 #------------------------------------------------Create bulk simulations
 dir.create(folder_workplace)
 simulator_batch(
@@ -127,9 +127,8 @@ for (n_simulation in 1:n_simulations) {
 names(df) <- c("Simulation", "A", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_", 1:(n_selective_clones + 1)))
 write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE)
 # ===============================================================MOBSTER
-mob_df <- data.frame()
+mobster_df <- data.frame()
 model_list <- list()
-
 for (i in 1:n_simulations) {
     #   Import mutational data
     filename <- paste0(folder_workplace, "SFS_", i, ".txt")
@@ -148,110 +147,33 @@ for (i in 1:n_simulations) {
     #   Find best MOBSTER model
     mob_model <- fit$best
     model_list[[i]] <- mob_model # save model_list
-
-    # plot
-    png(paste0(folder_workplace, "MOBSTER_", i, ".png"))
+    png(paste0(folder_workplace, "MOBSTER_", i, ".png"), res = 150, width = 15, height = 7.5, units = "in")
     print(plot(fit$best))
     dev.off()
-
     #   Save the results
-    mob_df[i, "Simulation"] <- i # id
-    mob_df[i, "Total_N"] <- mob_model$N # total acount
-    mob_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
-    mob_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
-    mob_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
-    mob_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
-    mob_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
+    mobster_df[i, "Simulation"] <- i # id
+    mobster_df[i, "Total_N"] <- mob_model$N # total acount
+    mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
+    mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
+    mobster_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
+    mobster_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
+    mobster_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
     for (k in 1:mob_model$Kbeta) {
-        mob_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
-        mob_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
-        mob_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
+        mobster_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
+        mobster_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
+        mobster_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
+        mobster_df[i, paste0("p_", k)] <- mobster_df[i, paste0("a_", k)] / (mobster_df[i, paste0("a_", k)] + mobster_df[i, paste0("b_", k)])
     }
 }
-write.csv(mob_df, paste0(folder_workplace, "Parameters_mobster.csv"), row.names = FALSE)
-# # ===============================================================COMPARISON
-# # << load data directly from device >>
-# filename_1 <- paste0(folder_workplace, "Parameters_true.csv")
-# df <- read.csv(filename_1)
-# filename_2 <- paste0(folder_workplace, "Parameters_mobster.csv")
-# mob_df <- read.csv(filename_2)
-com_df <- mob_df # initialize com_df with mob_df
-
-# == Rearrange Clusters Part ==
-## calculate p_i: can be inserted in Mobster part
-for (k in 1:(((dim(com_df)[2]) - 7) / 3)) {
-    com_df[paste0("p_", k)] <- com_df[paste0("a_", k)] / (com_df[paste0("a_", k)] + com_df[paste0("b_", k)])
-}
-
-# rerange cl_num, (a, b) based on p
-p_cols <- grep("^p_", names(com_df), value = TRUE) # get columns represent p
-com_df[p_cols][is.na(com_df[p_cols])] <- 0 # replace NA with 0 for p
-for (i in 1:(dim(com_df)[1])) {
-    p_row <- com_df[i, p_cols]
-    p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE) # order
-    cn <- 1
-    for (id in p_rowsorted_indices) {
-        com_df[i, paste0("K_", id)] <- com_df[i, paste0("cl_num_", cn)]
-        # com_df[i, paste0("re_a_", id)] <- com_df[i, paste0("a_", cn)]
-        # com_df[i, paste0("re_b_", id)] <- com_df[i, paste0("b_", cn)]
-        cn <- cn + 1
-    }
-}
-
-cols_to_drop <- grep("^(a_|b_|cl_num_)", names(com_df), value = TRUE) # drop old columns
-com_df <- com_df[, !(names(com_df) %in% cols_to_drop)]
-write.csv(com_df, paste0(folder_workplace, "Parameters_reranged_mobster.csv"), row.names = FALSE)
-
-# # == Plot Part ==
-# # # # << load data directly from device >>
-# # df <- read.csv("C:/Users/Mayin/Desktop/df.csv")
-# # com_df <- read.csv("C:/Users/Mayin/Desktop/com_df.csv")
-
-# ## Number of clusters
-# freq_kbeta <- table(com_df$Kbeta_cluster)
-# png(paste0(folder_workplace, "Kbeta_cluster.png"))
-# barplot(freq_kbeta, main = "The Number of Clusters from MOBSTER", xlab = "Values", ylab = "Number of Clusters", border = "black")
-# dev.off()
-
-# K_the <- 2 # The number of clusters from ground truth
-# success_kbeta_df <- subset(com_df, Kbeta_cluster == K_the)
-# success_row_ind <- row.names(success_kbeta_df)
-
-# p_min <- min(success_kbeta_df[p_cols], df[success_row_ind, p_cols], na.rm = TRUE)
-# p_max <- max(success_kbeta_df[p_cols], df[success_row_ind, p_cols], na.rm = TRUE) # make sure y=x is in the plot
-# # com_df <- replace(com_df, com_df == 0, NA) # replace 0 with NA
-# # p_df <-  # select only Kbeta_cluster == 2
-# png(paste0(folder_workplace, "p.png"))
-# plot(unlist(success_kbeta_df["p_1"]), unlist(df[success_row_ind, "p_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of p", pch = 16, col = rainbow(1), xlim = c(p_min * 0.9, p_max * 1.1), ylim = c(p_min * 0.9, p_max * 1.1))
-# for (pp in 2:length(p_cols)) {
-#     color_pp <- rainbow(pp)[pp]
-#     p_index <- paste0("p_", pp)
-#     points(unlist(success_kbeta_df[p_index]), unlist(df[success_row_ind, p_index]), pch = 16, col = color_pp)
-# }
-# abline(a = 0, b = 1, lty = 2)
-# legend("topright", legend = c(p_cols), col = rainbow(length(p_cols)), pch = 16)
-# dev.off()
-
-# ## K
-# k_cols <- grep("^K_", names(com_df), value = TRUE)
-# k_min <- min(success_kbeta_df[k_cols], df[success_row_ind, k_cols], na.rm = TRUE)
-# k_max <- max(success_kbeta_df[k_cols], df[success_row_ind, k_cols], na.rm = TRUE) # make sure y=x is in the plot
-# png(paste0(folder_workplace, "K.png"))
-# plot(unlist(success_kbeta_df["K_1"]), unlist(df[success_row_ind, "K_1"]), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of K", pch = 16, col = rainbow(1), xlim = c(k_min * 0.9, k_max * 1.1), ylim = c(k_min * 0.9, k_max * 1.1))
-# for (kk in 2:length(k_cols)) {
-#     color_kk <- rainbow(kk)[kk]
-#     k_index <- paste0("K_", kk)
-#     points(unlist(success_kbeta_df[k_index]), unlist(df[success_row_ind, k_index]), pch = 16, col = color_kk)
-# }
-# abline(a = 0, b = 1, lty = 2)
-# legend("topright", legend = c(k_cols), col = rainbow(length(k_cols)), pch = 16)
-# dev.off()
-
-
-# ## Power of tail
-# #### histogram
-# png(paste0(folder_workplace, "alpha_hist.png"))
-# hist(unlist(com_df$Tail_shape), xlab = "MOBSTER", main = "Comparison of alpha", breaks = 30)
-# dev.off()
-# #### alternative choice: scatter plot
-# # plot(unlist(com_df$Tail_shape), unlist(df$alpha), xlab = "MOBSTER", ylab = "Ground Truth", main = "Comparison of alpha", pch = 16, col = "blue")
+write.csv(mobster_df, paste0(folder_workplace, "Parameters_mobster.csv"), row.names = FALSE)
+# ============================================================COMPARISON
+groundtruth_df <- read.csv(paste0(folder_workplace, "Parameters_true.csv"))
+mobster_df <- read.csv(paste0(folder_workplace, "Parameters_mobster.csv"))
+deconvolution_df <- read.csv(paste0(folder_workplace, "Parameters_deconvolution.csv"))
+plot_deconvolution_components(
+    groundtruth_df = groundtruth_df,
+    mobster_df = mobster_df,
+    deconvolution_df = deconvolution_df,
+    cluster_count = n_selective_clones + 1,
+    folder_workplace = folder_workplace
+)
