@@ -23,7 +23,7 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 1000
+n_simulations <- 20
 
 
 t_end_time <- 1000
@@ -136,6 +136,8 @@ matrix_binomial_ploidy <- 2
 option_dist_coverage <- "binomial"
 dist_coverage_var_1 <- 100
 #----------------------------------------------------Options for fitting
+#   Candidates for neutral tail powers
+list_neutral_powers <- seq(1.5, 3, by = 0.05)
 # 	Candidates for where the hump frequencies are
 N_SFS_positions <- 50
 list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
@@ -174,9 +176,10 @@ for (n_simulation in 1:n_simulations) {
     mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
     colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
     #---Perform SFS deconvolution
-    results <- fit_SFS_likelihood(
+    results <- SFS_deconvolution(
         mutation_table = mutation_table,
         criterion = "BIC",
+        list_neutral_powers = list_neutral_powers,
         list_frequencies = list_frequencies,
         matrix_binomial_PDF = matrix_binomial_PDF,
         matrix_binomial_sample_size = matrix_binomial_sample_size,
@@ -188,10 +191,28 @@ for (n_simulation in 1:n_simulations) {
         r_max = r_max,
         option_dist_coverage = option_dist_coverage,
         dist_coverage_var_1 = dist_coverage_var_1,
-        max_trials = 10000,
+        max_trials = 100000,
         compute_parallel = TRUE,
         data_marker_colors = data_marker_colors
     )
+    # results <- fit_SFS_likelihood(
+    #     mutation_table = mutation_table,
+    #     criterion = "BIC",
+    #     list_frequencies = list_frequencies,
+    #     matrix_binomial_PDF = matrix_binomial_PDF,
+    #     matrix_binomial_sample_size = matrix_binomial_sample_size,
+    #     matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+    #     matrix_binomial_ploidy = matrix_binomial_ploidy,
+    #     sample_size = n_sample,
+    #     SFS_totalsteps = SFS_totalsteps,
+    #     r_min = r_min,
+    #     r_max = r_max,
+    #     option_dist_coverage = option_dist_coverage,
+    #     dist_coverage_var_1 = dist_coverage_var_1,
+    #     max_trials = 10000,
+    #     compute_parallel = TRUE,
+    #     data_marker_colors = data_marker_colors
+    # )
     vec_para_best_final <- results$vec_para_best_final
 
     deconvolution <- results$deconvolution

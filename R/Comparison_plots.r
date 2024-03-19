@@ -9,7 +9,7 @@ plot_deconvolution_components <- function(groundtruth_df,
     is_deconvolution <- !is.null(deconvolution_df)
     color_scheme <- c(
         "MOBSTER" = "royalblue4",
-        "DECONVOLUTION" = "salmon"
+        "DECONVOLUTION" = "firebrick2"
     )
     shape_scheme <- c(
         "Cluster_1" = 15,
@@ -23,10 +23,6 @@ plot_deconvolution_components <- function(groundtruth_df,
         "Cluster_3" = "3",
         "Cluster_4" = "4"
     )
-    #---Compute correct neutral tail power in MOBSTER
-    if (is_mobster) {
-        mobster_df$alpha <- mobster_df$Tail_shape + 1
-    }
     #---Rearrange the humps in ground truth in descending frequencies
     for (i in 1:(dim(groundtruth_df)[1])) {
         p_row <- groundtruth_df[i, grep("^p_", names(groundtruth_df), value = TRUE)]
@@ -68,6 +64,22 @@ plot_deconvolution_components <- function(groundtruth_df,
             }
         }
     }
+    #---Find distributions of neutral tail power in each method
+    if (is_mobster) {
+        mobster_df$alpha <- mobster_df$Tail_shape + 1
+    }
+    #---Find distributions of neutral tail detection in each method
+    df_tail_detection <- data.frame()
+    if (is_mobster) {
+        df_tail_detection <- rbind(
+            df_tail_detection,
+            data.frame(
+                tail = c(TRUE, FALSE),
+                frequency = c(length(which(mobster_df$Tail == TRUE)), length(which(mobster_df$Tail == FALSE))),
+                method = "MOBSTER"
+            )
+        )
+    }
     #---Find distributions of cluster counts in each method
     df_cluster_count <- data.frame()
     if (is_mobster) {
@@ -94,10 +106,24 @@ plot_deconvolution_components <- function(groundtruth_df,
             )
         }
     }
-    #---Find MOBSTER parameters for simulations with correct cluster count
+    #---Find DECONVOLUTION neutral mutation count for simulations with correct cluster count & detected tail
+    if (is_deconvolution) {
+        simulations_ids <- deconvolution_df$Simulation[which(deconvolution_df$Cluster_count == cluster_count_correct & deconvolution_df$Tail == TRUE)]
+        deconvolution_neutral_df <- data.frame(
+            Simulation = simulations_ids,
+            Parameter = rep("A", cluster_count_correct * length(simulations_ids)),
+            Value_TRUTH = NA,
+            Value_DECONVOLUTION = NA
+        )
+        for (row in 1:nrow(deconvolution_neutral_df)) {
+            deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A"]][deconvolution_neutral_df$Simulation[row]]
+            deconvolution_neutral_df$Value_DECONVOLUTION[row] <- deconvolution_df[["Tail_mutcount_predicted"]][deconvolution_neutral_df$Simulation[row]]
+        }
+    }
+    #---Find MOBSTER cluster parameters for simulations with correct cluster count
     if (is_mobster) {
         simulations_ids <- mobster_df$Simulation[which(mobster_df$Kbeta_cluster == cluster_count_correct)]
-        correct_mobster_df <- data.frame(
+        mobster_cluster_df <- data.frame(
             Simulation = rep(simulations_ids, 2 * cluster_count_correct),
             Parameter = c(rep("p", cluster_count_correct * length(simulations_ids)), rep("K", cluster_count_correct * length(simulations_ids))),
             Cluster_ID = paste0("Cluster_", rep(rep(as.character(1:cluster_count_correct), each = length(simulations_ids)), 2)),
@@ -105,16 +131,15 @@ plot_deconvolution_components <- function(groundtruth_df,
             Value_TRUTH = NA,
             Value_MOBSTER = NA
         )
-        for (row in 1:nrow(correct_mobster_df)) {
-            correct_mobster_df$Value_TRUTH[row] <- groundtruth_df[[paste0("ordered_", correct_mobster_df$Parameter[row], "_", correct_mobster_df$Cluster[row])]][correct_mobster_df$Simulation[row]]
-            correct_mobster_df$Value_MOBSTER[row] <- mobster_df[[paste0("ordered_", correct_mobster_df$Parameter[row], "_", correct_mobster_df$Cluster[row])]][correct_mobster_df$Simulation[row]]
+        for (row in 1:nrow(mobster_cluster_df)) {
+            mobster_cluster_df$Value_TRUTH[row] <- groundtruth_df[[paste0("ordered_", mobster_cluster_df$Parameter[row], "_", mobster_cluster_df$Cluster[row])]][mobster_cluster_df$Simulation[row]]
+            mobster_cluster_df$Value_MOBSTER[row] <- mobster_df[[paste0("ordered_", mobster_cluster_df$Parameter[row], "_", mobster_cluster_df$Cluster[row])]][mobster_cluster_df$Simulation[row]]
         }
     }
-
-    #---Find DECONVOLUTION parameters for simulations with correct cluster count
+    #---Find DECONVOLUTION cluster parameters for simulations with correct cluster count
     if (is_deconvolution) {
         simulations_ids <- deconvolution_df$Simulation[which(deconvolution_df$Cluster_count == cluster_count_correct)]
-        correct_deconvolution_df <- data.frame(
+        deconvolution_cluster_df <- data.frame(
             Simulation = rep(simulations_ids, 2 * cluster_count_correct),
             Parameter = c(rep("p", cluster_count_correct * length(simulations_ids)), rep("K", cluster_count_correct * length(simulations_ids))),
             Cluster_ID = paste0("Cluster_", rep(rep(as.character(1:cluster_count_correct), each = length(simulations_ids)), 2)),
@@ -122,10 +147,34 @@ plot_deconvolution_components <- function(groundtruth_df,
             Value_TRUTH = NA,
             Value_DECONVOLUTION = NA
         )
-        for (row in 1:nrow(correct_deconvolution_df)) {
-            correct_deconvolution_df$Value_TRUTH[row] <- groundtruth_df[[paste0("ordered_", correct_deconvolution_df$Parameter[row], "_", correct_deconvolution_df$Cluster[row])]][correct_deconvolution_df$Simulation[row]]
-            correct_deconvolution_df$Value_DECONVOLUTION[row] <- deconvolution_df[[paste0("ordered_", correct_deconvolution_df$Parameter[row], "_", correct_deconvolution_df$Cluster[row])]][correct_deconvolution_df$Simulation[row]]
+        for (row in 1:nrow(deconvolution_cluster_df)) {
+            deconvolution_cluster_df$Value_TRUTH[row] <- groundtruth_df[[paste0("ordered_", deconvolution_cluster_df$Parameter[row], "_", deconvolution_cluster_df$Cluster[row])]][deconvolution_cluster_df$Simulation[row]]
+            deconvolution_cluster_df$Value_DECONVOLUTION[row] <- deconvolution_df[[paste0("ordered_", deconvolution_cluster_df$Parameter[row], "_", deconvolution_cluster_df$Cluster[row])]][deconvolution_cluster_df$Simulation[row]]
         }
+    }
+    #---Plot distributions of tail detection
+    if (is_mobster) {
+        png(paste0(folder_workplace, "Comparison_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
+        xticks <- sort(unique(df_tail_detection$tail))
+        xticks_label <- as.character(xticks)
+        xticks_label[xticks_label == "TRUE"] <- "TRUE (correct)"
+        p <- ggplot() +
+            geom_bar(data = df_tail_detection, aes(x = tail, y = frequency, fill = method), stat = "identity", position = "dodge") +
+            scale_fill_manual(values = color_scheme, name = "Method") +
+            guides(fill = guide_legend(nrow = 1, keywidth = 4, keyheight = 1)) +
+            xlab("Tail detection") +
+            ylab("Frequency") +
+            scale_x_discrete(breaks = xticks, labels = xticks_label) +
+            theme(
+                text = element_text(size = 80),
+                panel.background = element_rect(fill = "white", colour = "white"),
+                panel.grid.major = element_line(colour = "white"),
+                panel.grid.minor = element_line(colour = "white"),
+                legend.position = "top",
+                legend.justification = c(0, 0.5)
+            )
+        print(p)
+        dev.off()
     }
     #---Plot distributions of cluster counts
     png(paste0(folder_workplace, "Comparison_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
@@ -171,7 +220,43 @@ plot_deconvolution_components <- function(groundtruth_df,
     }
     if (is_mobster) {
         p <- p +
-            geom_histogram(data = mobster_df, aes(x = alpha, fill = "MOBSTER"), alpha = 0.5)
+            geom_histogram(data = mobster_df[!is.na(mobster_df$alpha), ], aes(x = alpha, fill = "MOBSTER"), alpha = 0.5)
+    }
+    if (is_deconvolution) {
+        p <- p +
+            geom_histogram(data = deconvolution_df[!is.na(deconvolution_df$Tail_power), ], aes(x = Tail_power, fill = "DECONVOLUTION"), alpha = 0.5)
+    }
+    print(p)
+    dev.off()
+    #---Plot distributions of neutral tail mutation count
+    png(paste0(folder_workplace, "Comparison_neutral_tail_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
+        scale_fill_manual(values = color_scheme, name = "Method") +
+        scale_color_manual(values = color_scheme, name = "Method") +
+        xlab("True neutral mutation count") +
+        ylab("Inferred neutral mutation count") +
+        theme(
+            text = element_text(size = 80),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5)
+        )
+    common_range <- c()
+    if (is_deconvolution) {
+        common_range <- c(
+            common_range,
+            deconvolution_neutral_df$Value_TRUTH[deconvolution_neutral_df$Parameter == "A"],
+            deconvolution_neutral_df$Value_DECONVOLUTION[deconvolution_neutral_df$Parameter == "A"]
+        )
+        p <- p +
+            geom_point(
+                data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A", ],
+                aes(x = Value_TRUTH, y = Value_DECONVOLUTION, fill = "DECONVOLUTION", color = "DECONVOLUTION"),
+                alpha = 0.3, size = 20
+            ) + xlim(range(common_range)) + ylim(range(common_range))
     }
     print(p)
     dev.off()
@@ -179,10 +264,6 @@ plot_deconvolution_components <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_clonal_frequency.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        coord_cartesian(
-            xlim = range(c(correct_mobster_df$Value_TRUTH[correct_mobster_df$Parameter == "p"], correct_mobster_df$Value_MOBSTER[correct_mobster_df$Parameter == "p"])),
-            ylim = range(c(correct_mobster_df$Value_TRUTH[correct_mobster_df$Parameter == "p"], correct_mobster_df$Value_MOBSTER[correct_mobster_df$Parameter == "p"]))
-        ) +
         scale_fill_manual(values = color_scheme, name = "Method") +
         scale_color_manual(values = color_scheme, name = "Method") +
         scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
@@ -196,32 +277,39 @@ plot_deconvolution_components <- function(groundtruth_df,
             legend.position = "top",
             legend.justification = c(0, 0.5)
         )
+    common_range <- c()
     if (is_mobster) {
+        common_range <- c(
+            common_range,
+            mobster_cluster_df$Value_TRUTH[mobster_cluster_df$Parameter == "p"],
+            mobster_cluster_df$Value_MOBSTER[mobster_cluster_df$Parameter == "p"]
+        )
         p <- p +
             geom_point(
-                data = correct_mobster_df[correct_mobster_df$Parameter == "p", ],
+                data = mobster_cluster_df[mobster_cluster_df$Parameter == "p", ],
                 aes(x = Value_TRUTH, y = Value_MOBSTER, shape = Cluster_ID, fill = "MOBSTER", color = "MOBSTER"),
                 alpha = 0.3, size = 20
-            )
+            ) + xlim(range(common_range)) + ylim(range(common_range))
     }
     if (is_deconvolution) {
+        common_range <- c(
+            common_range,
+            deconvolution_cluster_df$Value_TRUTH[deconvolution_cluster_df$Parameter == "p"],
+            deconvolution_cluster_df$Value_DECONVOLUTION[deconvolution_cluster_df$Parameter == "p"]
+        )
         p <- p +
             geom_point(
-                data = correct_deconvolution_df[correct_deconvolution_df$Parameter == "p", ],
+                data = deconvolution_cluster_df[deconvolution_cluster_df$Parameter == "p", ],
                 aes(x = Value_TRUTH, y = Value_DECONVOLUTION, shape = Cluster_ID, fill = "DECONVOLUTION", color = "DECONVOLUTION"),
                 alpha = 0.3, size = 20
-            )
+            ) + xlim(range(common_range)) + ylim(range(common_range))
     }
     print(p)
     dev.off()
     #---Plot distributions of clonal mutation counts
-    png(paste0(folder_workplace, "Comparison_clonal_mutation_counts.png"), res = 150, width = 30, height = 30, units = "in")
+    png(paste0(folder_workplace, "Comparison_clonal_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        coord_cartesian(
-            xlim = range(c(correct_mobster_df$Value_TRUTH[correct_mobster_df$Parameter == "K"], correct_mobster_df$Value_MOBSTER[correct_mobster_df$Parameter == "K"])),
-            ylim = range(c(correct_mobster_df$Value_TRUTH[correct_mobster_df$Parameter == "K"], correct_mobster_df$Value_MOBSTER[correct_mobster_df$Parameter == "K"]))
-        ) +
         scale_fill_manual(values = color_scheme, name = "Method") +
         scale_color_manual(values = color_scheme, name = "Method") +
         scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
@@ -235,21 +323,32 @@ plot_deconvolution_components <- function(groundtruth_df,
             legend.position = "top",
             legend.justification = c(0, 0.5)
         )
+    common_range <- c()
     if (is_mobster) {
+        common_range <- c(
+            common_range,
+            mobster_cluster_df$Value_TRUTH[mobster_cluster_df$Parameter == "K"],
+            mobster_cluster_df$Value_MOBSTER[mobster_cluster_df$Parameter == "K"]
+        )
         p <- p +
             geom_point(
-                data = correct_mobster_df[correct_mobster_df$Parameter == "K", ],
+                data = mobster_cluster_df[mobster_cluster_df$Parameter == "K", ],
                 aes(x = Value_TRUTH, y = Value_MOBSTER, shape = Cluster_ID, fill = "MOBSTER", color = "MOBSTER"),
                 alpha = 0.3, size = 20
-            )
+            ) + xlim(range(common_range)) + ylim(range(common_range))
     }
     if (is_deconvolution) {
+        common_range <- c(
+            common_range,
+            deconvolution_cluster_df$Value_TRUTH[deconvolution_cluster_df$Parameter == "K"],
+            deconvolution_cluster_df$Value_DECONVOLUTION[deconvolution_cluster_df$Parameter == "K"]
+        )
         p <- p +
             geom_point(
-                data = correct_deconvolution_df[correct_deconvolution_df$Parameter == "K", ],
+                data = deconvolution_cluster_df[deconvolution_cluster_df$Parameter == "K", ],
                 aes(x = Value_TRUTH, y = Value_DECONVOLUTION, shape = Cluster_ID, fill = "DECONVOLUTION", color = "DECONVOLUTION"),
                 alpha = 0.3, size = 20
-            )
+            ) + xlim(range(common_range)) + ylim(range(common_range))
     }
     print(p)
     dev.off()
