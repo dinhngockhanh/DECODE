@@ -8,6 +8,12 @@ R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@co
 R_libPaths <- ""
 R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
 R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
+R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
+R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
+R_libPaths_extra <- "/burg/iicd/users/ym2998/R_Function"
+R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" # where the binomial tables are located
+
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(parallel)
@@ -23,7 +29,7 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 20
+n_simulations <- 1000
 
 
 t_end_time <- 1000
