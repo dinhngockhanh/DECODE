@@ -1,18 +1,18 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Xuanwen - Laptop
-R_workplace <- "C:/5398_R/vignettes" # where the vignette folder is located
-R_libPaths <- ""
-R_libPaths_extra <- "" # where the R folder is located
-R_libPaths_binomial_table <- "D:/5398_dataset" # where the binomial tables are located
+# R_workplace <- "C:/5398_R/vignettes" # where the vignette folder is located
+# R_libPaths <- ""
+# R_libPaths_extra <- "" # where the R folder is located
+# R_libPaths_binomial_table <- "D:/5398_dataset" # where the binomial tables are located
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
 R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
 R_libPaths <- ""
 R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
 R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
-R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
-R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-R_libPaths_extra <- "/burg/iicd/users/ym2998/R_Function"
-R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" # where the binomial tables are located
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
+# R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
+# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
+# R_libPaths_extra <- "/burg/iicd/users/ym2998/R_Function"
+# R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" # where the binomial tables are located
 
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
@@ -29,7 +29,7 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 1000
+n_simulations <- 20
 
 
 t_end_time <- 1000
@@ -100,8 +100,10 @@ bulk_min_alt_readcounts <- 4
 #     MRCA_ages <- simulation_variables$MRCA_ages
 #     #   Find clonal sizes in sample, including subclones
 #     ns_combined <- ns
-#     for (i in length(vec_hierarchy_s_mut):1) {
-#         ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
+#     if (length(vec_hierarchy_s_mut) > 0) {
+#         for (i in length(vec_hierarchy_s_mut):1) {
+#             ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
+#         }
 #     }
 #     #   Compute actual clonal growth rates
 #     growth_rates <- log(Ns) / (t_end_time - MRCA_ages)
@@ -113,8 +115,10 @@ bulk_min_alt_readcounts <- 4
 #     ps <- ns_combined / n_sample / ploidy
 #     #   Find expected number of mutations in each binomial hump
 #     Ks <- vec_theta_parameters * MRCA_ages
-#     for (i in length(vec_hierarchy_s_mut):1) {
-#         Ks[i + 1] <- Ks[i + 1] - Ks[vec_hierarchy_s_mut[i] + 1]
+#     if (length(vec_hierarchy_s_mut) > 0) {
+#         for (i in length(vec_hierarchy_s_mut):1) {
+#             Ks[i + 1] <- Ks[i + 1] - Ks[vec_hierarchy_s_mut[i] + 1]
+#         }
 #     }
 #     Ks[1] <- Ks[1] + truncal_mutations
 #     #   Save the results
@@ -134,7 +138,8 @@ min_variant_read <- 5
 # 	Minimum total read count to be accepted
 min_total_read <- 0
 # 	Number of steps to divide SFS frequencies in [0,1]
-SFS_totalsteps <- 100
+SFS_totalsteps <- 100 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# SFS_totalsteps <- 100
 matrix_binomial_sfs_stepcount <- 100
 # 	Choice of ploidy, which changes the binomial rate
 matrix_binomial_ploidy <- 2
@@ -143,8 +148,10 @@ option_dist_coverage <- "binomial"
 dist_coverage_var_1 <- 100
 #----------------------------------------------------Options for fitting
 #   Candidates for neutral tail powers
+# list_neutral_powers <- seq(1, 1, by = 0.05) # <<<<<<<<<<<<<<<<<<<<<<<<<<
 list_neutral_powers <- seq(1.5, 3, by = 0.05)
 # 	Candidates for where the hump frequencies are
+# N_SFS_positions <- 1 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 N_SFS_positions <- 50
 list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
 #---------------------------------------------------Options for plotting
@@ -159,7 +166,7 @@ data_marker_colors <- c(
     "Data: Truncal" = rgb(0.3010, 0.7450, 0.9330)
 )
 #---------------------------------------------------Input binomial table
-cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+cat("\n==========================================================================================================================\n")
 cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
 filename_1 <- paste0(
     R_libPaths_binomial_table, "/Binomial_PDF_",
@@ -175,7 +182,7 @@ matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---------------------------------------------Deconvolution for each SFS
 deconvolution_df <- data.frame()
 for (n_simulation in 1:n_simulations) {
-    cat("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+    cat("\n==========================================================================================================================\n")
     cat(paste0("SFS DECONVOLUTION FOR SIMULATION-", n_simulation, "...\n"))
     #---Input the SFS data
     filename_2 <- paste0(R_workplace, "/", folder_workplace, "SFS_", n_simulation, ".txt")
@@ -199,26 +206,9 @@ for (n_simulation in 1:n_simulations) {
         dist_coverage_var_1 = dist_coverage_var_1,
         max_trials = 100000,
         compute_parallel = TRUE,
-        data_marker_colors = data_marker_colors
+        data_marker_colors = data_marker_colors,
+        plot_filename = paste0(R_workplace, "/", folder_workplace, "DECONVOLUTION_", n_simulation, ".png")
     )
-    # results <- fit_SFS_likelihood(
-    #     mutation_table = mutation_table,
-    #     criterion = "BIC",
-    #     list_frequencies = list_frequencies,
-    #     matrix_binomial_PDF = matrix_binomial_PDF,
-    #     matrix_binomial_sample_size = matrix_binomial_sample_size,
-    #     matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
-    #     matrix_binomial_ploidy = matrix_binomial_ploidy,
-    #     sample_size = n_sample,
-    #     SFS_totalsteps = SFS_totalsteps,
-    #     r_min = r_min,
-    #     r_max = r_max,
-    #     option_dist_coverage = option_dist_coverage,
-    #     dist_coverage_var_1 = dist_coverage_var_1,
-    #     max_trials = 10000,
-    #     compute_parallel = TRUE,
-    #     data_marker_colors = data_marker_colors
-    # )
     vec_para_best_final <- results$vec_para_best_final
 
     deconvolution <- results$deconvolution
