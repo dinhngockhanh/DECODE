@@ -1,20 +1,20 @@
-pdf_coverage <- function(r) {
+pdf_coverage <- function(r, sample_coverage) {
     # Compute the probability of a read number
     # based on choice of sampling coverage distribution
-    if (option_dist_coverage == "uniform") {
+    if (coverage_distribution == "uniform") {
         if (r < r_min || r > r_max || r_min > r_max) {
             phi_r <- 0
         } else if (r_min == r_max) {
-            if (dist_coverage_var_1 <= r_min && dist_coverage_var_2 >= r_min) {
+            if (coverage_variables <= r_min && dist_coverage_var_2 >= r_min) {
                 phi_r <- 1
             } else {
                 phi_r <- 0
             }
         } else {
-            phi_r <- 1 / (dist_coverage_var_2 - dist_coverage_var_1)
+            phi_r <- 1 / (dist_coverage_var_2 - coverage_variables)
         }
-    } else if (option_dist_coverage == "binomial") {
-        D <- dist_coverage_var_1
+    } else if (coverage_distribution == "binomial") {
+        D <- coverage_variables
         if (r < r_min || r > r_max || r_min > r_max) {
             phi_r <- 0
         } else if (D > 0) {
@@ -22,13 +22,8 @@ pdf_coverage <- function(r) {
         } else {
             phi_r <- -1
         }
-    } else if (option_dist_coverage == "TCGA") {
-        pos <- which(TCGA_coverage_values == r)
-        if (length(pos) == 0 || r < r_min || r > r_max || r_min > r_max) {
-            phi_r <- 0
-        } else {
-            phi_r <- TCGA_coverage_PDF[pos]
-        }
+    } else if (coverage_distribution == "sample-specific") {
+        phi_r <- sample_coverage$pdf[sample_coverage$total_readcount == r]
     }
     return(phi_r)
 }

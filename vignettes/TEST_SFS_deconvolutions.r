@@ -38,14 +38,14 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 # ==========================================MAKE CINNER LITE SIMULATIONS
 #---------------------------------------------------Set model parameters
-n_simulations <- 1000
+n_simulations <- 20
 
 
 t_end_time <- 1000
 t_tau_step <- 1
-n_selective_clones <- 0 # 1
-vec_time_points_s_mut <- t_end_time * c() # c(0.6)
-vec_hierarchy_s_mut <- c() # c(0)
+n_selective_clones <- 2 # 0 # 1
+vec_time_points_s_mut <- t_end_time * c(0.6, 0.8) # t_end_time * c() # c(0.6)
+vec_hierarchy_s_mut <- c(0, 1) # c() # c(0)
 expected_end_population <- 10^6
 vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
 n_sample <- 100000
@@ -93,7 +93,7 @@ simulator_batch(
 )
 #--------------------------------------------------------Clean bulk data
 for (n_simulation in 1:n_simulations) {
-    filename <- paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
+    filename <- paste0(folder_workplace, "ClonalTimes=", paste(vec_time_points_s_mut, collapse = ","), "_ClonalHierarchy=", paste(vec_hierarchy_s_mut, collapse = ","), "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
     mut_table <- read.csv(filename)
     vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
     if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
@@ -104,7 +104,7 @@ for (n_simulation in 1:n_simulations) {
 df <- data.frame()
 for (n_simulation in 1:n_simulations) {
     #   Retrieve clonal MRCA ages and sizes in population & sample
-    simulation_variables <- read.csv(paste0(folder_workplace, "ClonalTimes=", vec_time_points_s_mut, "_ClonalHierarchy=", vec_hierarchy_s_mut, "_simulated_SFS_", n_simulation, "_simulation_variables.csv"))
+    simulation_variables <- read.csv(paste0(folder_workplace, "ClonalTimes=", paste(vec_time_points_s_mut, collapse = ","), "_ClonalHierarchy=", paste(vec_hierarchy_s_mut, collapse = ","), "_simulated_SFS_", n_simulation, "_simulation_variables.csv"))
     Ns <- simulation_variables$Count_in_population
     ns <- simulation_variables$Count_in_sample
     MRCA_ages <- simulation_variables$MRCA_ages
@@ -193,8 +193,10 @@ matrix_binomial_sfs_stepcount <- 100
 # 	Choice of ploidy, which changes the binomial rate
 matrix_binomial_ploidy <- 2
 #   Assumption of coverage distribution
-option_dist_coverage <- "binomial"
-dist_coverage_var_1 <- 100
+coverage_distribution <- "binomial"
+coverage_variables <- 100
+#   Maximum number of trials for fitting each hump count
+max_trials <- 100000
 #---Options for fitting
 #   Candidates for neutral tail powers
 list_neutral_powers <- seq(1, 3, by = 0.01)
@@ -249,9 +251,9 @@ for (n_simulation in 1:n_simulations) {
         SFS_totalsteps = SFS_totalsteps,
         r_min = r_min,
         r_max = r_max,
-        option_dist_coverage = option_dist_coverage,
-        dist_coverage_var_1 = dist_coverage_var_1,
-        max_trials = 100000,
+        coverage_distribution = coverage_distribution,
+        coverage_variables = coverage_variables,
+        max_trials = max_trials,
         compute_parallel = TRUE,
         data_marker_colors = data_marker_colors,
         plot_filename = paste0(R_workplace, "/", folder_workplace, "DECONVOLUTION_", n_simulation, ".png")
