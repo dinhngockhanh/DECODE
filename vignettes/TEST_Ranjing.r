@@ -4,7 +4,7 @@
 R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
 R_libPaths <- ""
 R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
-R_libPaths_CINner <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R_CINner"
+R_libPaths_CINner <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R/R_CINner"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 
@@ -140,17 +140,12 @@ for (i_simulation in 1:n_simulations) {
     #   Run MutationTimeR
     mutationtimer <- mutationTime(mut_vcf, cn_granges, n.boot = 10)
     mcols(cn_granges) <- cbind(mcols(cn_granges), mutationtimer$T)
-
-    # save MutationTime information to csv
-    mutationtimer_csv <- data.frame(
-        Sample = rownames(mutationtimer$T),
-        T = mutationtimer$T
-    )
-    print(mutationtimer_csv)
-    print(mutationtimer_csv_filename)
-    mutationtimer_csv_filename <- paste0(folder_workplace, "/", model_name, "_simulation_", i_simulation, "_mutationtimer.csv")
-    write.csv(mutationtimer_csv, mutationtimer_csv_filename, row.names = FALSE)
-
+    #   Extract CNA timing information
+    unique_cn_granges <- unique(cn_granges)
+    CNA_timing <- cbind(as.data.frame(unique_cn_granges), mutationtimer$T)
+    CNA_timing[] <- lapply(CNA_timing, function(x) if (is.list(x)) toString(x) else x)
+    filename <- paste0(folder_workplace, "/", model_name, "_simulation_", i_simulation, "_cna_timing.csv")
+    write.csv(CNA_timing, file = filename, row.names = FALSE)
     #   Plot MutationTimeR results
     png_filename <- paste0(folder_workplace, "/", model_name, "_simulation_", i_simulation, "_mutationtimer.png")
     png(png_filename, width = 500, height = 750)

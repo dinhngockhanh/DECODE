@@ -19,6 +19,7 @@ SFS_deconvolution <- function(mutation_table,
                               compute_parallel_fit = TRUE,
                               n_cores = NULL,
                               data_marker_colors = NULL,
+                              parameter_filename = NULL,
                               plot_filename = NULL) {
     mutation_refcounts <- mutation_table$Ref_count
     mutation_altcounts <- mutation_table$Alt_count
@@ -93,10 +94,12 @@ SFS_deconvolution <- function(mutation_table,
         cat(report)
 
 
+
         cat(paste0("Number of parameters: ", length(vec_para_best_current), "\n"))
         cat(paste0("Sample size:          ", mutation_count, "\n"))
         cat(paste0("Log-likelihood:       ", fit_results$best_logLikelihood, "\n"))
         cat(paste0("BIC:                  ", length(vec_para_best_current) * log(mutation_count) - 2 * fit_results$best_logLikelihood, "\n"))
+
 
 
         #   Check if the increased hump count leads to lower criterion score...
@@ -125,13 +128,13 @@ SFS_deconvolution <- function(mutation_table,
     #---Plot the SFS deconvolution
     color_scheme <- c(
         data_marker_colors,
-        "Fit: Neutral" = "gray",
+        "Fit: Neutral" = "black",
         "Fit: Cluster 1" = "firebrick2",
         "Fit: Cluster 2" = "royalblue2",
         "Fit: Cluster 3" = "springgreen3",
-        "Fit: Cluster 4" = "magenta3",
+        "Fit: Cluster 4" = "darkturquoise",
         "Fit: Cluster 5" = "darkorange",
-        "Fit: Cluster 6" = "darkturquoise",
+        "Fit: Cluster 6" = "magenta3",
         "Fit: Cluster 7" = "salmon4"
     )
     #   Prepare the data for plotting
@@ -197,14 +200,14 @@ SFS_deconvolution <- function(mutation_table,
     if (!is.null(plot_filename)) {
         png(plot_filename, res = 150, width = 30, height = 15, units = "in")
         p <- ggplot() +
-            geom_bar(data = df_data, aes(x = frequency, y = count, fill = fill), stat = "identity") +
+            geom_bar(data = df_data, aes(x = frequency, y = count, fill = fill), stat = "identity", width = 0.7 / SFS_totalsteps) +
             geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.5) +
             scale_fill_manual(values = color_scheme, name = "") +
             guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
             xlab("Variant Allele Frequency") +
             ylab("Mutation count") +
             theme(
-                text = element_text(size = 40),
+                text = element_text(size = 60),
                 panel.background = element_rect(fill = "white", colour = "white"),
                 panel.grid.major = element_line(colour = "white"),
                 panel.grid.minor = element_line(colour = "white"),
@@ -237,6 +240,9 @@ SFS_deconvolution <- function(mutation_table,
                     sum(library_SFS_component$cluster$SFS_exact[[which(list_frequencies == vec_p[k])]]) /
                     sum(library_SFS_component$cluster$SFS_expected[[which(list_frequencies == vec_p[k])]])
         }
+    }
+    if (!is.null(parameter_filename)) {
+        write.table(deconvolution, parameter_filename, sep = "\t", quote = FALSE, row.names = FALSE)
     }
     #---Return the SFS deconvolution results
     output <- list()

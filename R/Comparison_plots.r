@@ -8,8 +8,8 @@ plot_deconvolution_components <- function(groundtruth_df,
     is_mobster <- !is.null(mobster_df)
     is_deconvolution <- !is.null(deconvolution_df)
     color_scheme <- c(
-        "MOBSTER" = "royalblue4",
-        "DECONVOLUTION" = "firebrick2"
+        "MOBSTER" = "darkorange2",
+        "DECONVOLUTION" = "magenta4"
     )
     shape_scheme <- c(
         "Cluster_1" = 15,
@@ -165,13 +165,13 @@ plot_deconvolution_components <- function(groundtruth_df,
         xticks_label[xticks_label == "TRUE"] <- "TRUE (correct)"
         p <- ggplot() +
             geom_bar(data = df_tail_detection, aes(x = tail, y = frequency, fill = method), stat = "identity", position = "dodge") +
-            scale_fill_manual(values = color_scheme, name = "Method") +
-            guides(fill = guide_legend(nrow = 1, keywidth = 4, keyheight = 1)) +
+            scale_fill_manual(values = color_scheme, name = "") +
+            guides(fill = guide_legend(nrow = 1, keywidth = 3, keyheight = 1)) +
             xlab("Tail detection") +
             ylab("Frequency") +
             scale_x_discrete(breaks = xticks, labels = xticks_label) +
             theme(
-                text = element_text(size = 60),
+                text = element_text(size = 120),
                 panel.background = element_rect(fill = "white", colour = "white"),
                 panel.grid.major = element_line(colour = "white"),
                 panel.grid.minor = element_line(colour = "white"),
@@ -188,13 +188,13 @@ plot_deconvolution_components <- function(groundtruth_df,
     xticks_label[xticks_label == cluster_count_correct] <- paste0(cluster_count_correct, " (correct)")
     p <- ggplot() +
         geom_bar(data = df_cluster_count, aes(x = cluster_count, y = frequency, fill = method), stat = "identity", position = "dodge") +
-        scale_fill_manual(values = color_scheme, name = "Method") +
-        guides(fill = guide_legend(nrow = 1, keywidth = 4, keyheight = 1)) +
+        scale_fill_manual(values = color_scheme, name = "") +
+        guides(fill = guide_legend(nrow = 1, keywidth = 6, keyheight = 1)) +
         xlab("Cluster count") +
         ylab("Frequency") +
         scale_x_continuous(breaks = xticks, labels = xticks_label) +
         theme(
-            text = element_text(size = 60),
+            text = element_text(size = 120),
             panel.background = element_rect(fill = "white", colour = "white"),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
@@ -207,12 +207,12 @@ plot_deconvolution_components <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_neutral_tail_power.png"), res = 150, width = 30, height = 15, units = "in")
     tail_power <- unique(groundtruth_df$alpha)
     p <- ggplot() +
-        scale_fill_manual(values = color_scheme, name = "Method") +
-        guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
+        scale_fill_manual(values = color_scheme, name = "") +
+        guides(fill = guide_legend(nrow = 1, keywidth = 3, keyheight = 1)) +
         xlab("Neutral tail power") +
         ylab("Frequency") +
         theme(
-            text = element_text(size = 30),
+            text = element_text(size = 60),
             panel.background = element_rect(fill = "white", colour = "white"),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
@@ -237,12 +237,12 @@ plot_deconvolution_components <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_neutral_tail_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "Method") +
-        scale_color_manual(values = color_scheme, name = "Method") +
+        scale_fill_manual(values = color_scheme, name = "") +
+        scale_color_manual(values = color_scheme, name = "") +
         xlab("True neutral mutation count") +
         ylab("Inferred neutral mutation count") +
         theme(
-            text = element_text(size = 60),
+            text = element_text(size = 120),
             panel.background = element_rect(fill = "white", colour = "white"),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
@@ -260,7 +260,7 @@ plot_deconvolution_components <- function(groundtruth_df,
             geom_point(
                 data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A", ],
                 aes(x = Value_TRUTH, y = Value_DECONVOLUTION, fill = "DECONVOLUTION", color = "DECONVOLUTION"),
-                alpha = 0.3, size = 20
+                alpha = 0.5, size = 20
             ) + xlim(range(common_range)) + ylim(range(common_range))
     }
     print(p)
@@ -269,13 +269,13 @@ plot_deconvolution_components <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_clonal_frequency.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "Method") +
-        scale_color_manual(values = color_scheme, name = "Method") +
+        scale_fill_manual(values = color_scheme, name = "") +
+        scale_color_manual(values = color_scheme, name = "") +
         scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
         xlab("True cluster frequency") +
         ylab("Inferred cluster frequency") +
         theme(
-            text = element_text(size = 60),
+            text = element_text(size = 120),
             panel.background = element_rect(fill = "white", colour = "white"),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
@@ -290,7 +290,7 @@ plot_deconvolution_components <- function(groundtruth_df,
         geom_point(
             data = cluster_parameter_df[cluster_parameter_df$Parameter == "p", ],
             aes(x = Value_TRUTH, y = Value_INFERRED, shape = Cluster_ID, fill = Method, color = Method),
-            alpha = 0.3, size = 20
+            alpha = 0.5, size = 20
         ) + xlim(range(common_range)) + ylim(range(common_range))
     print(p)
     dev.off()
@@ -298,13 +298,13 @@ plot_deconvolution_components <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_clonal_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "Method") +
-        scale_color_manual(values = color_scheme, name = "Method") +
+        scale_fill_manual(values = color_scheme, name = "") +
+        scale_color_manual(values = color_scheme, name = "") +
         scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
         xlab("True mutation count") +
         ylab("Inferred mutation count") +
         theme(
-            text = element_text(size = 60),
+            text = element_text(size = 120),
             panel.background = element_rect(fill = "white", colour = "white"),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
@@ -319,7 +319,7 @@ plot_deconvolution_components <- function(groundtruth_df,
         geom_point(
             data = cluster_parameter_df[cluster_parameter_df$Parameter == "K", ],
             aes(x = Value_TRUTH, y = Value_INFERRED, shape = Cluster_ID, fill = Method, color = Method),
-            alpha = 0.3, size = 20
+            alpha = 0.5, size = 20
         ) + xlim(range(common_range)) + ylim(range(common_range))
     print(p)
     dev.off()
