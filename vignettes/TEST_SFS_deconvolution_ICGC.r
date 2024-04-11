@@ -147,14 +147,18 @@ setwd(R_workplace)
 #     }
 # }
 # ==========================================LIMIT TO SPECIFIC CASE STUDY
+histology <- "Ovary-AdenoCA"
 sample_df <- read.csv(paste0(R_workplace, "/sample_information.csv"))
 sample_df <- sample_df[
-    which(sample_df$histology_abbreviation == "Ovary-AdenoCA" &
+    which(sample_df$histology_abbreviation == histology &
         sample_df$wgd_status == "no_wgd" &
         sample_df$wgd_uncertain == FALSE),
 ]
 # ===============================================================MOBSTER
+mobster_df <- data.frame()
+i <- 0
 for (sample in sample_df$aliquot_id) {
+    i <- i + 1
     #   Import mutational data
     filename_2 <- paste0(R_workplace, "/", sample, "_1_1.csv")
     mutation_table <- read.csv(filename_2, sep = "\t", header = TRUE)
@@ -186,21 +190,22 @@ for (sample in sample_df$aliquot_id) {
     png(paste0(R_workplace, "/", sample, "_1_1_MOBSTER.png"), res = 150, width = 15, height = 7.5, units = "in")
     print(plot(fit$best))
     dev.off()
-    # #   Save the results
-    # mobster_df[i, "Simulation"] <- i # id
-    # mobster_df[i, "Total_N"] <- mob_model$N # total acount
-    # mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
-    # mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
-    # mobster_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
-    # mobster_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
-    # mobster_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
-    # for (k in 1:mob_model$Kbeta) {
-    #     mobster_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
-    #     mobster_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
-    #     mobster_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
-    #     mobster_df[i, paste0("p_", k)] <- mobster_df[i, paste0("a_", k)] / (mobster_df[i, paste0("a_", k)] + mobster_df[i, paste0("b_", k)])
-    # }
-    # #---Store the best fit
-    # filename <- paste0(R_workplace, "/", sample, "_1_1_MOBSTER_parameters.txt")
-    # write.table(mobster_df[i, ], file = filename, sep = "\t", row.names = FALSE, col.names = TRUE)
+    #   Save the results
+    mobster_df[i, "Simulation"] <- i # id
+    mobster_df[i, "Total_N"] <- mob_model$N # total acount
+    mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
+    mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
+    mobster_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
+    mobster_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
+    mobster_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
+    for (k in 1:mob_model$Kbeta) {
+        mobster_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
+        mobster_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
+        mobster_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
+        mobster_df[i, paste0("p_", k)] <- mobster_df[i, paste0("a_", k)] / (mobster_df[i, paste0("a_", k)] + mobster_df[i, paste0("b_", k)])
+    }
+    #---Store the best fit
+    filename <- paste0(R_workplace, "/", sample, "_1_1_MOBSTER_parameters.txt")
+    write.table(mobster_df[i, ], file = filename, sep = "\t", row.names = FALSE, col.names = TRUE)
 }
+write.csv(mobster_df, "Parameters_mobster.csv", row.names = FALSE)
