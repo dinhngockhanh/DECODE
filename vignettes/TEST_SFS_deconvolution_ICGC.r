@@ -157,7 +157,8 @@ sample_df <- sample_df[
 # ===============================================================MOBSTER
 mobster_df <- data.frame()
 i <- 0
-for (sample in sample_df$aliquot_id) {
+# for (sample in sample_df$aliquot_id) {
+for (sample in sample_df$aliquot_id[1:2]) {
     i <- i + 1
     #   Import mutational data
     filename_2 <- paste0(R_workplace, "/", sample, "_1_1.csv")
@@ -173,17 +174,11 @@ for (sample in sample_df$aliquot_id) {
     #   Data transformation
     mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
     mob_data <- as.data.frame(mutation_table$VAF)
-
-    # data <- transform(mutation_table, VAF = mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count))
-    # last_col <- ncol(data)
-    # mob_data <- as.data.frame(data[, last_col])
     colnames(mob_data)[1] <- "VAF"
     #   SFS deconvolution with MOBSTER
-    # mobster:::template_parameters_fast_setup() # show basic setup
     fit <- mobster_fit(
-        mob_data
-        # mob_data,
-        # auto_setup = "FAST"
+        mob_data,
+        maxIter = 1000
     )
     #   Find best MOBSTER model
     mob_model <- fit$best
@@ -191,7 +186,7 @@ for (sample in sample_df$aliquot_id) {
     print(plot(fit$best))
     dev.off()
     #   Save the results
-    mobster_df[i, "Simulation"] <- i # id
+    mobster_df[i, "Sample"] <- sample # id
     mobster_df[i, "Total_N"] <- mob_model$N # total acount
     mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
     mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
