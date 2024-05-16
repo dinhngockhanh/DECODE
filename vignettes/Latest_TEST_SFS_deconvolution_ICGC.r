@@ -1,24 +1,14 @@
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
-# R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
-# R_workplace <- "/burg/iicd/users/ym2998/ICGC"
-# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-# R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
-# R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" 
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
-R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/ICGC"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
+R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
+R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
 R_libPaths <- ""
-R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
-R_libPaths_binomial_table <- ""
+R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
+R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
-# library(MutationTimeR)
 library(dplyr)
-library(VariantAnnotation) 
-library(GenomicRanges) 
+library(VariantAnnotation)
+library(GenomicRanges)
 library(R.utils)
 library(readxl)
 library(data.table)
@@ -49,7 +39,6 @@ setwd(R_workplace)
 # }
 # #---------------------------------------Prepare sample information table
 # consensus_20170218_purity_ploidy <- read.table("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_cnv/consensus.20170218.purity.ploidy.txt", header = TRUE, sep = "\t")
-# consensus_20170218_purity_ploidy <- read.table("consensus.20170218.purity.ploidy.txt", header = TRUE, sep = "\t")
 # pcawg_sample_sheet <- read.table("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/pcawg_sample_sheet.tsv", header = TRUE, sep = "\t")
 # pcawg_specimen_histology_August2016_v9 <- as.data.frame(read_excel("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/pcawg_specimen_histology_August2016_v9.xlsx"))
 # sample_df <- data.frame(
@@ -157,62 +146,160 @@ setwd(R_workplace)
 #         write.table(muts_karyotype, filename, sep = "\t", row.names = FALSE)
 #     }
 # }
-
 # ==========================================LIMIT TO SPECIFIC CASE STUDY
-histology <- "Ovary-AdenoCA"
-sample_df <- read.csv(paste0(R_workplace, "/sample_information.csv"))
+histology <- c("Breast-AdenoCA", "Ovary-AdenoCA", "Myeloid-AML", "Myeloid-MPN", "Myeloid-MDS")
+sample_df <- read.csv(paste0(R_data, "/sample_information.csv"))
 sample_df <- sample_df[
-    which(sample_df$histology_abbreviation == histology &
+    which(sample_df$histology_abbreviation %in% histology &
         sample_df$wgd_status == "no_wgd" &
         sample_df$wgd_uncertain == FALSE),
 ]
-# ===============================================================MOBSTER
-mobster_df <- data.frame()
-i <- 0
-# for (sample in sample_df$aliquot_id) {
-for (sample in sample_df$aliquot_id[1:2]) {
-    i <- i + 1
-    #   Import mutational data
-    filename_2 <- paste0(R_workplace, "/", sample, "_1_1.csv")
-    mutation_table <- read.csv(filename_2, sep = "\t", header = TRUE)
+write.csv(sample_df, file = paste0(R_workplace, "/sample_information.csv"), row.names = FALSE)
+# # ===============================================================MOBSTER
+# mobster_df <- data.frame()
+# i <- 0
+# # for (sample in sample_df$aliquot_id) {
+# for (sample in c("097a7d36-905b-72be-e050-11ac0d482c9a")) {
+#     i <- i + 1
+#     #   Import mutational data
+#     filename_2 <- paste0(R_data, "/", sample, "_1_1.csv")
+#     mutation_table <- read.csv(filename_2, sep = "\t", header = TRUE)
+#     mutation_table$Ref_count <- mutation_table$t_ref_count
+#     mutation_table$Alt_count <- mutation_table$t_alt_count
+#     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) {
+#         mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
+#     }
+#     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) {
+#         mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+#     }
+#     #   Data transformation
+#     mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
+#     mob_data <- as.data.frame(mutation_table$VAF)
+#     colnames(mob_data)[1] <- "VAF"
+#     #   SFS deconvolution with MOBSTER
+#     fit <- mobster_fit(
+#         mob_data,
+#         maxIter = 1000
+#     )
+#     #   Find best MOBSTER model
+#     mob_model <- fit$best
+#     png(paste0(R_workplace, "/", sample, "_1_1_MOBSTER.png"), res = 150, width = 15, height = 7.5, units = "in")
+#     print(plot(fit$best))
+#     dev.off()
+#     png(paste0(sample, "_1_1_MOBSTER_model_selection.png"), res = 150, width = 15, height = 7.5, units = "in")
+#     print(plot_model_selection(fit))
+#     dev.off()
+#     #   Save the results
+#     mobster_df[i, "Sample"] <- sample # id
+#     mobster_df[i, "Total_N"] <- mob_model$N # total acount
+#     mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
+#     mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
+#     mobster_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
+#     mobster_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
+#     mobster_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
+#     for (k in 1:mob_model$Kbeta) {
+#         mobster_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
+#         mobster_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
+#         mobster_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
+#         mobster_df[i, paste0("p_", k)] <- mobster_df[i, paste0("a_", k)] / (mobster_df[i, paste0("a_", k)] + mobster_df[i, paste0("b_", k)])
+#     }
+#     #---Store the best fit
+#     filename <- paste0(R_workplace, "/", sample, "_1_1_MOBSTER_parameters.txt")
+#     write.table(mobster_df[i, ], file = filename, sep = "\t", row.names = FALSE, col.names = TRUE)
+# }
+# write.csv(mobster_df, "Parameters_mobster.csv", row.names = FALSE)
+# =====================================================SFS DECONVOLUTION
+#---Set model parameters
+# 	Total number of sampled cells in binomial table construction
+matrix_binomial_sample_size <- 1000
+# 	Minimum and maximum number of reads
+r_min <- 0
+r_max <- 500
+# 	Minimum variant read count to be accepted
+min_variant_read <- 5
+# 	Minimum total read count to be accepted
+min_total_read <- 0
+# 	Number of steps to divide SFS frequencies in [0,1]
+SFS_totalsteps <- 100 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+matrix_binomial_sfs_stepcount <- 100
+# 	Choice of ploidy, which changes the binomial rate
+matrix_binomial_ploidy <- 2
+#   Assumption of coverage distribution
+coverage_distribution <- "sample-specific"
+#   Maximum number of trials for fitting each hump count
+max_trials <- 10000
+#   Number of cells in the sample (for calibrating neutral mutation counts)
+n_sample <- 1000000
+#---Options for fitting
+#   Candidates for neutral tail powers
+list_neutral_powers <- seq(1, 3, by = 0.01)
+# 	Candidates for where the hump frequencies are
+N_SFS_positions <- 500
+list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
+# #---Input binomial table
+# cat("\n==========================================================================================================================\n")
+# cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
+# filename_1 <- paste0(
+#     R_libPaths_binomial_table, "/Binomial_PDF_",
+#     matrix_binomial_sample_size, "_",
+#     r_max, "_",
+#     min_variant_read, "_",
+#     min_total_read, "_",
+#     matrix_binomial_sfs_stepcount, "_",
+#     matrix_binomial_ploidy, ".mat"
+# )
+# inputBinomialMatrix <- readMat(filename_1)
+# matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
+#---Deconvolution for each SFS
+for (sample in sample_df$aliquot_id) {
+    # for (sample in c("2b40a733-7a63-4bb8-a953-95a4ee28f962")) {
+    # for (sample in sample_df$aliquot_id[3]) {
+    cat("\n==========================================================================================================================\n")
+    cat(paste0("SFS DECONVOLUTION FOR SAMPLE ", sample, "...\n"))
+    #---Input the SFS data
+    filename_2 <- paste0(R_data, "/", sample, "_1_1.csv")
+    mutation_table <- read.table(filename_2, sep = "\t", header = TRUE)
     mutation_table$Ref_count <- mutation_table$t_ref_count
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) {
         mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     }
-    if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) {
-        mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-    }
-    #   Data transformation
-    mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
-    mob_data <- as.data.frame(mutation_table$VAF)
-    colnames(mob_data)[1] <- "VAF"
-    #   SFS deconvolution with MOBSTER
-    fit <- mobster_fit(
-        mob_data,
-        maxIter = 1000
+    #---Perform SFS deconvolution
+    results <- SFS_deconvolution(
+        mutation_table = mutation_table,
+        # criterion = "BIC", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        # criterion = "ICL_MAP", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        list_neutral_powers = list_neutral_powers,
+        list_frequencies = list_frequencies,
+        matrix_binomial_PDF = matrix_binomial_PDF,
+        matrix_binomial_sample_size = matrix_binomial_sample_size,
+        matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+        matrix_binomial_ploidy = matrix_binomial_ploidy,
+        sample_size = n_sample,
+        SFS_totalsteps = SFS_totalsteps,
+        r_min = r_min,
+        r_max = r_max,
+        coverage_distribution = coverage_distribution,
+        max_trials = max_trials,
+        min_N_humps = 1, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        parameter_filename = paste0(R_workplace, "/", sample, "_1_1_DECONVOLUTION.txt"),
+        plot_filename = paste0(R_workplace, "/", sample, "_1_1_DECONVOLUTION.png")
     )
-    #   Find best MOBSTER model
-    mob_model <- fit$best
-    png(paste0(R_workplace, "/", sample, "_1_1_MOBSTER.png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(plot(fit$best))
-    dev.off()
-    #   Save the results
-    mobster_df[i, "Sample"] <- sample # id
-    mobster_df[i, "Total_N"] <- mob_model$N # total acount
-    mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
-    mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
-    mobster_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
-    mobster_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
-    mobster_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
-    for (k in 1:mob_model$Kbeta) {
-        mobster_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
-        mobster_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
-        mobster_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
-        mobster_df[i, paste0("p_", k)] <- mobster_df[i, paste0("a_", k)] / (mobster_df[i, paste0("a_", k)] + mobster_df[i, paste0("b_", k)])
-    }
-    #---Store the best fit
-    filename <- paste0(R_workplace, "/", sample, "_1_1_MOBSTER_parameters.txt")
-    write.table(mobster_df[i, ], file = filename, sep = "\t", row.names = FALSE, col.names = TRUE)
+    vec_para_best_final <- results$vec_para_best_final
+    deconvolution <- results$deconvolution
+    # #---Store the best fit
+    # N_humps <- (length(vec_para_best_final) - 1) / 2
+    # filename <- paste0(R_workplace, "/", sample, "_1_1_DECONVOLUTION_parameters.txt")
+
+    # print(filename)
+
+    # fileID <- file(filename, "w")
+    # writeLines(paste(sprintf("%.3f", vec_para_best_final), collapse = "\t"), fileID)
+    # close(fileID)
 }
-write.csv(mobster_df, "Parameters_mobster.csv", row.names = FALSE)
+# deconvolution_df <- cbind(
+#     data.frame(Sample = sample_IDs),
+#     deconvolution_df
+# )
+# write.csv(deconvolution_df, "Parameters_deconvolution.csv", row.names = FALSE)
