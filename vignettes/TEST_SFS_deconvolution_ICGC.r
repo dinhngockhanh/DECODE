@@ -1,8 +1,18 @@
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
+# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
+# R_libPaths <- ""
+# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
+# R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
+# R_workplace <- "/burg/iicd/users/ym2998/ICGC"
+# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
+# R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
+# R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" 
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
+R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/ICGC"
 R_libPaths <- ""
-R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
-R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
+R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
+R_libPaths_binomial_table <- ""
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 # library(MutationTimeR)
@@ -28,17 +38,20 @@ setwd(R_workplace)
 # # ====================================EXTRACT MUTATIONAL DATA FROM PCAWG
 # #--------------------------------------------------Unzip mutational data
 # directory <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/indel"
-# indel_files <- list.files(directory, pattern = "\\.vcf\\.gz$")
-# for (file in indel_files) {
-#     gunzip(paste0("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/indel/", file), remove = FALSE, overwrite = TRUE)
-# }
-# directory <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/snv_mnv"
-# snv_mnv_files <- list.files(directory, pattern = "\\.vcf\\.gz$")
-# for (file in snv_mnv_files) {
-#     gunzip(paste0("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/snv_mnv/", file), remove = FALSE, overwrite = TRUE)
-# }
+directory <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/ICGC"
+indel_files <- list.files(directory, pattern = "\\.vcf\\.gz$")
+for (file in indel_files) {
+    # gunzip(paste0("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/indel/", file), remove = FALSE, overwrite = TRUE)
+    gunzip(paste0("C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/ICGC/", file), remove = FALSE, overwrite = TRUE)
+}
+directory <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/snv_mnv"
+snv_mnv_files <- list.files(directory, pattern = "\\.vcf\\.gz$")
+for (file in snv_mnv_files) {
+    gunzip(paste0("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/snv_mnv/", file), remove = FALSE, overwrite = TRUE)
+}
 # #---------------------------------------Prepare sample information table
 # consensus_20170218_purity_ploidy <- read.table("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/consensus_cnv/consensus.20170218.purity.ploidy.txt", header = TRUE, sep = "\t")
+consensus_20170218_purity_ploidy <- read.table("consensus.20170218.purity.ploidy.txt", header = TRUE, sep = "\t")
 # pcawg_sample_sheet <- read.table("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/pcawg_sample_sheet.tsv", header = TRUE, sep = "\t")
 # pcawg_specimen_histology_August2016_v9 <- as.data.frame(read_excel("/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG/pcawg_specimen_histology_August2016_v9.xlsx"))
 # sample_df <- data.frame(
