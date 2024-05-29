@@ -14,7 +14,9 @@ SFS_deconvolution <- function(mutation_table,
                               coverage_distribution,
                               coverage_variables = NULL,
                               max_trials = 10000,
+                              min_N_humps = 1,
                               max_N_humps = Inf,
+                              zero_cutoff = 1e-50,
                               compute_parallel_library = TRUE,
                               compute_parallel_fit = TRUE,
                               n_cores = NULL,
@@ -64,7 +66,7 @@ SFS_deconvolution <- function(mutation_table,
         n_cores = n_cores
     )
     #---SFS deconvolution
-    N_humps <- 0
+    N_humps <- min_N_humps
     criterion_best_final <- Inf
     N_fitting_rounds <- 200
     while (TRUE) {
@@ -74,15 +76,23 @@ SFS_deconvolution <- function(mutation_table,
             vec_SFS_real = vec_SFS_real,
             N_humps = N_humps,
             max_trials = max_trials,
-            criterion = criterion,
             library_SFS_component = library_SFS_component,
             list_neutral_powers = list_neutral_powers,
             list_frequencies = list_frequencies,
+            zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel_fit,
             n_cores = n_cores
         )
         vec_para_best_current <- fit_results$best_parameters
-        criterion_best_current <- fit_results$best_criterion_value
+        if (criterion == "AIC") {
+            criterion_best_current <- fit_results$best_AIC
+        } else if (criterion == "BIC") {
+            criterion_best_current <- fit_results$best_BIC
+        } else if (criterion == "ICL") {
+            criterion_best_current <- fit_results$best_ICL
+        } else if (criterion == "ICL_MAP") {
+            criterion_best_current <- fit_results$best_ICL_MAP
+        }
         #   Report the best fit for the current hump count
         report <- paste0(criterion, " = ", round(criterion_best_current, 3), "; neutral: pi = ", round(vec_para_best_current[1], 3), " with power = ", round(vec_para_best_current[2], 3))
         if (N_humps > 0) {
@@ -92,16 +102,69 @@ SFS_deconvolution <- function(mutation_table,
         }
         report <- paste0(report, "\n")
         cat(report)
+        ################################################################################################################################
+        ################################################################################################################################
+        ################################################################################################################################
+        component_distributions <- matrix(unlist(library_SFS_component$neutral$SFS_expected_normalized[[which(list_neutral_powers == vec_para_best_current[2])]]), nrow = 1)
+        if (N_humps > 0) {
+            for (i in 1:N_humps) {
+                component_distributions <- rbind(
+                    component_distributions,
+                    unlist(library_SFS_component$cluster$SFS_expected_normalized[[which(list_frequencies == vec_para_best_current[2 * i + 2])]])
+                )
+            }
+        }
+        #   Compute the latent variable distributions
+        latent_variable_distributions <- component_distributions
+        for (row in 1:nrow(latent_variable_distributions)) {
+            latent_variable_distributions[row, ] <- vec_para_best_current[2 * row - 1] * latent_variable_distributions[row, ]
+        }
+        for (col in 1:ncol(latent_variable_distributions)) {
+            latent_variable_distributions[, col] <- latent_variable_distributions[, col] / sum(latent_variable_distributions[, col])
+        }
+        latent_variable_distributions[which(latent_variable_distributions <= zero_cutoff | is.na(latent_variable_distributions))] <- zero_cutoff
+        #   Compute the MAP allocations for mutations to clusters
+        indicator_latent_variable_distributions <- matrix(0, nrow = nrow(latent_variable_distributions), ncol = ncol(latent_variable_distributions))
+        for (col in 1:ncol(latent_variable_distributions)) {
+            max_p <- which(latent_variable_distributions[, col] == max(latent_variable_distributions[, col]))[1]
+            indicator_latent_variable_distributions[max_p, col] <- 1
+        }
+        #   Compute the entropy
+        entropy <- sum(vec_SFS_real * colSums(latent_variable_distributions * log(latent_variable_distributions)))
+        entropy_MAP <- sum(vec_SFS_real * colSums(indicator_latent_variable_distributions * log(latent_variable_distributions)))
 
 
 
+        logL <- fit_results$best_logLikelihood
+        BIC <- logL - 0.5 * length(vec_para_best_current) * log(mutation_count)
+        cat("\n")
         cat(paste0("Number of parameters: ", length(vec_para_best_current), "\n"))
         cat(paste0("Sample size:          ", mutation_count, "\n"))
-        cat(paste0("Log-likelihood:       ", fit_results$best_logLikelihood, "\n"))
-        cat(paste0("BIC:                  ", length(vec_para_best_current) * log(mutation_count) - 2 * fit_results$best_logLikelihood, "\n"))
+        cat(paste0("Log-likelihood:       ", logL, "\n"))
+        cat(paste0("\nBIC:                  ", BIC, "\n"))
+        cat(paste0("\nEntropy:              ", entropy, "\n"))
+        # cat(paste0("\nEntropy:              ", entropy_MAP, "\n"))
+        cat(paste0("\nICL:                  ", -BIC - entropy, "\n"))
+        # cat(paste0("\nICL:                  ", -BIC - entropy_MAP, "\n"))
 
 
 
+        # cat("\nLatent distributions:\n")
+        # print(latent_variable_distributions)
+        # cat("Z matrix:\n")
+        # print(latent_variable_distributions * log(latent_variable_distributions))
+        # cat("Observed SFS:\n")
+        # print(vec_SFS_real)
+        # cat("Multiplicative factors:\n")
+        # print(colSums(latent_variable_distributions * log(latent_variable_distributions)))
+        # cat(paste0("Entropy:              ", entropy, "\n"))
+        # cat(paste0("Likelihood:           ", logL, "\n"))
+        # cat(paste0("Completed logL:       ", logL + entropy, "\n"))
+        # cat(paste0("BIC:                  ", BIC, "\n"))
+        # cat(paste0("ICL:                  ", BIC - entropy, "\n"))
+        ################################################################################################################################
+        ################################################################################################################################
+        ################################################################################################################################
         #   Check if the increased hump count leads to lower criterion score...
         # if (criterion_best_current < criterion_best_final) {
         if (criterion_best_current < criterion_ratio * criterion_best_final) {
@@ -257,20 +320,64 @@ SFS_deconvolution <- function(mutation_table,
 fit_one_hump <- function(vec_SFS_real,
                          N_humps,
                          max_trials,
-                         criterion,
                          library_SFS_component,
                          list_neutral_powers,
                          list_frequencies,
+                         zero_cutoff,
                          compute_parallel,
                          n_cores) {
     mutation_count <- sum(vec_SFS_real)
     num_parameters <- 1 + 2 * N_humps
     if (length(list_neutral_powers) > 1) num_parameters <- num_parameters + 1
     compute_AIC <- function(log_L) {
-        return(2 * num_parameters - 2 * log_L)
+        AIC <- 2 * num_parameters - 2 * log_L
+        return(AIC)
     }
     compute_BIC <- function(log_L, num_samples) {
-        return(num_parameters * log(num_samples) - 2 * log_L)
+        BIC <- num_parameters * log(num_samples) - 2 * log_L
+        return(BIC)
+    }
+    compute_ICL <- function(log_L, num_samples, vec_SFS_real, vec_para, component_distributions) {
+        #   Compute the latent variable distributions
+        latent_variable_distributions <- component_distributions
+        for (row in 1:nrow(latent_variable_distributions)) {
+            latent_variable_distributions[row, ] <- vec_para[2 * row - 1] * latent_variable_distributions[row, ]
+        }
+        for (col in 1:ncol(latent_variable_distributions)) {
+            latent_variable_distributions[, col] <- latent_variable_distributions[, col] / sum(latent_variable_distributions[, col])
+        }
+        latent_variable_distributions[which(latent_variable_distributions <= zero_cutoff | is.na(latent_variable_distributions))] <- zero_cutoff
+        #   Compute the entropy
+        entropy <- sum(vec_SFS_real * colSums(latent_variable_distributions * log(latent_variable_distributions)))
+        #   Compute the Bayesian Information Criterion
+        BIC <- log_L - 0.5 * num_parameters * log(num_samples)
+        #   Compute the Integrated Completed Log-Likelihood
+        ICL <- -BIC - entropy
+        return(ICL)
+    }
+    compute_ICL_MAP <- function(log_L, num_samples, vec_SFS_real, vec_para, component_distributions) {
+        #   Compute the latent variable distributions
+        latent_variable_distributions <- component_distributions
+        for (row in 1:nrow(latent_variable_distributions)) {
+            latent_variable_distributions[row, ] <- vec_para[2 * row - 1] * latent_variable_distributions[row, ]
+        }
+        for (col in 1:ncol(latent_variable_distributions)) {
+            latent_variable_distributions[, col] <- latent_variable_distributions[, col] / sum(latent_variable_distributions[, col])
+        }
+        latent_variable_distributions[which(latent_variable_distributions <= zero_cutoff | is.na(latent_variable_distributions))] <- zero_cutoff
+        #   Compute the MAP allocations for mutations to clusters
+        indicator_latent_variable_distributions <- matrix(0, nrow = nrow(latent_variable_distributions), ncol = ncol(latent_variable_distributions))
+        for (col in 1:ncol(latent_variable_distributions)) {
+            max_p <- which(latent_variable_distributions[, col] == max(latent_variable_distributions[, col]))[1]
+            indicator_latent_variable_distributions[max_p, col] <- 1
+        }
+        #   Compute the entropy
+        entropy_MAP <- sum(vec_SFS_real * colSums(indicator_latent_variable_distributions * log(latent_variable_distributions)))
+        #   Compute the Bayesian Information Criterion
+        BIC <- log_L - 0.5 * num_parameters * log(num_samples)
+        #   Compute the Integrated Completed Log-Likelihood
+        ICL_MAP <- -BIC - entropy_MAP
+        return(ICL_MAP)
     }
     #---Find number of hump frequency combinations there are
     N_trials_true <- length(list_neutral_powers) * choose(length(list_frequencies), N_humps)
@@ -295,7 +402,10 @@ fit_one_hump <- function(vec_SFS_real,
     if (compute_parallel == FALSE) {
         all_logLikelihood <- c()
         all_para <- c()
-        all_criterion_value <- c()
+        all_AIC <- c()
+        all_BIC <- c()
+        all_ICL <- c()
+        all_ICL_MAP <- c()
         pb <- txtProgressBar(
             min = 0,
             max = nrow(list_fixed_para),
@@ -314,18 +424,22 @@ fit_one_hump <- function(vec_SFS_real,
                 N_humps = N_humps,
                 list_neutral_powers = list_neutral_powers,
                 list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component
+                library_SFS_component = library_SFS_component,
+                zero_cutoff = zero_cutoff
             )
             logLikelihood <- results$log_L
             vec_para <- results$parameters
-            if (criterion == "AIC") {
-                criterion_value <- compute_AIC(logLikelihood)
-            } else if (criterion == "BIC") {
-                criterion_value <- compute_BIC(logLikelihood, mutation_count)
-            }
-            all_logLikelihood <- c(all_logLikelihood, logLikelihood)
+            component_distributions <- results$component_distributions
+            AIC <- compute_AIC(logLikelihood)
+            BIC <- compute_BIC(logLikelihood, mutation_count)
+            ICL <- compute_ICL(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
+            ICL_MAP <- compute_ICL_MAP(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
             all_para <- rbind(all_para, vec_para)
-            all_criterion_value <- c(all_criterion_value, criterion_value)
+            all_logLikelihood <- c(all_logLikelihood, logLikelihood)
+            all_AIC <- c(all_AIC, AIC)
+            all_BIC <- c(all_BIC, BIC)
+            all_ICL <- c(all_ICL, ICL)
+            all_ICL_MAP <- c(all_ICL_MAP, ICL_MAP)
         }
         cat("\n")
     } else {
@@ -345,7 +459,9 @@ fit_one_hump <- function(vec_SFS_real,
         list_frequencies <<- list_frequencies
         library_SFS_component <<- library_SFS_component
         matrix_binomial_PDF <<- matrix_binomial_PDF
+        zero_cutoff <<- zero_cutoff
         clusterExport(cl, varlist = c(
+            "zero_cutoff",
             "vec_SFS_real",
             "N_humps",
             "list_neutral_powers",
@@ -366,33 +482,50 @@ fit_one_hump <- function(vec_SFS_real,
                 N_humps = N_humps,
                 list_neutral_powers = list_neutral_powers,
                 list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component
+                library_SFS_component = library_SFS_component,
+                zero_cutoff = zero_cutoff
             )
             logLikelihood <- results$log_L
             vec_para <- results$parameters
-            if (criterion == "AIC") {
-                criterion_value <- compute_AIC(logLikelihood)
-            } else if (criterion == "BIC") {
-                criterion_value <- compute_BIC(logLikelihood, mutation_count)
-            }
-            return(list(logLikelihood = logLikelihood, para = vec_para, criterion_value = criterion_value))
+            component_distributions <- results$component_distributions
+            AIC <- compute_AIC(logLikelihood)
+            BIC <- compute_BIC(logLikelihood, mutation_count)
+            ICL <- compute_ICL(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
+            ICL_MAP <- compute_ICL_MAP(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
+            return(
+                list(
+                    para = vec_para,
+                    logLikelihood = logLikelihood,
+                    AIC = AIC,
+                    BIC = BIC,
+                    ICL = ICL,
+                    ICL_MAP = ICL_MAP
+                )
+            )
         })
         stopCluster(cl)
         #   Extract the results
-        all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
         all_para <- do.call(rbind, lapply(output, function(x) x$para))
-        all_criterion_value <- sapply(output, function(x) x$criterion_value)
+        all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
+        all_AIC <- sapply(output, function(x) x$AIC)
+        all_BIC <- sapply(output, function(x) x$BIC)
+        all_ICL <- sapply(output, function(x) x$ICL)
+        all_ICL_MAP <- sapply(output, function(x) x$ICL_MAP)
     }
     #---Find the best fit
-    best_index <- which.min(all_criterion_value)
+    # best_index <- which.max(all_logLikelihood)
+    best_index <- which.max(all_logLikelihood)
     fit_results <- list()
-    fit_results$best_logLikelihood <- all_logLikelihood[best_index]
     fit_results$best_parameters <- all_para[best_index, ]
-    fit_results$best_criterion_value <- all_criterion_value[best_index]
+    fit_results$best_logLikelihood <- all_logLikelihood[best_index]
+    fit_results$best_AIC <- all_AIC[best_index]
+    fit_results$best_BIC <- all_BIC[best_index]
+    fit_results$best_ICL <- all_ICL[best_index]
+    fit_results$best_ICL_MAP <- all_ICL_MAP[best_index]
     return(fit_results)
 }
 
-fit_A_and_K <- function(vec_SFS_real, neutral_power = NULL, vec_p = NULL, N_humps = NULL, list_neutral_powers, list_frequencies, library_SFS_component) {
+fit_A_and_K <- function(vec_SFS_real, neutral_power = NULL, vec_p = NULL, N_humps = NULL, list_neutral_powers, list_frequencies, library_SFS_component, zero_cutoff) {
     if (is.null(neutral_power)) {
         neutral_power <- sample(list_neutral_powers, 1)
     }
@@ -421,7 +554,8 @@ fit_A_and_K <- function(vec_SFS_real, neutral_power = NULL, vec_p = NULL, N_hump
             list_neutral_powers = list_neutral_powers,
             list_frequencies = list_frequencies,
             library_SFS_component = library_SFS_component,
-            vec_SFS_real = vec_SFS_real
+            vec_SFS_real = vec_SFS_real,
+            zero_cutoff = zero_cutoff
         )
         return(loglikelihood)
     }
@@ -446,19 +580,25 @@ fit_A_and_K <- function(vec_SFS_real, neutral_power = NULL, vec_p = NULL, N_hump
     vec_para <- numeric(2 * N_humps + 2)
     vec_para[1] <- vec_pi[1]
     vec_para[2] <- neutral_power
+    component_distributions <- matrix(unlist(library_SFS_component$neutral$SFS_expected_normalized[[which(list_neutral_powers == neutral_power)]]), nrow = 1)
     if (N_humps > 0) {
         for (i in 1:N_humps) {
             vec_para[2 * i + 1] <- vec_pi[i + 1]
             vec_para[2 * i + 2] <- vec_p[i]
+            component_distributions <- rbind(
+                component_distributions,
+                unlist(library_SFS_component$cluster$SFS_expected_normalized[[which(list_frequencies == vec_p[i])]])
+            )
         }
     }
     output <- list()
     output$log_L <- log_L
     output$parameters <- vec_para
+    output$component_distributions <- component_distributions
     return(output)
 }
 
-compute_loglikelihood <- function(vec_A, vec_K, vec_p, list_neutral_powers, list_frequencies, library_SFS_component, vec_SFS_real) {
+compute_loglikelihood <- function(vec_A, vec_K, vec_p, list_neutral_powers, list_frequencies, library_SFS_component, vec_SFS_real, zero_cutoff) {
     #----------------Compute the SFS probability distribution from model
     vec_SFS_model <- compute_SFS(
         vec_A = vec_A,
@@ -468,7 +608,7 @@ compute_loglikelihood <- function(vec_A, vec_K, vec_p, list_neutral_powers, list
         list_frequencies = list_frequencies,
         library_SFS_component = library_SFS_component
     )
-    vec_SFS_model[which(vec_SFS_model <= 0)] <- 1e-10
+    vec_SFS_model[which(vec_SFS_model <= zero_cutoff)] <- zero_cutoff
     vec_SFS_model_normalized <- vec_SFS_model / sum(vec_SFS_model)
     #-----------------------------Compute the log-likelihood(data|model)
     loglikelihood <- sum(log(vec_SFS_model_normalized) * vec_SFS_real)

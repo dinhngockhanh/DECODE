@@ -11,6 +11,7 @@ simulator_full <- function(file_prefix = "",
                            mindiff_clonal_perc = 0,
                            range_population = c(800, 1200),
                            ploidy = 1,
+                           purity = 1,
                            truncal_mutations = 0,
                            choice_theta = "constant",
                            vec_theta_parameters = c(0.6, 0.6),
@@ -55,6 +56,7 @@ simulator_full <- function(file_prefix = "",
                 mindiff_clonal_perc,
                 range_population,
                 ploidy,
+                purity,
                 truncal_mutations,
                 choice_theta,
                 vec_theta_parameters,
@@ -71,6 +73,8 @@ simulator_full <- function(file_prefix = "",
                 bulk_min_alt_readcounts,
                 subfolder
             )
+            tmp <- ""
+            return(tmp)
         }
     } else {
         #---------------------------Compute simulations in parallel mode
@@ -107,6 +111,7 @@ simulator_full <- function(file_prefix = "",
         mindiff_clonal_perc <<- mindiff_clonal_perc
         range_population <<- range_population
         ploidy <<- ploidy
+        purity <<- purity
         truncal_mutations <<- truncal_mutations
         choice_theta <<- choice_theta
         vec_theta_parameters <<- vec_theta_parameters
@@ -142,6 +147,7 @@ simulator_full <- function(file_prefix = "",
             "mindiff_clonal_perc",
             "range_population",
             "ploidy",
+            "purity",
             "truncal_mutations",
             "choice_theta",
             "vec_theta_parameters",
@@ -174,6 +180,7 @@ simulator_full <- function(file_prefix = "",
                 mindiff_clonal_perc,
                 range_population,
                 ploidy,
+                purity,
                 truncal_mutations,
                 choice_theta,
                 vec_theta_parameters,
@@ -209,6 +216,7 @@ simulator_one_simulation <- function(n_simulation,
                                      mindiff_clonal_perc,
                                      range_population,
                                      ploidy,
+                                     purity,
                                      truncal_mutations,
                                      choice_theta,
                                      vec_theta_parameters,
@@ -339,6 +347,7 @@ simulator_one_simulation <- function(n_simulation,
             simulation = simulation,
             n_sample = n_sample,
             ploidy = ploidy,
+            purity = purity,
             bulk_coverage_model = bulk_coverage_model,
             bulk_coverage_variables = bulk_coverage_variables,
             bulk_min_alt_readcounts = bulk_min_alt_readcounts

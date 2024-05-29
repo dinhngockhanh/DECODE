@@ -6,11 +6,13 @@ simulator_batch <- function(n_simulations = 0,
                             vec_hierarchy_s_mut = c(0),
                             expected_end_population = 10^3,
                             vec_expected_percent_select = c(0.5, 0.5),
+                            death_rate = 0.01,
                             n_sample = 10^2,
                             range_population = c(0, Inf),
                             range_clonal_perc = c(0, Inf),
                             mindiff_clonal_perc = 0,
                             ploidy = 1,
+                            purity = 1,
                             truncal_mutations = 0,
                             choice_theta = "constant",
                             vec_theta_parameters = c(0.6, 0.6),
@@ -28,6 +30,7 @@ simulator_batch <- function(n_simulations = 0,
                             bulk_coverage_variables = c(0, 100),
                             bulk_min_alt_readcounts = 0,
                             subfolder = "",
+                            file_prefix = NA,
                             R_libPaths = NULL) {
     #------------------------------Make table of time point combinations
     if (length(vec_time_points_s_mut) != length(vec_hierarchy_s_mut)) {
@@ -70,7 +73,7 @@ simulator_batch <- function(n_simulations = 0,
         vec_s_mut_time <- vec_time_points_s_mut[vec_timepoint_index]
         # vec_s_mut_time <- c(0, vec_time_points_s_mut[vec_timepoint_index])
         vec_s_mut_hierarchy <- vec_hierarchy_s_mut
-        vec_d_rate <- rep(0.01, length = (n_selective_clones + 1))
+        vec_d_rate <- rep(death_rate, length = (n_selective_clones + 1))
         vec_b_rate <- rep(0, length = (n_selective_clones + 1))
         vec_r_rate <- rep(0, length = (n_selective_clones + 1))
         vec_propensity <- matrix(0, nrow = 2, ncol = (n_selective_clones + 1))
@@ -110,7 +113,9 @@ simulator_batch <- function(n_simulations = 0,
         table_parameters_birthtime[i_batch, ] <-
             vec_time_points_s_mut[vec_timepoint_index]
         #   Make the batch of simulations for the corresponding parameter set
-        file_prefix <- paste(codename, "_simulated_SFS_", sep = "")
+        if (is.na(file_prefix)) {
+            file_prefix <- paste(codename, "_simulated_SFS_", sep = "")
+        }
         cat(paste("\nMaking simulations for batch ", i_batch, "/", n_batches, "...\n", sep = ""))
         simulator_full(
             file_prefix = file_prefix,
@@ -125,6 +130,7 @@ simulator_batch <- function(n_simulations = 0,
             mindiff_clonal_perc = mindiff_clonal_perc,
             range_population = range_population,
             ploidy = ploidy,
+            purity = purity,
             truncal_mutations = truncal_mutations,
             choice_theta = choice_theta,
             vec_theta_parameters = vec_theta_parameters,

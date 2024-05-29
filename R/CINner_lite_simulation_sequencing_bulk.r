@@ -1,6 +1,7 @@
 simulation_sequencing_bulk <- function(simulation = list(),
                                        n_sample = 0,
                                        ploidy = 1,
+                                       purity = 1,
                                        bulk_coverage_model = "",
                                        bulk_coverage_variables = c(0, 0),
                                        bulk_min_alt_readcounts = 0) {
@@ -11,7 +12,7 @@ simulation_sequencing_bulk <- function(simulation = list(),
     #--------------------------------Find the true VAF for all mutations
     mutation_VAF <- lengths(simulation$sample_mutational_table_truth_node_tips) / n_sample
     mutation_VAF <- mutation_VAF[mutation_VAF != 0]
-    mutation_true_VAF <- rep(mutation_VAF / ploidy, mutation_count)
+    mutation_true_VAF <- rep(purity * mutation_VAF / ploidy, mutation_count)
     mutation_node_markers <- rep(unlist(simulation$sample_mutational_table_truth_node_markers), mutation_count)
     #-------------------Simulate the total read counts for all mutations
     mutation_readcount_tot <- rand_coverage(
