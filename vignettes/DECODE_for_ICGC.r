@@ -1,29 +1,14 @@
-<<<<<<< Updated upstream
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/R"
-# R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
-# R_workplace <- "/burg/iicd/users/ym2998/ICGC"
-# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-# R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
-# R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" 
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
-R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/ICGC"
-=======
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
 R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
 R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/vignettes"
->>>>>>> Stashed changes
 R_libPaths <- ""
 R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
 R_libPaths_binomial_table <- ""
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(dplyr)
-library(VariantAnnotation) 
-library(GenomicRanges) 
+library(VariantAnnotation)
+library(GenomicRanges)
 library(R.utils)
 library(readxl)
 library(data.table)
@@ -282,7 +267,7 @@ for (sample in sample_df$aliquot_id) {
         mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     }
     #---Perform SFS deconvolution
-    results <- SFS_deconvolution(
+    results <- DECODE(
         mutation_table = mutation_table,
         # criterion = "BIC", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
