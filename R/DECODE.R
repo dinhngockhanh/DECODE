@@ -206,10 +206,10 @@ DECODE <- function(mutation_table,
     }
     #   Prepare the deconvolution inference for plotting
     if (tail_status_final) {
-        vec_A <- c(NA, NA)
+        vec_A <- vec_para_best_final[1:2]
         ii <- 0
     } else {
-        vec_A <- vec_para_best_final[1:2]
+        vec_A <- c(NA, NA)
         ii <- -1
     }
     if (N_humps_best_final == 0) {
