@@ -3,9 +3,9 @@ simulation_sequencing_bulk <- function(simulation = list(),
                                        ploidy = 1,
                                        purity = 1,
                                        bulk_coverage_model = "",
-                                       bulk_coverage_variables = c(0, 0),
+                                       bulk_coverage_variables = c(),
                                        bulk_min_alt_readcounts = 0) {
-    bulk_coverage_variables[1] <- n_sample
+    bulk_coverage_variables$n_sample <- n_sample
     #----------------------------------Find the counts for all mutations
     mutation_count <- unlist(simulation$sample_mutational_table_truth_node_mutation_counts)
     n_mutation_true <- sum(mutation_count)
@@ -45,25 +45,32 @@ simulation_sequencing_bulk <- function(simulation = list(),
 rand_coverage <- function(bulk_coverage_model,
                           bulk_coverage_variables,
                           n_mutation_true) {
-    n_end <- bulk_coverage_variables[1]
+    n_end <- bulk_coverage_variables$n_sample
     if (bulk_coverage_model == "constant") {
-        n_coverage <- bulk_coverage_variables[2]
+        n_coverage <- bulk_coverage_variables$mean_coverage
         output <- rep(n_coverage, length = n_mutation_true)
     } else if (bulk_coverage_model == "uniform") {
-        r_min <- bulk_coverage_variables[2]
-        r_max <- bulk_coverage_variables[3]
-        output <- r_min +
-            sample.int(
-                n = (r_max - r_min),
-                size = n_mutation_true,
-                replace = TRUE
-            )
+        r_min <- bulk_coverage_variables$min_coverage
+        r_max <- bulk_coverage_variables$max_coverage
+        output <- sample(
+            size = n_mutation_true,
+            x = r_min:r_max,
+            replace = TRUE
+        )
     } else if (bulk_coverage_model == "binomial") {
-        mean_coverage <- bulk_coverage_variables[2]
+        mean_coverage <- bulk_coverage_variables$mean_coverage
         output <- rbinom(
             n = n_mutation_true,
             size = n_end,
             prob = mean_coverage / n_end
+        )
+    } else if (bulk_coverage_model == "custom") {
+        coverage <- bulk_coverage_variables$coverage
+        output <- sample(
+            size = n_mutation_true,
+            x = coverage$Read_count,
+            prob = coverage$Frequency / sum(coverage$Frequency),
+            replace = TRUE
         )
     }
     return(output)

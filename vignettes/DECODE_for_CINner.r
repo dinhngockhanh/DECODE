@@ -1,23 +1,9 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
-# R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Xuanwen - Laptop
-# R_workplace <- "C:/5398_R/vignettes" # where the vignette folder is located
-# R_libPaths <- ""
-# R_libPaths_extra <- "" # where the R folder is located
-# R_libPaths_binomial_table <- "D:/5398_dataset" # where the binomial tables are located
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
-# R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/DATA"
-# R_libPaths <- ""
-# R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/2. 24Spring/5398 Dinh/github_clone/SFS_CNA_deconvolution-1/R"
-# R_libPaths_binomial_table <- ""
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
-# R_workplace <- "/burg/iicd/users/ym2998/MOBSTER_Test"
-# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-# R_libPaths_extra <- "/burg/iicd/users/ym2998/Mob_CINner_Function"
-# R_libPaths_binomial_table <- "/burg/iicd/users/ym2998/Deconvolution" # where the binomial tables are located
+R_PCAWG <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/PCAWG"
+R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
+R_libPaths <- ""
+R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(data.table)
@@ -36,79 +22,171 @@ sapply(files_sources, source)
 setwd(R_workplace)
 
 folder_workplace <- "TEST/"
+n_simulations <- 50 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# # =======================================GET ICGC PURITY & COVERAGE DATA
+# ICGC_sample_info <- read.csv(file.path(R_PCAWG, "sample_information.csv"))
+# ICGC_purity_coverage <- list()
+# ICGC_purity_coverage$N_sample <- nrow(ICGC_sample_info)
+# for (i in 1:nrow(ICGC_sample_info)) {
+#     print(i)
+#     sample_id <- ICGC_sample_info$aliquot_id[i]
+#     purity <- ICGC_sample_info$purity[i]
+#     tmp <- read.csv(file.path(R_PCAWG, paste0(sample_id, "_all.csv")))
+#     tot_counts <- tmp$t_alt_count + tmp$t_ref_count
+#     tmp <- read.csv(file.path(R_PCAWG, paste0(sample_id, "_all.csv")))
+#     tot_counts <- tmp$t_alt_count + tmp$t_ref_count
+#     tot_counts <- tot_counts[!is.na(tot_counts)]
+#     unique_counts <- table(tot_counts)
+#     coverage <- data.frame(Read_count = as.numeric(names(unique_counts)), Frequency = as.numeric(unique_counts))
+#     coverage <- coverage[order(coverage$Read_count), ]
+#     ICGC_purity_coverage[[paste0("sample_", i)]] <- list()
+#     ICGC_purity_coverage[[paste0("sample_", i)]]$purity <- purity
+#     ICGC_purity_coverage[[paste0("sample_", i)]]$coverage <- coverage
+# }
+# save(ICGC_purity_coverage, file = paste0(R_PCAWG, "/ICGC_purity_coverage.rda"))
 # ==========================================MAKE CINNER LITE SIMULATIONS
-#---------------------------------------------------Set model parameters
-n_simulations <- 1000
-
-
-
-t_end_time <- 1000
-t_tau_step <- 1
-n_selective_clones <- 1 # 0 # 1
-vec_time_points_s_mut <- t_end_time * c(0.6) # t_end_time * c() # c(0.6)
-vec_hierarchy_s_mut <- c(0) # c() # c(0)
-expected_end_population <- 10^6
-vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
-n_sample <- 100000
-range_population <- c(0.8, 1.2) * expected_end_population
-range_clonal_perc <- c(20, 100)
-# mindiff_clonal_perc <- 10
-ploidy <- 2
-truncal_mutations <- 500
-choice_theta <- "constant"
-vec_theta_parameters <- rep(0.4, length = (n_selective_clones + 1))
-vec_theta_mean <- vec_theta_parameters
-bulk_coverage_model <- "binomial"
-bulk_coverage_variables <- c(0, 100)
-bulk_min_alt_readcounts <- 4
-#------------------------------------------------Create bulk simulations
 dir.create(folder_workplace)
-simulator_batch(
-    n_simulations = n_simulations,
-    t_end_time = t_end_time,
-    t_tau_step = t_tau_step,
-    n_selective_clones = n_selective_clones,
-    vec_time_points_s_mut = vec_time_points_s_mut,
-    vec_hierarchy_s_mut = vec_hierarchy_s_mut,
-    expected_end_population = expected_end_population,
-    vec_expected_percent_select = vec_expected_percent_select,
-    n_sample = n_sample,
-    range_population = range_population,
-    range_clonal_perc = range_clonal_perc,
-    # mindiff_clonal_perc = mindiff_clonal_perc,
-    ploidy = ploidy,
-    truncal_mutations = truncal_mutations,
-    choice_theta = choice_theta,
-    vec_theta_parameters = vec_theta_parameters,
-    vec_theta_mean = vec_theta_mean,
-    save_rda = TRUE,
-    save_true_mutation_table = FALSE,
-    output_bulk = TRUE,
-    output_sc = FALSE,
-    compute_parallel = TRUE,
-    bulk_coverage_model = bulk_coverage_model,
-    bulk_coverage_variables = bulk_coverage_variables,
-    bulk_min_alt_readcounts = bulk_min_alt_readcounts,
-    subfolder = folder_workplace,
-    R_libPaths = R_libPaths
-)
+load(file = paste0(R_PCAWG, "/ICGC_purity_coverage.rda"))
+# #---------------------------------------------------Set model parameters
+n_selective_clones <- 0
+vec_hierarchy_s_mut <- c()
+numCores <- detectCores()
+cl <- makePSOCKcluster(numCores - 1)
+if (is.null(R_libPaths) == FALSE) {
+    R_libPaths <<- R_libPaths
+    clusterExport(cl, varlist = c("R_libPaths"))
+    clusterEvalQ(cl = cl, .libPaths(R_libPaths))
+}
+clusterExport(cl, varlist = c(
+    "simulator_batch",
+    "simulator_full",
+    "simulator_one_simulation",
+    "simulation_clonal_evolution",
+    "simulation_sample_phylogeny",
+    "simulation_sequening_truth",
+    "simulation_sequencing_sc",
+    "simulation_sequencing_bulk",
+    "rand_coverage",
+    "folder_workplace",
+    "n_selective_clones",
+    "vec_hierarchy_s_mut",
+    "n_sample",
+    "ICGC_purity_coverage"
+))
+clusterEvalQ(cl, library(data.table))
+df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = function(n_simulation) {
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    t_diagnosis <- 60 # [in years]
+    cell_lifespan <- 10 # [in days]
+    t_MRCA <- runif(1, min = 1, max = 20) # [in years]
+    ratio_theta <- runif(1, min = 1, max = 1) # <<<<<<<<<<<<<<<<<<<<<<<<
+    PCAWG_index <- sample(1:ICGC_purity_coverage$N_sample, 1)
+    purity <- ICGC_purity_coverage[[paste0("sample_", PCAWG_index)]]$purity
+    coverage <- ICGC_purity_coverage[[paste0("sample_", PCAWG_index)]]$coverage
+    mean_coverage <- sum(coverage$Read_count * coverage$Frequency) / sum(coverage$Frequency)
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    t_end_time <- round(t_MRCA * 365) # [in days]
+    vec_time_points_s_mut <- t_end_time * c()
+    expected_end_population <- 10^6 # [cells at t_end_time]
+    vec_expected_percent_select <- (1 / (n_selective_clones + 1)) * rep(1, length = (n_selective_clones + 1))
+    range_population <- c(0.8, 1.2) * expected_end_population
+    range_clonal_perc <- c(20, 100)
+    ploidy <- 2
+
+    choice_theta <- "constant"
+    theta_normal <- 6.12 # [mutations per division]
+    vec_theta_parameters <- c(ratio_theta * theta_normal)
+    vec_theta_mean <- vec_theta_parameters
+    # bulk_coverage_model <- "binomial"
+    # bulk_coverage_variables$mean_coverage <- mean_coverage
+    bulk_coverage_model <- "custom"
+    bulk_coverage_variables <- list()
+    bulk_coverage_variables$coverage <- coverage
+    bulk_min_alt_readcounts <- 3
+
+    folder_workplace_sub <- paste0(folder_workplace, "_", n_simulation, "/")
+    dir.create(folder_workplace_sub)
+    truncal_mutations <- rpois(n = 1, lambda = theta_normal * round((t_diagnosis - t_MRCA) * 365 / cell_lifespan))
+    table_parameters <- simulator_batch(
+        n_simulations = 1,
+        t_end_time = t_end_time,
+        cell_lifespan = cell_lifespan,
+        n_selective_clones = n_selective_clones,
+        vec_time_points_s_mut = vec_time_points_s_mut,
+        vec_hierarchy_s_mut = vec_hierarchy_s_mut,
+        expected_end_population = expected_end_population,
+        vec_expected_percent_select = vec_expected_percent_select,
+        n_sample = n_sample,
+        range_population = range_population,
+        range_clonal_perc = range_clonal_perc,
+        ploidy = ploidy,
+        purity = purity,
+        truncal_mutations = truncal_mutations,
+        choice_theta = choice_theta,
+        vec_theta_parameters = vec_theta_parameters,
+        vec_theta_mean = vec_theta_mean,
+        save_rda = FALSE,
+        save_true_mutation_table = FALSE,
+        output_bulk = TRUE,
+        output_sc = FALSE,
+        compute_parallel = FALSE,
+        bulk_coverage_model = bulk_coverage_model,
+        bulk_coverage_variables = bulk_coverage_variables,
+        bulk_min_alt_readcounts = bulk_min_alt_readcounts,
+        subfolder = folder_workplace_sub,
+        file_prefix = "",
+        R_libPaths = R_libPaths
+    )
+    table_parameters$Batch_ID <- NULL
+    table_parameters <- cbind(data.frame(Simulation = n_simulation), table_parameters)
+    table_parameters[["Age at diagnosis (years)"]] <- t_diagnosis
+    table_parameters[["Age of MRCA (years)"]] <- t_MRCA
+    table_parameters[["Truncal mutation count"]] <- truncal_mutations
+    table_parameters[["Cell lifespan (days)"]] <- cell_lifespan
+    table_parameters[["Normal (pre-MRCA) mutation rate"]] <- theta_normal
+    table_parameters[["Tumor mutation rate ratio"]] <- ratio_theta
+    table_parameters[["Tumor mutation rate"]] <- vec_theta_parameters
+    table_parameters[["Purity"]] <- purity
+    table_parameters[["Sequencing coverage"]] <- mean_coverage
+    table_parameters[["Expected tumor cell count"]] <- expected_end_population
+    table_parameters[["Sample cell count"]] <- n_sample
+    table_parameters[["Ploidy"]] <- ploidy
+    table_parameters[["Coverage model"]] <- bulk_coverage_model
+    table_parameters[["Limit alt count"]] <- bulk_min_alt_readcounts
+    return(table_parameters)
+})
+stopCluster(cl)
+df_all_simulation_parameters <- do.call(rbind, df_all_simulation_parameters)
+write.csv(df_all_simulation_parameters, file = "Parameters_simulation.csv", row.names = FALSE)
 #--------------------------------------------------------Clean bulk data
 for (n_simulation in 1:n_simulations) {
-    filename <- paste0(folder_workplace, "ClonalTimes=", paste(vec_time_points_s_mut, collapse = ","), "_ClonalHierarchy=", paste(vec_hierarchy_s_mut, collapse = ","), "_simulated_SFS_", n_simulation, "_mutational_data_BULK.csv")
+    filename <- paste0(folder_workplace, "_", n_simulation, "/1_mutational_data_BULK.csv")
     mut_table <- read.csv(filename)
     vec_delete <- which(mut_table$Alt_count == 0 | mut_table$Ref_count == 0)
     if (length(vec_delete) > 0) mut_table <- mut_table[-vec_delete, ]
-    filename <- paste0(folder_workplace, "SFS_", n_simulation, ".txt")
+    filename <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
     write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
 }
 # ========================================GROUND TRUTH FOR SFS VARIABLES
+df_all_simulation_parameters <- read.csv("Parameters_simulation.csv", header = TRUE)
 df <- data.frame()
 for (n_simulation in 1:n_simulations) {
+    purity <- df_all_simulation_parameters[["Purity"]][n_simulation]
+    t_end_time <- df_all_simulation_parameters[["Age.at.diagnosis..years."]][n_simulation]
+    vec_theta_parameters <- df_all_simulation_parameters[["Tumor.mutation.rate"]][n_simulation]
+    n_sample <- df_all_simulation_parameters[["Sample.cell.count"]][n_simulation]
+    ploidy <- df_all_simulation_parameters[["Ploidy"]][n_simulation]
+    truncal_mutations <- df_all_simulation_parameters[["Truncal.mutation.count"]][n_simulation]
     #   Retrieve clonal MRCA ages and sizes in population & sample
-    simulation_variables <- read.csv(paste0(folder_workplace, "ClonalTimes=", paste(vec_time_points_s_mut, collapse = ","), "_ClonalHierarchy=", paste(vec_hierarchy_s_mut, collapse = ","), "_simulated_SFS_", n_simulation, "_simulation_variables.csv"))
+    simulation_variables <- read.csv(paste0(folder_workplace, "_", n_simulation, "/1_simulation_variables.csv"))
     Ns <- simulation_variables$Count_in_population
     ns <- simulation_variables$Count_in_sample
-    MRCA_ages <- simulation_variables$MRCA_ages
+    MRCA_ages <- simulation_variables$MRCA_ages / 365
     #   Find clonal sizes in sample, including subclones
     ns_combined <- ns
     if (length(vec_hierarchy_s_mut) > 0) {
@@ -123,7 +201,7 @@ for (n_simulation in 1:n_simulations) {
     #   Find expected power of neutral mutations
     alpha <- 2
     #   Find expected binomial hump locations
-    ps <- ns_combined / n_sample / ploidy
+    ps <- purity * ns_combined / n_sample / ploidy
     #   Find expected number of mutations in each binomial hump
     Ks <- vec_theta_parameters * MRCA_ages
     if (length(vec_hierarchy_s_mut) > 0) {
@@ -136,52 +214,59 @@ for (n_simulation in 1:n_simulations) {
     df <- rbind(df, c(n_simulation, A, alpha, ps, Ks))
 }
 names(df) <- c("Simulation", "A", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_", 1:(n_selective_clones + 1)))
-write.csv(df, paste0(folder_workplace, "Parameters_true.csv"), row.names = FALSE)
+write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
 # ===============================================================MOBSTER
+#---Deconvolution for each SFS
 mobster_df <- data.frame()
-model_list <- list()
-for (i in 1:n_simulations) {
-    #   Import mutational data
-    filename <- paste0(folder_workplace, "SFS_", i, ".txt")
+mobster_fits <- list()
+for (n_simulation in 1:n_simulations) {
+    cat("\n==========================================================================================================================\n")
+    cat(paste0("MOBSTER FOR SIMULATION ", n_simulation, "...\n"))
+    #---Input the SFS data
+    filename <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
     txtdata <- read.table(file = filename, header = FALSE)
-    #   Data transformation
     data <- transform(txtdata, VAF = txtdata[, 2] / (txtdata[, 1] + txtdata[, 2]))
     last_col <- ncol(data)
     mob_data <- as.data.frame(data[, last_col])
     colnames(mob_data)[1] <- "VAF"
-    #   SFS deconvolution with MOBSTER
-    # mobster:::template_parameters_fast_setup() # show basic setup
-    fit <- mobster_fit(
+    #---SFS deconvolution with MOBSTER
+    MOBSTER_result <- mobster_fit(
         mob_data,
-        auto_setup = "FAST"
+        tail = c(TRUE), # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        description = paste0("Simulation ", n_simulation)
     )
-    #   Find best MOBSTER model
-    mob_model <- fit$best
-    model_list[[i]] <- mob_model # save model_list
-    png(paste0(folder_workplace, "MOBSTER_", i, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(plot(fit$best))
+    #---Plot MOBSTER deconvolution
+    png(paste0(folder_workplace, "MOBSTER_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+    print(plot(MOBSTER_result$best))
     dev.off()
-    #   Save the results
-    mobster_df[i, "Simulation"] <- i # id
-    mobster_df[i, "Total_N"] <- mob_model$N # total acount
-    mobster_df[i, "Tail"] <- mob_model$fit.tail # bool: if tail exists
-    mobster_df[i, "Tail_Num"] <- mob_model$N.k[[1]] # number of tail
-    mobster_df[i, "Tail_shape"] <- mob_model$shape # shape of tail
-    mobster_df[i, "Tail_scale"] <- mob_model$scale # scale of tail
-    mobster_df[i, "Kbeta_cluster"] <- mob_model$Kbeta # number of clusters
-    for (k in 1:mob_model$Kbeta) {
-        mobster_df[i, paste0("cl_num_", k)] <- mob_model$N.k[[k + 1]] # number of Beta
-        mobster_df[i, paste0("a_", k)] <- mob_model$a[[k]] # alpha of Beta
-        mobster_df[i, paste0("b_", k)] <- mob_model$b[[k]] # beta of Beta
-        mobster_df[i, paste0("p_", k)] <- mobster_df[i, paste0("a_", k)] / (mobster_df[i, paste0("a_", k)] + mobster_df[i, paste0("b_", k)])
+    png(paste0(folder_workplace, "MOBSTER_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+    print(plot_model_selection(MOBSTER_result))
+    dev.off()
+    #---Save MOBSTER results
+    mobster_fits[[n_simulation]] <- MOBSTER_result
+    mobster_model <- MOBSTER_result$best
+    mobster_df[n_simulation, "Simulation"] <- n_simulation
+    mobster_df[n_simulation, "Mutation_count_in_fitting"] <- mobster_model$N
+    mobster_df[n_simulation, "Tail"] <- mobster_model$fit.tail
+    mobster_df[n_simulation, "Tail_power"] <- mobster_model$shape + 1
+    mobster_df[n_simulation, "Tail_pareto_shape"] <- mobster_model$shape
+    mobster_df[n_simulation, "Tail_pareto_scale"] <- mobster_model$scale
+    mobster_df[n_simulation, "Tail_mutcount_observed"] <- mobster_model$N.k[[1]]
+    mobster_df[n_simulation, "Cluster_count"] <- mobster_model$Kbeta
+    for (k in 1:mobster_model$Kbeta) {
+        mobster_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- mobster_model$N.k[[k + 1]]
+        mobster_df[n_simulation, paste0("Cluster_frequency_", k)] <- mobster_model$a[[k]] / (mobster_model$a[[k]] + mobster_model$b[[k]])
+        mobster_df[n_simulation, paste0("Cluster_beta_a_", k)] <- mobster_model$a[[k]]
+        mobster_df[n_simulation, paste0("Cluster_beta_b_", k)] <- mobster_model$b[[k]]
     }
 }
-write.csv(mobster_df, paste0(folder_workplace, "Parameters_mobster.csv"), row.names = FALSE)
-# =====================================================SFS DECONVOLUTION
-#---Set model parameters
+write.csv(mobster_df, paste0("Parameters_MOBSTER.csv"), row.names = FALSE)
+save(mobster_fits, file = paste0("MOBSTER.rda"))
+# ================================================================DECODE
+#---Set DECODE parameters
 # 	Total number of sampled cells in binomial table construction
 matrix_binomial_sample_size <- 1000
-# 	Minimum and maximum number of reads
+# 	Minimum and maximum number of total reads
 r_min <- 0
 r_max <- 500
 # 	Minimum variant read count to be accepted
@@ -197,22 +282,22 @@ matrix_binomial_ploidy <- 2
 coverage_distribution <- "sample-specific"
 #   Maximum number of trials for fitting each hump count
 max_trials <- 10000
-#---Options for fitting
+#---Options for DECODE fitting
 #   Candidates for neutral tail powers
-list_neutral_powers <- seq(1, 3, by = 0.01)
+list_neutral_powers <- seq(0.5, 5, by = 0.01)
 # 	Candidates for where the hump frequencies are
 N_SFS_positions <- 100
 list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
-#---Options for plotting
+#---Options for DECODE plotting
 data_marker_colors <- c(
     "Data" = "black",
-    "Data: Foreground 0" = rgb(0.2, 0.2, 0.2),
-    "Data: Foreground 1" = rgb(0.5, 0.5, 0.5),
-    "Data: Foreground 2" = rgb(0.7, 0.7, 0.7),
-    "Data: Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
-    "Data: Background 1" = rgb(0.6350, 0.0780, 0.1840),
-    "Data: Background 2" = rgb(0.4660, 0.6740, 0.1880),
-    "Data: Truncal" = rgb(0.3010, 0.7450, 0.9330)
+    "Foreground 0" = rgb(0.2, 0.2, 0.2),
+    "Foreground 1" = rgb(0.5, 0.5, 0.5),
+    "Foreground 2" = rgb(0.7, 0.7, 0.7),
+    "Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
+    "Background 1" = rgb(0.6350, 0.0780, 0.1840),
+    "Background 2" = rgb(0.4660, 0.6740, 0.1880),
+    "Truncal" = rgb(0, 0.4470, 0.7410)
 )
 #---Input binomial table
 cat("\n==========================================================================================================================\n")
@@ -229,18 +314,19 @@ filename_1 <- paste0(
 inputBinomialMatrix <- readMat(filename_1)
 matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---Deconvolution for each SFS
-deconvolution_df <- data.frame()
+decode_df <- data.frame()
+decode_fits <- list()
 for (n_simulation in 1:n_simulations) {
     cat("\n==========================================================================================================================\n")
-    cat(paste0("SFS DECONVOLUTION FOR SIMULATION-", n_simulation, "...\n"))
+    cat(paste0("DECODE FOR SIMULATION ", n_simulation, "...\n"))
     #---Input the SFS data
-    filename_2 <- paste0(R_workplace, "/", folder_workplace, "SFS_", n_simulation, ".txt")
+    filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
     mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
     colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
-    #---Perform SFS deconvolution
-    results <- SFS_deconvolution(
+    #---SFS deconvolution with DECODE
+    DECODE_result <- DECODE(
         mutation_table = mutation_table,
-        criterion = "BIC",
+        criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         list_neutral_powers = list_neutral_powers,
         list_frequencies = list_frequencies,
         matrix_binomial_PDF = matrix_binomial_PDF,
@@ -253,50 +339,42 @@ for (n_simulation in 1:n_simulations) {
         r_max = r_max,
         coverage_distribution = coverage_distribution,
         max_trials = max_trials,
-        data_marker_colors = data_marker_colors,
-        plot_filename = paste0(R_workplace, "/", folder_workplace, "DECONVOLUTION_", n_simulation, ".png")
+        neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     )
-    vec_para_best_final <- results$vec_para_best_final
-
-    deconvolution <- results$deconvolution
-    if (n_simulation == 1) {
-        deconvolution_df <- deconvolution
-    } else {
-        if (deconvolution$Cluster_count > max(deconvolution_df$Cluster_count)) {
-            for (k in (deconvolution_df$Cluster_count + 1):deconvolution$Cluster_count) {
-                deconvolution_df[1, paste0("Cluster_frequency_", k)] <- NA
-                deconvolution_df[1, paste0("Cluster_mutcount_observed_", k)] <- NA
-                deconvolution_df[1, paste0("Cluster_mutcount_predicted_", k)] <- NA
-            }
-        } else if (deconvolution$Cluster_count < max(deconvolution_df$Cluster_count)) {
-            for (k in (deconvolution$Cluster_count + 1):max(deconvolution_df$Cluster_count)) {
-                deconvolution[1, paste0("Cluster_frequency_", k)] <- NA
-                deconvolution[1, paste0("Cluster_mutcount_observed_", k)] <- NA
-                deconvolution[1, paste0("Cluster_mutcount_predicted_", k)] <- NA
-            }
-        }
-        deconvolution_df <- rbind(deconvolution_df, deconvolution)
+    #---Plot DECODE deconvolution
+    png(paste0(folder_workplace, "DECODE_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+    print(DECODE_plot(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
+    dev.off()
+    # png(paste0(folder_workplace, "DECODE_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+    # print(DECODE_plot_model_selection(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
+    # dev.off()
+    #---Save DECODE results
+    decode_fits[[n_simulation]] <- DECODE_result
+    decode_model <- DECODE_result$best_fit$parameters_df
+    decode_df[n_simulation, "Simulation"] <- n_simulation
+    decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
+    decode_df[n_simulation, "Tail"] <- decode_model$Tail
+    decode_df[n_simulation, "Tail_power"] <- decode_model$Tail_power
+    decode_df[n_simulation, "Tail_mutcount_observed"] <- decode_model$Tail_mutcount_observed
+    decode_df[n_simulation, "Tail_mutcount_predicted"] <- decode_model$Tail_mutcount_predicted
+    decode_df[n_simulation, "Cluster_count"] <- decode_model$Cluster_count
+    for (k in 1:decode_model$Cluster_count) {
+        decode_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- decode_model[[paste0("Cluster_mutcount_observed_", k)]]
+        decode_df[n_simulation, paste0("Cluster_mutcount_predicted_", k)] <- decode_model[[paste0("Cluster_mutcount_predicted_", k)]]
+        decode_df[n_simulation, paste0("Cluster_frequency_", k)] <- decode_model[[paste0("Cluster_frequency_", k)]]
     }
-    #---Store the best fit
-    N_humps <- (length(vec_para_best_final) - 1) / 2
-    filename <- paste0(R_workplace, "/", folder_workplace, "SFS_deconvolution_parameters_", n_simulation, ".txt")
-    fileID <- file(filename, "w")
-    writeLines(paste(sprintf("%.3f", vec_para_best_final), collapse = "\t"), fileID)
-    close(fileID)
 }
-deconvolution_df <- cbind(
-    data.frame(Simulation = 1:n_simulations),
-    deconvolution_df
-)
-write.csv(deconvolution_df, paste0(folder_workplace, "Parameters_deconvolution.csv"), row.names = FALSE)
+write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
+save(decode_fits, file = paste0("DECODE.rda"))
 # ============================================================COMPARISON
-groundtruth_df <- read.csv(paste0(folder_workplace, "Parameters_true.csv"))
-mobster_df <- read.csv(paste0(folder_workplace, "Parameters_mobster.csv"))
-deconvolution_df <- read.csv(paste0(folder_workplace, "Parameters_deconvolution.csv"))
-plot_deconvolution_components(
+groundtruth_df <- read.csv("Parameters_true.csv")
+mobster_df <- read.csv("Parameters_MOBSTER.csv")
+decode_df <- read.csv("Parameters_DECODE.csv")
+comparison_synthetic_test(
     groundtruth_df = groundtruth_df,
     mobster_df = mobster_df,
-    deconvolution_df = deconvolution_df,
+    decode_df = decode_df,
+    text_notation = TRUE,
     cluster_count = n_selective_clones + 1,
-    folder_workplace = folder_workplace
+    tail = TRUE
 )

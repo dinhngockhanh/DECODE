@@ -42,24 +42,11 @@ simulation_sequening_truth <- function(simulation = list(),
     clonal_background <- vector("list", length = (n_selective_clones + 1))
     for (node in 1:(2 * n_sample - 1)) {
         for (clone in n_selective_clones:0) {
-            if (all(is.element(
-                clonal_leaves[[clone + 1]],
-                phylogeny_progeny_list[[node]]
-            ))) {
+            if (all(is.element(clonal_leaves[[clone + 1]], phylogeny_progeny_list[[node]]))) {
                 clonal_background[[clone + 1]] <- c(clonal_background[[clone + 1]], node)
             }
         }
     }
-    # #   Make background nodes exclusive for each clone
-    # for (clone_daughter in n_selective_clones:1) {
-    #     for (clone_mother in (clone_daughter - 1):0) {
-    #         clonal_background[[clone_daughter + 1]] <-
-    #             setdiff(
-    #                 clonal_background[[clone_daughter + 1]],
-    #                 clonal_background[[clone_mother + 1]]
-    #             )
-    #     }
-    # }
     #--------------------------Find the clonal identity of sampled cells
     sample_genotype <- phylogeny_genotype[n_sample:(2 * n_sample - 1)]
     #-------------Create the true cell-mutation matrix for sampled cells
