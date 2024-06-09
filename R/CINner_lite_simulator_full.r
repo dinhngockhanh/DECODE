@@ -199,6 +199,8 @@ simulator_full <- function(file_prefix = "",
             )
             return("")
         })
+        stopCluster(cl)
+        rm(cl)
     }
 }
 
@@ -252,6 +254,7 @@ simulator_one_simulation <- function(n_simulation,
         conditioning <- output$conditioning
     }
     simulation <- output$simulation
+    output <- c()
     #------------Simulate the sample phylogeny from the clonal evolution
     print("Simulating sample phylogeny")
     start_time <- Sys.time()
@@ -270,9 +273,11 @@ simulator_one_simulation <- function(n_simulation,
     filename <- paste(subfolder, file_prefix, n_simulation, "_phylogeny_hclust.rda", sep = "")
     cell_phylogeny_hclust <- simulation$cell_phylogeny_hclust
     save(cell_phylogeny_hclust, file = filename)
+    cell_phylogeny_hclust <- c()
     filename <- paste(subfolder, file_prefix, n_simulation, "_phylogeny_clustering.rda", sep = "")
     cell_phylogeny_clustering <- simulation$cell_phylogeny_clustering
     save(cell_phylogeny_clustering, file = filename)
+    cell_phylogeny_clustering <- c()
     end_time <- Sys.time()
     print(end_time - start_time)
     #---------------------------------Simulate the true mutational table
@@ -307,6 +312,10 @@ simulator_one_simulation <- function(n_simulation,
             sep = ""
         )
         write.csv(sample_mutational_table_true, file = filename)
+        sample_mutational_table_true <- c()
+        sample_mutational_table_truth <- c()
+        sample_mutational_table_cell_clone <- c()
+        sample_genotype <- c()
         end_time <- Sys.time()
         print(end_time - start_time)
     }
@@ -338,6 +347,9 @@ simulator_one_simulation <- function(n_simulation,
             sep = ""
         )
         write.csv(sample_mutational_table_sc, file = filename)
+        sample_mutational_table_sc <- c()
+        sample_mutational_table_cell_clone <- c()
+        sample_genotype <- c()
     }
     #----------------------------------Simulate the bulk sequencing data
     if (output_bulk == TRUE) {
@@ -367,6 +379,7 @@ simulator_one_simulation <- function(n_simulation,
             file = filename,
             row.names = FALSE
         )
+        sample_mutational_table_bulk <- c()
         end_time <- Sys.time()
         print(end_time - start_time)
     }
@@ -384,6 +397,8 @@ simulator_one_simulation <- function(n_simulation,
         Count_in_sample = Count_in_sample
     )
     filename <- paste(subfolder, file_prefix, n_simulation, "_simulation_variables.csv", sep = "")
+    simulation_variables <- c()
+    Count_in_sample <- c()
     write.csv(simulation_variables, file = filename)
     return(simulation)
 }
@@ -775,6 +790,8 @@ simulator_full_old <- function(file_prefix = "",
             )
             return("")
         })
+        stopCluster(cl)
+        rm(cl)
     }
 }
 
