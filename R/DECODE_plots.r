@@ -152,7 +152,7 @@ comparison_synthetic_test <- function(groundtruth_df,
         p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE) # order
         cn <- 1
         for (id in p_rowsorted_indices) {
-            groundtruth_df[i, paste0("ordered_K_", id)] <- groundtruth_df[i, paste0("K_", cn)]
+            groundtruth_df[i, paste0("ordered_K_", id)] <- groundtruth_df[i, paste0("K_expected_", cn)]
             groundtruth_df[i, paste0("ordered_p_", id)] <- groundtruth_df[i, paste0("p_", cn)]
             cn <- cn + 1
         }
@@ -320,18 +320,39 @@ comparison_synthetic_test <- function(groundtruth_df,
         cluster_parameter_df <- rbind(cluster_parameter_df, decode_cluster_df)
     }
     #---Find distributions of neutral mutation count in each method
+    deconvolution_neutral_df <- data.frame()
     if (is_decode) {
         simulations_ids <- decode_df$Simulation[which(decode_df$Cluster_count == cluster_count_correct & decode_df$Tail == tail_correct)]
-        deconvolution_neutral_df <- data.frame(
-            Simulation = simulations_ids,
-            Parameter = rep("A", cluster_count_correct * length(simulations_ids)),
+        decode_deconvolution_neutral_df <- data.frame(
+            Simulation = rep(simulations_ids, 2),
+            Parameter = c(rep("A_complete", length(simulations_ids)), rep("A_observed", length(simulations_ids))),
             Value_TRUTH = NA,
-            Value_DECODE = NA
+            Value_INFERRED = NA,
+            Method = "DECODE"
         )
-        for (row in 1:nrow(deconvolution_neutral_df)) {
-            deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A"]][deconvolution_neutral_df$Simulation[row]]
-            deconvolution_neutral_df$Value_DECODE[row] <- decode_df[["Tail_mutcount_predicted"]][deconvolution_neutral_df$Simulation[row]]
+        for (row in 1:length(simulations_ids)) {
+            decode_deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A_expected"]][decode_deconvolution_neutral_df$Simulation[row]]
+            decode_deconvolution_neutral_df$Value_INFERRED[row] <- decode_df[["Tail_mutcount_predicted"]][decode_deconvolution_neutral_df$Simulation[row]]
+            decode_deconvolution_neutral_df$Value_TRUTH[row + length(simulations_ids)] <- groundtruth_df[["A_observed_decode"]][decode_deconvolution_neutral_df$Simulation[row]]
+            decode_deconvolution_neutral_df$Value_INFERRED[row + length(simulations_ids)] <- decode_df[["Tail_mutcount_observed"]][decode_deconvolution_neutral_df$Simulation[row]]
         }
+        deconvolution_neutral_df <- rbind(deconvolution_neutral_df, decode_deconvolution_neutral_df)
+    }
+    if (is_mobster) {
+        simulations_ids <- mobster_df$Simulation[which(mobster_df$Cluster_count == cluster_count_correct & mobster_df$Tail == tail_correct)]
+        mobster_deconvolution_neutral_df <- data.frame(
+            Simulation = simulations_ids,
+            Parameter = rep("A_observed", length(simulations_ids)),
+            Value_TRUTH = NA,
+            Value_INFERRED = NA,
+            Method = "MOBSTER"
+        )
+        for (row in 1:length(simulations_ids)) {
+            mobster_deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A_observed_mobster"]][mobster_deconvolution_neutral_df$Simulation[row]]
+            mobster_deconvolution_neutral_df$Value_INFERRED[row] <- mobster_df[["Tail_mutcount_observed"]][mobster_deconvolution_neutral_df$Simulation[row]]
+        }
+        print(mobster_deconvolution_neutral_df)
+        deconvolution_neutral_df <- rbind(deconvolution_neutral_df, mobster_deconvolution_neutral_df)
     }
     #---Plot distributions of tail detection
     png(paste0(folder_workplace, "Comparison_1_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
@@ -589,7 +610,7 @@ comparison_synthetic_test <- function(groundtruth_df,
     print(p)
     dev.off()
     #---Plot distributions of neutral tail mutation count
-    png(paste0(folder_workplace, "Comparison_6_neutral_tail_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
+    png(paste0(folder_workplace, "Comparison_6_neutral_tail_observed_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
         scale_fill_manual(values = color_scheme, name = "") +
@@ -604,24 +625,52 @@ comparison_synthetic_test <- function(groundtruth_df,
             legend.position = "top",
             legend.justification = c(0, 0.5)
         )
-    common_range <- c()
-    if (is_decode) {
-        common_range <- c(
-            common_range,
-            deconvolution_neutral_df$Value_TRUTH[deconvolution_neutral_df$Parameter == "A"],
-            deconvolution_neutral_df$Value_DECODE[deconvolution_neutral_df$Parameter == "A"]
-        )
-        p <- p +
-            geom_point(
-                data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A", ],
-                aes(x = Value_TRUTH, y = Value_DECODE, fill = "DECODE", color = "DECODE"),
-                alpha = 0.5, size = 20
-            ) + xlim(range(common_range)) + ylim(range(common_range))
-    }
+    common_range <- c(
+        deconvolution_neutral_df$Value_TRUTH[deconvolution_neutral_df$Parameter == "A_observed"],
+        deconvolution_neutral_df$Value_INFERRED[deconvolution_neutral_df$Parameter == "A_observed"]
+    )
+    p <- p +
+        geom_point(
+            data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A_observed", ],
+            aes(x = Value_TRUTH, y = Value_INFERRED, fill = Method, color = Method),
+            alpha = 0.5, size = 20
+        ) + xlim(range(common_range)) + ylim(range(common_range))
     if (text_notation) {
         p <- p +
-            geom_text(data = deconvolution_neutral_df, aes(x = Value_TRUTH, y = Value_DECODE, label = Simulation, color = "DECODE"), size = 20, vjust = 0.5, hjust = 0.5)
+            geom_text(data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A_observed", ], aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
     }
+    print(p)
+    dev.off()
+    png(paste0(folder_workplace, "Comparison_6_neutral_tail_expected_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
+        scale_fill_manual(values = color_scheme, name = "") +
+        scale_color_manual(values = color_scheme, name = "") +
+        xlab("True neutral mutation count") +
+        ylab("Inferred neutral mutation count") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5)
+        )
+    common_range <- c(
+        deconvolution_neutral_df$Value_TRUTH[deconvolution_neutral_df$Parameter == "A_complete"],
+        deconvolution_neutral_df$Value_INFERRED[deconvolution_neutral_df$Parameter == "A_complete"]
+    )
+    p <- p +
+        geom_point(
+            data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A_complete", ],
+            aes(x = Value_TRUTH, y = Value_INFERRED, fill = Method, color = Method),
+            alpha = 0.5, size = 20
+        ) + xlim(range(common_range)) + ylim(range(common_range))
+    if (text_notation) {
+        p <- p +
+            geom_text(data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A_complete", ], aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
+    }
+    print(deconvolution_neutral_df)
     print(p)
     dev.off()
 }

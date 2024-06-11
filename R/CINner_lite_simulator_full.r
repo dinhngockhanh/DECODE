@@ -397,9 +397,9 @@ simulator_one_simulation <- function(n_simulation,
         Count_in_sample = Count_in_sample
     )
     filename <- paste(subfolder, file_prefix, n_simulation, "_simulation_variables.csv", sep = "")
+    write.csv(simulation_variables, file = filename)
     simulation_variables <- c()
     Count_in_sample <- c()
-    write.csv(simulation_variables, file = filename)
     return(simulation)
 }
 
