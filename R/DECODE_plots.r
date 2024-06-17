@@ -130,7 +130,18 @@ analysis_synthetic_test <- function(groundtruth_df,
     cluster_count_correct <- cluster_count
     is_mobster <- !is.null(mobster_df)
     is_decode <- !is.null(decode_df)
-    color_scheme <- c(
+    binary_color_scheme <- c(
+        "TRUE" = "#D55E00",
+        "FALSE" = "#0072B2"
+    )
+    cluster_count_color_scheme <- c(
+        "1" = "#E69F00",
+        "2" = "#56B4E9",
+        "3" = "#009E73",
+        "4" = "#F0E442",
+        "5" = "#CC79A7"
+    )
+    method_color_scheme <- c(
         "MOBSTER" = "darkorange2",
         "DECODE" = "magenta4"
     )
@@ -182,6 +193,11 @@ analysis_synthetic_test <- function(groundtruth_df,
             }
         }
     }
+    #---Find distributions of characteristics in each method with respect to sample purity and coverage
+    characteristic_df <- groundtruth_df
+    characteristic_df$mobster_tail <- mobster_df$Tail
+    characteristic_df$mobster_cluster_count <- as.factor(mobster_df$Cluster_count)
+    characteristic_df$decode_cluster_count <- as.factor(decode_df$Cluster_count)
     #---Find distributions of neutral tail power in each method
     if (is_mobster) {
         mobster_df$alpha <- mobster_df$Tail_power
@@ -348,9 +364,74 @@ analysis_synthetic_test <- function(groundtruth_df,
             mobster_deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A_observed_mobster"]][mobster_deconvolution_neutral_df$Simulation[row]]
             mobster_deconvolution_neutral_df$Value_INFERRED[row] <- mobster_df[["Tail_mutcount_observed"]][mobster_deconvolution_neutral_df$Simulation[row]]
         }
-        print(mobster_deconvolution_neutral_df)
         deconvolution_neutral_df <- rbind(deconvolution_neutral_df, mobster_deconvolution_neutral_df)
     }
+    #---Plot distributions of MOBSTER's tail detection w.r.t. sample purity and coverage
+    png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_point(
+            data = characteristic_df,
+            aes(x = Purity, y = Coverage, fill = mobster_tail, color = mobster_tail),
+            alpha = 0.5, size = 20
+        ) +
+        scale_fill_manual(values = binary_color_scheme, name = "MOBSTER tail") +
+        scale_color_manual(values = binary_color_scheme, name = "MOBSTER tail") +
+        xlab("Purity") +
+        ylab("Sequencing coverage") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5)
+        )
+    print(p)
+    dev.off()
+    #---Plot distributions of MOBSTER's cluster count w.r.t. sample purity and coverage
+    png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_point(
+            data = characteristic_df,
+            aes(x = Purity, y = Coverage, fill = mobster_cluster_count, color = mobster_cluster_count),
+            alpha = 0.5, size = 20
+        ) +
+        scale_fill_manual(values = cluster_count_color_scheme, name = "MOBSTER cluster count") +
+        scale_color_manual(values = cluster_count_color_scheme, name = "MOBSTER cluster count") +
+        xlab("Purity") +
+        ylab("Sequencing coverage") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5)
+        )
+    print(p)
+    dev.off()
+    #---Plot distributions of DECODE's cluster count w.r.t. sample purity and coverage
+    png(paste0(folder_workplace, "Comparison_0_sample_info_vs_decode_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_point(
+            data = characteristic_df,
+            aes(x = Purity, y = Coverage, fill = decode_cluster_count, color = decode_cluster_count),
+            alpha = 0.5, size = 20
+        ) +
+        scale_fill_manual(values = cluster_count_color_scheme, name = "DECODE cluster count") +
+        scale_color_manual(values = cluster_count_color_scheme, name = "DECODE cluster count") +
+        xlab("Purity") +
+        ylab("Sequencing coverage") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5)
+        )
+    print(p)
+    dev.off()
     #---Plot distributions of tail detection
     png(paste0(folder_workplace, "Comparison_1_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
     xticks <- sort(unique(df_tail_detection$tail))
@@ -364,7 +445,7 @@ analysis_synthetic_test <- function(groundtruth_df,
     }
     p <- ggplot() +
         geom_bar(data = df_tail_detection, aes(x = tail, y = frequency, fill = method), stat = "identity", position = "dodge") +
-        scale_fill_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
         guides(fill = guide_legend(nrow = 1, keywidth = 3, keyheight = 1)) +
         xlab("Tail detection") +
         ylab("Frequency") +
@@ -386,7 +467,7 @@ analysis_synthetic_test <- function(groundtruth_df,
     if (!is.na(cluster_count_correct)) xticks_label[xticks_label == cluster_count_correct] <- paste0(cluster_count_correct, " (correct)")
     p <- ggplot() +
         geom_bar(data = df_cluster_count[which(df_cluster_count$condition == "all"), ], aes(x = cluster_count, y = frequency, fill = method), stat = "identity", position = "dodge") +
-        scale_fill_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
         guides(fill = guide_legend(nrow = 1, keywidth = 6, keyheight = 1)) +
         xlab("Cluster count") +
         ylab("Frequency") +
@@ -408,7 +489,7 @@ analysis_synthetic_test <- function(groundtruth_df,
         if (!is.na(cluster_count_correct)) xticks_label[xticks_label == cluster_count_correct] <- paste0(cluster_count_correct, " (correct)")
         p <- ggplot() +
             geom_bar(data = df_cluster_count[df_cluster_count$condition == "correct_tail", ], aes(x = cluster_count, y = frequency, fill = method), stat = "identity", position = "dodge") +
-            scale_fill_manual(values = color_scheme, name = "") +
+            scale_fill_manual(values = method_color_scheme, name = "") +
             guides(fill = guide_legend(nrow = 1, keywidth = 6, keyheight = 1)) +
             xlab("Cluster count") +
             ylab("Frequency") +
@@ -428,8 +509,8 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_3_clonal_frequency_all.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "") +
-        scale_color_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
         scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
         xlab("True cluster frequency") +
         ylab("Inferred cluster frequency") +
@@ -469,8 +550,8 @@ analysis_synthetic_test <- function(groundtruth_df,
         png(paste0(folder_workplace, "Comparison_3_clonal_frequency_conditioned.png"), res = 150, width = 30, height = 30, units = "in")
         p <- ggplot() +
             geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-            scale_fill_manual(values = color_scheme, name = "") +
-            scale_color_manual(values = color_scheme, name = "") +
+            scale_fill_manual(values = method_color_scheme, name = "") +
+            scale_color_manual(values = method_color_scheme, name = "") +
             scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
             xlab("True cluster frequency") +
             ylab("Inferred cluster frequency") +
@@ -504,8 +585,8 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_4_clonal_observed_mutation_count_all.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "") +
-        scale_color_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
         scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
         xlab("True mutation count") +
         ylab("Inferred mutation count") +
@@ -545,8 +626,8 @@ analysis_synthetic_test <- function(groundtruth_df,
         png(paste0(folder_workplace, "Comparison_4_clonal_observed_mutation_count_conditioned.png"), res = 150, width = 30, height = 30, units = "in")
         p <- ggplot() +
             geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-            scale_fill_manual(values = color_scheme, name = "") +
-            scale_color_manual(values = color_scheme, name = "") +
+            scale_fill_manual(values = method_color_scheme, name = "") +
+            scale_color_manual(values = method_color_scheme, name = "") +
             scale_shape_manual(values = shape_scheme, labels = shape_labels, name = "Cluster") +
             xlab("True mutation count") +
             ylab("Inferred mutation count") +
@@ -580,7 +661,7 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_5_neutral_tail_power_raw.png"), res = 150, width = 30, height = 15, units = "in")
     tail_power <- unique(groundtruth_df$alpha)
     p <- ggplot() +
-        scale_fill_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
         guides(fill = guide_legend(nrow = 1, keywidth = 3, keyheight = 1)) +
         xlab("Neutral tail power") +
         ylab("Frequency") +
@@ -610,8 +691,8 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_6_neutral_tail_observed_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "") +
-        scale_color_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
         xlab("True neutral mutation count") +
         ylab("Inferred neutral mutation count") +
         theme(
@@ -641,8 +722,8 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_6_neutral_tail_expected_mutation_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        scale_fill_manual(values = color_scheme, name = "") +
-        scale_color_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
         xlab("True neutral mutation count") +
         ylab("Inferred neutral mutation count") +
         theme(
@@ -667,7 +748,6 @@ analysis_synthetic_test <- function(groundtruth_df,
         p <- p +
             geom_text(data = deconvolution_neutral_df[deconvolution_neutral_df$Parameter == "A_complete", ], aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
     }
-    print(deconvolution_neutral_df)
     print(p)
     dev.off()
 }
@@ -681,7 +761,7 @@ analysis_ICGC <- function(sample_information_df,
     library(ggplot2)
     is_mobster <- !is.null(mobster_df)
     is_decode <- !is.null(decode_df)
-    color_scheme <- c(
+    method_color_scheme <- c(
         "MOBSTER" = "darkorange2",
         "DECODE" = "magenta4"
     )
@@ -767,8 +847,8 @@ analysis_ICGC <- function(sample_information_df,
             aes(x = Purity, y = Truncal_frequency, fill = Method, color = Method),
             alpha = 0.5, size = 20
         ) +
-        scale_fill_manual(values = color_scheme, name = "") +
-        scale_color_manual(values = color_scheme, name = "") +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
         xlab("Sample purity") +
         ylab("2 \u00D7 Truncal cluster frequency") +
         theme(

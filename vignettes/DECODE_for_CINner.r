@@ -24,43 +24,43 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 n_simulations <- 30 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# # =====================================================DECODE parameters
-# #---Set DECODE parameters
-# # 	Total number of sampled cells in binomial table construction
-# matrix_binomial_sample_size <- 1000
-# # 	Minimum and maximum number of total reads
-# r_min <- 0
-# r_max <- 500
-# # 	Minimum variant read count to be accepted
-# min_variant_read <- 5
-# # 	Minimum total read count to be accepted
-# min_total_read <- 0
-# # 	Number of steps to divide SFS frequencies in [0,1]
-# SFS_totalsteps <- 100
-# matrix_binomial_sfs_stepcount <- 100
-# # 	Choice of ploidy, which changes the binomial rate
-# matrix_binomial_ploidy <- 2
-# #   Assumption of coverage distribution
-# coverage_distribution <- "sample-specific"
-# #   Maximum number of trials for fitting each hump count
-# max_trials <- 10000
-# #---Options for DECODE fitting
-# #   Candidates for neutral tail powers
-# list_neutral_powers <- seq(0.5, 5, by = 0.01)
-# # 	Candidates for where the hump frequencies are
-# N_SFS_positions <- 100
-# list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
-# #---Options for DECODE plotting
-# data_marker_colors <- c(
-#     "Data" = "black",
-#     "Foreground 0" = rgb(0.2, 0.2, 0.2),
-#     "Foreground 1" = rgb(0.5, 0.5, 0.5),
-#     "Foreground 2" = rgb(0.7, 0.7, 0.7),
-#     "Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
-#     "Background 1" = rgb(0.6350, 0.0780, 0.1840),
-#     "Background 2" = rgb(0.4660, 0.6740, 0.1880),
-#     "Truncal" = rgb(0, 0.4470, 0.7410)
-# )
+# =====================================================DECODE parameters
+#---Set DECODE parameters
+# 	Total number of sampled cells in binomial table construction
+matrix_binomial_sample_size <- 1000
+# 	Minimum and maximum number of total reads
+r_min <- 0
+r_max <- 500
+# 	Minimum variant read count to be accepted
+min_variant_read <- 5
+# 	Minimum total read count to be accepted
+min_total_read <- 0
+# 	Number of steps to divide SFS frequencies in [0,1]
+SFS_totalsteps <- 100
+matrix_binomial_sfs_stepcount <- 100
+# 	Choice of ploidy, which changes the binomial rate
+matrix_binomial_ploidy <- 2
+#   Assumption of coverage distribution
+coverage_distribution <- "sample-specific"
+#   Maximum number of trials for fitting each hump count
+max_trials <- 10000
+#---Options for DECODE fitting
+#   Candidates for neutral tail powers
+list_neutral_powers <- seq(0.5, 5, by = 0.01)
+# 	Candidates for where the hump frequencies are
+N_SFS_positions <- 100
+list_frequencies <- seq(from = 1 / N_SFS_positions, to = 1, by = 1 / N_SFS_positions)
+#---Options for DECODE plotting
+data_marker_colors <- c(
+    "Data" = "black",
+    "Foreground 0" = rgb(0.2, 0.2, 0.2),
+    "Foreground 1" = rgb(0.5, 0.5, 0.5),
+    "Foreground 2" = rgb(0.7, 0.7, 0.7),
+    "Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
+    "Background 1" = rgb(0.6350, 0.0780, 0.1840),
+    "Background 2" = rgb(0.4660, 0.6740, 0.1880),
+    "Truncal" = rgb(0, 0.4470, 0.7410)
+)
 # # ==========================================MAKE CINNER LITE SIMULATIONS
 # dir.create(folder_workplace)
 # load(file = paste0(R_PCAWG, "/ICGC_purity_coverage.rda"))
@@ -201,8 +201,10 @@ cell_lifespan <- 10 # [in days]
 # df_all_simulation_parameters <- read.csv("Parameters_simulation.csv", header = TRUE)
 # df <- data.frame()
 # for (n_simulation in 1:n_simulations) {
+#     print(n_simulation)
 #     #   Retrieve simulation input parameters
 #     purity <- df_all_simulation_parameters[["Purity"]][n_simulation]
+#     coverage <- df_all_simulation_parameters[["Sequencing.coverage"]][n_simulation]
 #     t_end_time <- df_all_simulation_parameters[["Age.of.MRCA..years."]][n_simulation] * 365
 #     vec_theta_parameters <- df_all_simulation_parameters[["Tumor.mutation.rate"]][n_simulation]
 #     n_sample <- df_all_simulation_parameters[["Sample.cell.count"]][n_simulation]
@@ -249,9 +251,9 @@ cell_lifespan <- 10 # [in days]
 #     }
 #     Ks_expected[1] <- Ks_expected[1] + truncal_mutations
 #     #   Save the results
-#     df <- rbind(df, c(n_simulation, A_total, A_observed_mobster, A_observed_decode, alpha, ps, Ks_expected))
+#     df <- rbind(df, c(n_simulation, purity, coverage, A_total, A_observed_mobster, A_observed_decode, alpha, ps, Ks_expected))
 # }
-# names(df) <- c("Simulation", "A_total", "A_observed_mobster", "A_observed_decode", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_expected_", 1:(n_selective_clones + 1)))
+# names(df) <- c("Simulation", "Purity", "Coverage", "A_total", "A_observed_mobster", "A_observed_decode", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_expected_", 1:(n_selective_clones + 1)))
 # write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
 # # ===============================================================MOBSTER
 # numCores <- detectCores()
@@ -396,9 +398,9 @@ cell_lifespan <- 10 # [in days]
 # write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
 # save(decode_fits, file = paste0("DECODE.rda"))
 # ==============================================================ANALYSIS
-groundtruth_df <- read.csv("TEST/Parameters_true.csv")
-mobster_df <- read.csv("TEST/Parameters_MOBSTER.csv")
-decode_df <- read.csv("TEST/Parameters_DECODE.csv")
+groundtruth_df <- read.csv("Parameters_true.csv")
+mobster_df <- read.csv("Parameters_MOBSTER.csv")
+decode_df <- read.csv("Parameters_DECODE.csv")
 analysis_synthetic_test(
     groundtruth_df = groundtruth_df,
     mobster_df = mobster_df,
