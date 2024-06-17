@@ -1,6 +1,6 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
 R_ICGC_raw_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG"
-R_ICGC_processed_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/SFS_CNA_deconvolution/data/PCAWG"
+R_ICGC_processed_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/PCAWG"
 R_libPaths <- ""
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
@@ -125,3 +125,24 @@ for (i_sample in 1:length(sample_df$aliquot_id)) {
         write.table(muts_karyotype, filename, sep = "\t", row.names = FALSE)
     }
 }
+#-----------------------------------------Extract purity & coverage data
+ICGC_sample_info <- read.csv(file.path(R_ICGC_processed_data, "/sample_information.csv"))
+ICGC_purity_coverage <- list()
+ICGC_purity_coverage$N_sample <- nrow(ICGC_sample_info)
+for (i in 1:nrow(ICGC_sample_info)) {
+    print(i)
+    sample_id <- ICGC_sample_info$aliquot_id[i]
+    purity <- ICGC_sample_info$purity[i]
+    tmp <- read.csv(file.path(R_ICGC_processed_data, paste0(sample_id, "_all.csv")))
+    tot_counts <- tmp$t_alt_count + tmp$t_ref_count
+    tmp <- read.csv(file.path(R_ICGC_processed_data, paste0(sample_id, "_all.csv")))
+    tot_counts <- tmp$t_alt_count + tmp$t_ref_count
+    tot_counts <- tot_counts[!is.na(tot_counts)]
+    unique_counts <- table(tot_counts)
+    coverage <- data.frame(Read_count = as.numeric(names(unique_counts)), Frequency = as.numeric(unique_counts))
+    coverage <- coverage[order(coverage$Read_count), ]
+    ICGC_purity_coverage[[paste0("sample_", i)]] <- list()
+    ICGC_purity_coverage[[paste0("sample_", i)]]$purity <- purity
+    ICGC_purity_coverage[[paste0("sample_", i)]]$coverage <- coverage
+}
+save(ICGC_purity_coverage, file = paste0(R_ICGC_processed_data, "/ICGC_purity_coverage.rda"))
