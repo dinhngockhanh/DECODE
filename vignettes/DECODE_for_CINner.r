@@ -22,7 +22,7 @@ sapply(files_sources, source)
 setwd(R_workplace)
 
 folder_workplace <- "TEST/"
-n_simulations <- 30 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+n_simulations <- 5 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # # =======================================GET ICGC PURITY & COVERAGE DATA
 # ICGC_sample_info <- read.csv(file.path(R_PCAWG, "sample_information.csv"))
@@ -120,7 +120,8 @@ df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = fun
     ####################################################################
     ####################################################################
     ####################################################################
-    t_MRCA <- runif(1, min = 1, max = 20) # [in years]
+    #---Set simulation parameters
+    t_MRCA <- runif(1, min = 1, max = 10) # [in years]
     ratio_theta <- runif(1, min = 1, max = 1) # <<<<<<<<<<<<<<<<<<<<<<<<
     PCAWG_index <- sample(1:ICGC_purity_coverage$N_sample, 1)
     purity <- ICGC_purity_coverage[[paste0("sample_", PCAWG_index)]]$purity
@@ -136,7 +137,6 @@ df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = fun
     range_population <- c(0.8, 1.2) * expected_end_population
     range_clonal_perc <- c(20, 100)
     ploidy <- 2
-
     choice_theta <- "constant"
     theta_normal <- 6.12 # [mutations per division]
     vec_theta_parameters <- c(ratio_theta * theta_normal)
@@ -147,7 +147,7 @@ df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = fun
     bulk_coverage_variables <- list()
     bulk_coverage_variables$coverage <- coverage
     bulk_min_alt_readcounts <- 3
-
+    #---Make one CINner simulation
     folder_workplace_sub <- paste0(folder_workplace, "_", n_simulation, "/")
     dir.create(folder_workplace_sub)
     truncal_mutations <- rpois(n = 1, lambda = theta_normal * round((t_diagnosis - t_MRCA) * 365 / cell_lifespan))
@@ -181,6 +181,13 @@ df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = fun
         file_prefix = "",
         R_libPaths = R_libPaths
     )
+    #---Plot simulated cell phylogeny
+    load(paste0(folder_workplace_sub, "simulation_1.rda"))
+    simulation$cell_phylogeny_hclust$height <- simulation$cell_phylogeny_hclust$height / 365
+    png(paste0(folder_workplace, "CINner_phylogeny_", n_simulation, ".png"), res = 150, width = 30, height = 15, units = "in")
+    plot(simulation$cell_phylogeny_hclust, labels = FALSE, ylab = "year")
+    dev.off()
+    #---Save simulation parameters
     table_parameters$Batch_ID <- NULL
     table_parameters <- cbind(data.frame(Simulation = n_simulation), table_parameters)
     table_parameters[["Age at diagnosis (years)"]] <- t_diagnosis
@@ -215,11 +222,9 @@ for (n_simulation in 1:n_simulations) {
 df_all_simulation_parameters <- read.csv("Parameters_simulation.csv", header = TRUE)
 df <- data.frame()
 for (n_simulation in 1:n_simulations) {
-    # for (n_simulation in 1:1) {
     #   Retrieve simulation input parameters
     purity <- df_all_simulation_parameters[["Purity"]][n_simulation]
     t_end_time <- df_all_simulation_parameters[["Age.of.MRCA..years."]][n_simulation] * 365
-    # t_end_time <- df_all_simulation_parameters[["Age.at.diagnosis..years."]][n_simulation]
     vec_theta_parameters <- df_all_simulation_parameters[["Tumor.mutation.rate"]][n_simulation]
     n_sample <- df_all_simulation_parameters[["Sample.cell.count"]][n_simulation]
     ploidy <- df_all_simulation_parameters[["Ploidy"]][n_simulation]
@@ -238,24 +243,20 @@ for (n_simulation in 1:n_simulations) {
             ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
         }
     }
-
-
-
-    #   Compute observed clonal growth rates per day
-    growth_rates <- log(Ns) / (t_end_time - MRCA_ages)
-
     #   Find expected number of neutral mutations
-    A_expected <- sum(vec_theta_parameters * ns / growth_rates / cell_lifespan)
-    # A_expected <- sum(vec_theta_parameters * ns / growth_rates)
-
-
+    folder_workplace_sub <- paste0(folder_workplace, "_", n_simulation, "/")
+    load(paste0(folder_workplace_sub, "simulation_1.rda"))
+    A_total <- 0
+    for (i in 1:length(simulation$sample_mutational_table_truth_node_markers)) {
+        if (grepl("Foreground_", simulation$sample_mutational_table_truth_node_markers[[i]])) {
+            A_total <- A_total + simulation$sample_mutational_table_truth_node_mutation_counts[[i]]
+        }
+    }
     #   Find observed number of neutral mutations
     A_observed_mobster <- length(which(grepl("Foreground_", observed_mutation_table$Marker)))
     A_observed_decode <- length(which(grepl("Foreground_", observed_mutation_table$Marker) &
         observed_mutation_table$Alt_count >= min_variant_read &
         (observed_mutation_table$Ref_count + observed_mutation_table$Alt_count) >= min_total_read))
-
-
     #   Find expected power of neutral mutations
     alpha <- 2
     #   Find expected binomial hump locations
@@ -269,12 +270,11 @@ for (n_simulation in 1:n_simulations) {
     }
     Ks_expected[1] <- Ks_expected[1] + truncal_mutations
     #   Save the results
-    df <- rbind(df, c(n_simulation, A_expected, A_observed_mobster, A_observed_decode, alpha, ps, Ks_expected))
+    df <- rbind(df, c(n_simulation, A_total, A_observed_mobster, A_observed_decode, alpha, ps, Ks_expected))
 }
-names(df) <- c("Simulation", "A_expected", "A_observed_mobster", "A_observed_decode", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_expected_", 1:(n_selective_clones + 1)))
+names(df) <- c("Simulation", "A_total", "A_observed_mobster", "A_observed_decode", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_expected_", 1:(n_selective_clones + 1)))
 write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
 # ===============================================================MOBSTER
-#---Deconvolution for each SFS
 numCores <- detectCores()
 cl <- makePSOCKcluster(numCores - 1)
 if (is.null(R_libPaths) == FALSE) {
@@ -295,19 +295,27 @@ df_all_mobsters <- pblapply(cl = cl, X = 1:n_simulations, FUN = function(n_simul
     mob_data <- as.data.frame(data[, last_col])
     colnames(mob_data)[1] <- "VAF"
     #---SFS deconvolution with MOBSTER
-    MOBSTER_result <- mobster_fit(
-        mob_data,
-        tail = c(TRUE), # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        parallel = FALSE, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        description = paste0("Simulation ", n_simulation)
+    MOBSTER_result <- try(
+        {
+            mobster_fit(
+                mob_data,
+                tail = c(TRUE), # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                parallel = FALSE, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                description = paste0("Simulation ", n_simulation)
+            )
+        },
+        silent = TRUE
     )
+    save(MOBSTER_result, file = paste0(folder_workplace, "MOBSTER_", n_simulation, ".rda"))
     #---Plot MOBSTER deconvolution
-    png(paste0(folder_workplace, "MOBSTER_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(plot(MOBSTER_result$best))
-    dev.off()
-    png(paste0(folder_workplace, "MOBSTER_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(plot_model_selection(MOBSTER_result))
-    dev.off()
+    if (!inherits(MOBSTER_result, "try-error")) {
+        png(paste0(folder_workplace, "MOBSTER_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+        print(plot(MOBSTER_result$best))
+        dev.off()
+        png(paste0(folder_workplace, "MOBSTER_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+        print(plot_model_selection(MOBSTER_result))
+        dev.off()
+    }
     return(MOBSTER_result)
 })
 stopCluster(cl)
@@ -317,20 +325,25 @@ for (n_simulation in 1:n_simulations) {
     MOBSTER_result <- df_all_mobsters[[n_simulation]]
     #---Save MOBSTER results
     mobster_fits[[n_simulation]] <- MOBSTER_result
-    mobster_model <- MOBSTER_result$best
     mobster_df[n_simulation, "Simulation"] <- n_simulation
-    mobster_df[n_simulation, "Mutation_count_in_fitting"] <- mobster_model$N
-    mobster_df[n_simulation, "Tail"] <- mobster_model$fit.tail
-    mobster_df[n_simulation, "Tail_power"] <- mobster_model$shape + 1
-    mobster_df[n_simulation, "Tail_pareto_shape"] <- mobster_model$shape
-    mobster_df[n_simulation, "Tail_pareto_scale"] <- mobster_model$scale
-    mobster_df[n_simulation, "Tail_mutcount_observed"] <- mobster_model$N.k[[1]]
-    mobster_df[n_simulation, "Cluster_count"] <- mobster_model$Kbeta
-    for (k in 1:mobster_model$Kbeta) {
-        mobster_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- mobster_model$N.k[[k + 1]]
-        mobster_df[n_simulation, paste0("Cluster_frequency_", k)] <- mobster_model$a[[k]] / (mobster_model$a[[k]] + mobster_model$b[[k]])
-        mobster_df[n_simulation, paste0("Cluster_beta_a_", k)] <- mobster_model$a[[k]]
-        mobster_df[n_simulation, paste0("Cluster_beta_b_", k)] <- mobster_model$b[[k]]
+    if (inherits(MOBSTER_result, "try-error")) {
+        mobster_df[n_simulation, "Succeed"] <- FALSE
+    } else {
+        mobster_model <- MOBSTER_result$best
+        mobster_df[n_simulation, "Succeed"] <- TRUE
+        mobster_df[n_simulation, "Mutation_count_in_fitting"] <- mobster_model$N
+        mobster_df[n_simulation, "Tail"] <- mobster_model$fit.tail
+        mobster_df[n_simulation, "Tail_power"] <- mobster_model$shape + 1
+        mobster_df[n_simulation, "Tail_pareto_shape"] <- mobster_model$shape
+        mobster_df[n_simulation, "Tail_pareto_scale"] <- mobster_model$scale
+        mobster_df[n_simulation, "Tail_mutcount_observed"] <- mobster_model$N.k[[1]]
+        mobster_df[n_simulation, "Cluster_count"] <- mobster_model$Kbeta
+        for (k in 1:mobster_model$Kbeta) {
+            mobster_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- mobster_model$N.k[[k + 1]]
+            mobster_df[n_simulation, paste0("Cluster_frequency_", k)] <- mobster_model$a[[k]] / (mobster_model$a[[k]] + mobster_model$b[[k]])
+            mobster_df[n_simulation, paste0("Cluster_beta_a_", k)] <- mobster_model$a[[k]]
+            mobster_df[n_simulation, paste0("Cluster_beta_b_", k)] <- mobster_model$b[[k]]
+        }
     }
 }
 write.csv(mobster_df, paste0("Parameters_MOBSTER.csv"), row.names = FALSE)
@@ -354,7 +367,7 @@ matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 decode_df <- data.frame()
 decode_fits <- list()
 for (n_simulation in 1:n_simulations) {
-    cat("\n==========================================================================================================================\n")
+    cat("\n==========================================================================================================================\n") # nolint
     cat(paste0("DECODE FOR SIMULATION ", n_simulation, "...\n"))
     #---Input the SFS data
     filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
@@ -403,11 +416,11 @@ for (n_simulation in 1:n_simulations) {
 }
 write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
 save(decode_fits, file = paste0("DECODE.rda"))
-# ============================================================COMPARISON
+# ==============================================================ANALYSIS
 groundtruth_df <- read.csv("Parameters_true.csv")
 mobster_df <- read.csv("Parameters_MOBSTER.csv")
 decode_df <- read.csv("Parameters_DECODE.csv")
-comparison_synthetic_test(
+analysis_synthetic_test(
     groundtruth_df = groundtruth_df,
     mobster_df = mobster_df,
     decode_df = decode_df,

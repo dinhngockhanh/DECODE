@@ -118,13 +118,13 @@ DECODE_plot <- function(DECODE_result,
     return(p)
 }
 
-comparison_synthetic_test <- function(groundtruth_df,
-                                      mobster_df = NULL,
-                                      decode_df = NULL,
-                                      text_notation = FALSE,
-                                      cluster_count = NA,
-                                      tail = NA,
-                                      folder_workplace = "") {
+analysis_synthetic_test <- function(groundtruth_df,
+                                    mobster_df = NULL,
+                                    decode_df = NULL,
+                                    text_notation = FALSE,
+                                    cluster_count = NA,
+                                    tail = NA,
+                                    folder_workplace = "") {
     library(ggplot2)
     tail_correct <- tail
     cluster_count_correct <- cluster_count
@@ -149,12 +149,11 @@ comparison_synthetic_test <- function(groundtruth_df,
     #---Rearrange the clusters in each group in descending frequencies
     for (i in 1:(dim(groundtruth_df)[1])) {
         p_row <- groundtruth_df[i, grep("^p_", names(groundtruth_df), value = TRUE)]
-        p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE) # order
-        cn <- 1
-        for (id in p_rowsorted_indices) {
-            groundtruth_df[i, paste0("ordered_K_", id)] <- groundtruth_df[i, paste0("K_expected_", cn)]
-            groundtruth_df[i, paste0("ordered_p_", id)] <- groundtruth_df[i, paste0("p_", cn)]
-            cn <- cn + 1
+        p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE)
+        for (index_new in 1:length(p_rowsorted_indices)) {
+            index_old <- p_rowsorted_indices[index_new]
+            groundtruth_df[i, paste0("ordered_K_", index_new)] <- groundtruth_df[i, paste0("K_expected_", index_old)]
+            groundtruth_df[i, paste0("ordered_p_", index_new)] <- groundtruth_df[i, paste0("p_", index_old)]
         }
     }
     if (is_mobster) {
@@ -163,11 +162,10 @@ comparison_synthetic_test <- function(groundtruth_df,
         for (i in 1:(dim(mobster_df)[1])) {
             p_row <- mobster_df[i, p_cols]
             p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE)
-            cn <- 1
-            for (id in p_rowsorted_indices) {
-                mobster_df[i, paste0("ordered_K_", id)] <- mobster_df[i, paste0("Cluster_mutcount_observed_", cn)]
-                mobster_df[i, paste0("ordered_p_", id)] <- mobster_df[i, paste0("Cluster_frequency_", cn)]
-                cn <- cn + 1
+            for (index_new in 1:length(p_rowsorted_indices)) {
+                index_old <- p_rowsorted_indices[index_new]
+                mobster_df[i, paste0("ordered_K_", index_new)] <- mobster_df[i, paste0("Cluster_mutcount_observed_", index_old)]
+                mobster_df[i, paste0("ordered_p_", index_new)] <- mobster_df[i, paste0("Cluster_frequency_", index_old)]
             }
         }
     }
@@ -177,11 +175,10 @@ comparison_synthetic_test <- function(groundtruth_df,
         for (i in 1:(dim(decode_df)[1])) {
             p_row <- decode_df[i, p_cols]
             p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE)
-            cn <- 1
-            for (id in p_rowsorted_indices) {
-                decode_df[i, paste0("ordered_K_", id)] <- decode_df[i, paste0("Cluster_mutcount_predicted_", cn)]
-                decode_df[i, paste0("ordered_p_", id)] <- decode_df[i, paste0("Cluster_frequency_", cn)]
-                cn <- cn + 1
+            for (index_new in 1:length(p_rowsorted_indices)) {
+                index_old <- p_rowsorted_indices[index_new]
+                decode_df[i, paste0("ordered_K_", index_new)] <- decode_df[i, paste0("Cluster_mutcount_predicted_", index_old)]
+                decode_df[i, paste0("ordered_p_", index_new)] <- decode_df[i, paste0("Cluster_frequency_", index_old)]
             }
         }
     }
@@ -331,7 +328,7 @@ comparison_synthetic_test <- function(groundtruth_df,
             Method = "DECODE"
         )
         for (row in 1:length(simulations_ids)) {
-            decode_deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A_expected"]][decode_deconvolution_neutral_df$Simulation[row]]
+            decode_deconvolution_neutral_df$Value_TRUTH[row] <- groundtruth_df[["A_total"]][decode_deconvolution_neutral_df$Simulation[row]]
             decode_deconvolution_neutral_df$Value_INFERRED[row] <- decode_df[["Tail_mutcount_predicted"]][decode_deconvolution_neutral_df$Simulation[row]]
             decode_deconvolution_neutral_df$Value_TRUTH[row + length(simulations_ids)] <- groundtruth_df[["A_observed_decode"]][decode_deconvolution_neutral_df$Simulation[row]]
             decode_deconvolution_neutral_df$Value_INFERRED[row + length(simulations_ids)] <- decode_df[["Tail_mutcount_observed"]][decode_deconvolution_neutral_df$Simulation[row]]
@@ -672,5 +669,128 @@ comparison_synthetic_test <- function(groundtruth_df,
     }
     print(deconvolution_neutral_df)
     print(p)
+    dev.off()
+}
+
+analysis_ICGC <- function(sample_information_df,
+                          mobster_df = NULL,
+                          decode_df = NULL,
+                          bound_truncal_frequency_vs_sample_purity = 0.05,
+                          text_notation = FALSE,
+                          folder_workplace = "") {
+    library(ggplot2)
+    is_mobster <- !is.null(mobster_df)
+    is_decode <- !is.null(decode_df)
+    color_scheme <- c(
+        "MOBSTER" = "darkorange2",
+        "DECODE" = "magenta4"
+    )
+    shape_scheme <- c(
+        "Cluster_1" = 15,
+        "Cluster_2" = 16,
+        "Cluster_3" = 17,
+        "Cluster_4" = 18
+    )
+    shape_labels <- c(
+        "Cluster_1" = "1",
+        "Cluster_2" = "2",
+        "Cluster_3" = "3",
+        "Cluster_4" = "4"
+    )
+    #---Rearrange the clusters in each group in descending frequencies
+    if (is_mobster) {
+        p_cols <- grep("^Cluster_frequency_", names(mobster_df), value = TRUE)
+        mobster_df[p_cols][is.na(mobster_df[p_cols])] <- 0
+        for (i in 1:(dim(mobster_df)[1])) {
+            p_row <- mobster_df[i, p_cols]
+            p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE)
+            for (index_new in 1:length(p_rowsorted_indices)) {
+                index_old <- p_rowsorted_indices[index_new]
+                mobster_df[i, paste0("ordered_K_", index_new)] <- mobster_df[i, paste0("Cluster_mutcount_observed_", index_old)]
+                mobster_df[i, paste0("ordered_p_", index_new)] <- mobster_df[i, paste0("Cluster_frequency_", index_old)]
+            }
+        }
+    }
+    if (is_decode) {
+        p_cols <- grep("^Cluster_frequency_", names(decode_df), value = TRUE)
+        decode_df[p_cols][is.na(decode_df[p_cols])] <- 0
+        for (i in 1:(dim(decode_df)[1])) {
+            p_row <- decode_df[i, p_cols]
+            p_rowsorted_indices <- order(as.vector(unlist(p_row)), decreasing = TRUE)
+            for (index_new in 1:length(p_rowsorted_indices)) {
+                index_old <- p_rowsorted_indices[index_new]
+                decode_df[i, paste0("ordered_K_", index_new)] <- decode_df[i, paste0("Cluster_mutcount_predicted_", index_old)]
+                decode_df[i, paste0("ordered_p_", index_new)] <- decode_df[i, paste0("Cluster_frequency_", index_old)]
+            }
+        }
+    }
+    #---Find comparison of truncal cluster frequency against sample purity
+    df_truncal_frequency_vs_sample_purity <- data.frame()
+    if (is_mobster) {
+        mobster_df_truncal_frequency_vs_sample_purity <- data.frame(
+            Sample = mobster_df$Sample,
+            Sample_short = sapply(strsplit(mobster_df$Sample, "-"), `[`, 1),
+            Truncal_frequency = 2 * mobster_df$ordered_p_1,
+            Purity = NA,
+            Method = "MOBSTER"
+        )
+        for (i in 1:nrow(mobster_df_truncal_frequency_vs_sample_purity)) {
+            mobster_df_truncal_frequency_vs_sample_purity$Purity[i] <- sample_information_df$purity[which(sample_information_df$aliquot_id == mobster_df_truncal_frequency_vs_sample_purity$Sample[i])]
+        }
+        df_truncal_frequency_vs_sample_purity <- rbind(
+            df_truncal_frequency_vs_sample_purity,
+            mobster_df_truncal_frequency_vs_sample_purity
+        )
+    }
+    df_truncal_frequency_vs_sample_purity$Within_bounds <- NA
+    df_truncal_frequency_vs_sample_purity$Within_bounds[
+        which(
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency < df_truncal_frequency_vs_sample_purity$Purity + bound_truncal_frequency_vs_sample_purity &
+                df_truncal_frequency_vs_sample_purity$Truncal_frequency > df_truncal_frequency_vs_sample_purity$Purity - bound_truncal_frequency_vs_sample_purity
+        )
+    ] <- "Correct"
+    df_truncal_frequency_vs_sample_purity$Within_bounds[
+        which(
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency >= df_truncal_frequency_vs_sample_purity$Purity + bound_truncal_frequency_vs_sample_purity
+        )
+    ] <- "Above"
+    df_truncal_frequency_vs_sample_purity$Within_bounds[
+        which(
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency <= df_truncal_frequency_vs_sample_purity$Purity - bound_truncal_frequency_vs_sample_purity
+        )
+    ] <- "Below"
+    #---Plot truncal cluster frequency against sample purity
+    png(paste0(folder_workplace, "ICGC_1_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_point(
+            data = df_truncal_frequency_vs_sample_purity,
+            aes(x = Purity, y = Truncal_frequency, fill = Method, color = Method),
+            alpha = 0.5, size = 20
+        ) +
+        scale_fill_manual(values = color_scheme, name = "") +
+        scale_color_manual(values = color_scheme, name = "") +
+        xlab("Sample purity") +
+        ylab("2 \u00D7 Truncal cluster frequency") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
+        )
+    if (text_notation) {
+        p <- p +
+            geom_text(data = df_truncal_frequency_vs_sample_purity[which(df_truncal_frequency_vs_sample_purity$Within_bounds != "Correct"), ], aes(x = Purity, y = Truncal_frequency, label = Sample_short, color = Method), size = 20, vjust = 0, hjust = 0, angle = 45)
+    }
+    p <- p +
+        geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
+        geom_abline(intercept = bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 2, linetype = "dashed") +
+        geom_abline(intercept = -bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 2, linetype = "dashed")
+    print(p)
+    cat(paste0("\nSamples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
+    cat(paste0("Samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
+    cat(paste0("Samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n\n"))
     dev.off()
 }
