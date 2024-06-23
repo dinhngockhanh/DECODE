@@ -1,8 +1,10 @@
 DECODE <- function(mutation_table,
                    criterion = "BIC",
                    criterion_ratio = 1,
-                   list_neutral_powers,
-                   list_frequencies,
+                   neutral_power_min = 0.5,
+                   neutral_power_max = 5,
+                   cluster_frequency_min = 0.01,
+                   cluster_frequency_max = 1,
                    matrix_binomial_PDF,
                    matrix_binomial_sample_size,
                    matrix_binomial_sfs_stepcount,
@@ -13,8 +15,9 @@ DECODE <- function(mutation_table,
                    r_max,
                    coverage_distribution,
                    coverage_variables = NULL,
-                   max_trials = 10000,
-                   neutral_tail = NA, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                   N_trials = 10000,
+                   N_trials_tail_sensitivity = 300,
+                   neutral_tail = NA,
                    min_N_humps = 1,
                    max_N_humps = Inf,
                    zero_cutoff = 1e-50,
@@ -42,9 +45,9 @@ DECODE <- function(mutation_table,
             vec_SFS_real[pos] <- vec_SFS_real[pos] + 1
         }
     }
-    #---Prepare the SFS library
-    cat("Prepare the SFS library...\n")
-    library_SFS_component <- build_SFS_library(
+    #---Prepare the SFS convolution matrix
+    cat("Prepare the SFS convolution matrix...\n")
+    SFS_convolution_matrix <- build_convolution_matrix(
         N_end = matrix_binomial_sample_size,
         SFS_totalsteps = SFS_totalsteps,
         SFS_totalsteps_base = matrix_binomial_sfs_stepcount,
@@ -57,6 +60,12 @@ DECODE <- function(mutation_table,
         n_cores = n_cores
     )
     #---DECODE
+    DECODE_result <- list()
+
+    DECODE_result$mutational_table <- mutation_table
+    DECODE_result$SFS_frequencies <- vec_freq
+    DECODE_result$SFS_for_fitting <- vec_SFS_real
+
     if (is.na(neutral_tail)) {
         result_with_tail <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
@@ -65,16 +74,19 @@ DECODE <- function(mutation_table,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = TRUE,
-            max_trials = max_trials,
-            library_SFS_component = library_SFS_component,
-            list_neutral_powers = list_neutral_powers,
-            list_frequencies = list_frequencies,
+            N_trials = N_trials,
+            N_trials_tail_sensitivity = N_trials_tail_sensitivity,
+            SFS_totalsteps = SFS_totalsteps,
+            SFS_convolution_matrix = SFS_convolution_matrix,
+            neutral_power_min = neutral_power_min,
+            neutral_power_max = neutral_power_max,
+            cluster_frequency_min = cluster_frequency_min,
+            cluster_frequency_max = cluster_frequency_max,
             zero_cutoff = zero_cutoff,
             compute_parallel_fit = compute_parallel_fit,
             n_cores = n_cores
         )
-        vec_para_best_final_with_tail <- result_with_tail$best_fit$parameters
-        criterion_best_final_with_tail <- result_with_tail$best_fit$selected_criterion_value
+        DECODE_result$with_tail <- result_with_tail
         result_without_tail <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
             criterion = criterion,
@@ -82,119 +94,100 @@ DECODE <- function(mutation_table,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = FALSE,
-            max_trials = max_trials,
-            library_SFS_component = library_SFS_component,
-            list_neutral_powers = list_neutral_powers,
-            list_frequencies = list_frequencies,
+            N_trials = N_trials,
+            N_trials_tail_sensitivity = N_trials_tail_sensitivity,
+            SFS_totalsteps = SFS_totalsteps,
+            SFS_convolution_matrix = SFS_convolution_matrix,
+            neutral_power_min = neutral_power_min,
+            neutral_power_max = neutral_power_max,
+            cluster_frequency_min = cluster_frequency_min,
+            cluster_frequency_max = cluster_frequency_max,
             zero_cutoff = zero_cutoff,
             compute_parallel_fit = compute_parallel_fit,
             n_cores = n_cores
         )
-        vec_para_best_final_without_tail <- result_without_tail$best_fit$parameters
-        criterion_best_final_without_tail <- result_without_tail$best_fit$selected_criterion_value
-        if (criterion_best_final_with_tail < criterion_best_final_without_tail) {
-            vec_para_best_final <- vec_para_best_final_with_tail
-            criterion_best_final <- criterion_best_final_with_tail
-            tail_status_final <- TRUE
+        DECODE_result$without_tail <- result_without_tail
+        if (result_with_tail$best_fit$selected_criterion_value < result_without_tail$best_fit$selected_criterion_value) {
+            final_result <- result_with_tail
         } else {
-            vec_para_best_final <- vec_para_best_final_without_tail
-            criterion_best_final <- criterion_best_final_without_tail
-            tail_status_final <- FALSE
+            final_result <- result_without_tail
         }
     } else if (neutral_tail == TRUE) {
-        result <- DECODE_given_tail_status(
+        final_result <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = TRUE,
-            max_trials = max_trials,
-            library_SFS_component = library_SFS_component,
-            list_neutral_powers = list_neutral_powers,
-            list_frequencies = list_frequencies,
+            N_trials = N_trials,
+            N_trials_tail_sensitivity = N_trials_tail_sensitivity,
+            SFS_totalsteps = SFS_totalsteps,
+            SFS_convolution_matrix = SFS_convolution_matrix,
+            neutral_power_min = neutral_power_min,
+            neutral_power_max = neutral_power_max,
+            cluster_frequency_min = cluster_frequency_min,
+            cluster_frequency_max = cluster_frequency_max,
             zero_cutoff = zero_cutoff,
             compute_parallel_fit = compute_parallel_fit,
             n_cores = n_cores
         )
-        vec_para_best_final <- result$best_fit$parameters
-        criterion_best_final <- result$best_fit$selected_criterion_value
-        tail_status_final <- TRUE
     } else if (neutral_tail == FALSE) {
-        result <- DECODE_given_tail_status(
+        final_result <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = FALSE,
-            max_trials = max_trials,
-            library_SFS_component = library_SFS_component,
-            list_neutral_powers = list_neutral_powers,
-            list_frequencies = list_frequencies,
+            N_trials = N_trials,
+            N_trials_tail_sensitivity = N_trials_tail_sensitivity,
+            SFS_totalsteps = SFS_totalsteps,
+            SFS_convolution_matrix = SFS_convolution_matrix,
+            neutral_power_min = neutral_power_min,
+            neutral_power_max = neutral_power_max,
+            cluster_frequency_min = cluster_frequency_min,
+            cluster_frequency_max = cluster_frequency_max,
             zero_cutoff = zero_cutoff,
             compute_parallel_fit = compute_parallel_fit,
             n_cores = n_cores
         )
-        vec_para_best_final <- result$best_fit$parameters
-        criterion_best_final <- result$best_fit$selected_criterion_value
-        tail_status_final <- FALSE
     }
+    DECODE_result$best_result <- final_result
     #---Report the best fit
-    if (tail_status_final) {
-        N_humps_best_final <- length(vec_para_best_final) / 2 - 1
-        report <- paste0("\n\n\nBEST FIT:\nNeutral tail + ", N_humps_best_final, " humps: ", criterion, " = ", round(criterion_best_final, 3), "; neutral: pi = ", round(vec_para_best_final[1], 3), " with power = ", round(vec_para_best_final[2], 3))
+    tail_status_final_result <- final_result$best_fit$tail_status
+    parameters_final_result <- final_result$best_fit$parameters
+    criterion_final_result <- final_result$best_fit$selected_criterion_value
+    if (tail_status_final_result) {
+        N_humps_final_result <- length(parameters_final_result) / 2 - 1
+        report <- paste0("\n\n\nBEST FIT = neutral tail + ", N_humps_final_result, " clusters: ", criterion, " = ", round(criterion_final_result, 3), "; neutral: pi = ", round(parameters_final_result[1], 3), " with power = ", round(parameters_final_result[2], 3))
         ii <- 0
     } else {
-        N_humps_best_final <- length(vec_para_best_final) / 2
-        report <- paste0("\n\n\nBEST FIT:\nNo neutral tail + ", N_humps_best_final, " humps: ", criterion, " = ", round(criterion_best_final, 3))
+        N_humps_final_result <- length(parameters_final_result) / 2
+        report <- paste0("\n\n\nBEST FIT = no neutral tail + ", N_humps_final_result, " clusters: ", criterion, " = ", round(criterion_final_result, 3))
         ii <- -1
     }
-    if (N_humps_best_final > 0) {
-        for (i in 1:N_humps_best_final) {
-            report <- paste0(report, "; pi = ", round(vec_para_best_final[2 * (i + ii) + 1], 3), " at freq = ", round(vec_para_best_final[2 * (i + ii) + 2], 3))
+    if (N_humps_final_result > 0) {
+        for (i in 1:N_humps_final_result) {
+            report <- paste0(report, "; pi = ", round(parameters_final_result[2 * (i + ii) + 1], 3), " at freq = ", round(parameters_final_result[2 * (i + ii) + 2], 3))
         }
     }
     report <- paste0(report, "\n\n\n\n")
     cat(report)
     #---Translation to parameters of cancer evolution in the sample
     tmp <- parameter_conversion(
-        parameters = vec_para_best_final,
-        tail_status = tail_status_final,
+        result = final_result,
         mutation_count_for_fitting = sum(vec_SFS_real),
-        library_SFS_component = library_SFS_component,
-        list_neutral_powers = list_neutral_powers,
-        list_frequencies = list_frequencies,
         sample_size = sample_size,
         matrix_binomial_sample_size = matrix_binomial_sample_size,
         matrix_binomial_ploidy = matrix_binomial_ploidy
     )
     best_fit_parameters <- tmp$parameters_df
-
-
-
     if (!is.null(parameter_filename)) {
         write.table(best_fit_parameters, parameter_filename, sep = "\t", quote = FALSE, row.names = FALSE)
     }
     #---Return the SFS deconvolution results
-    DECODE_result <- list()
-
-    DECODE_result$mutational_table <- mutation_table
-    DECODE_result$SFS_frequencies <- vec_freq
-    DECODE_result$SFS_for_fitting <- vec_SFS_real
-
-    DECODE_result$best_fit <- list()
-    DECODE_result$best_fit$parameters <- vec_para_best_final
-    DECODE_result$best_fit$selected_criterion <- criterion
-    DECODE_result$best_fit$selected_criterion_value <- criterion_best_final
-    DECODE_result$best_fit$tail_status <- tail_status_final
-    DECODE_result$best_fit$parameters_df <- best_fit_parameters
-
-    DECODE_result$library_SFS_component <- library_SFS_component
-    DECODE_result$list_neutral_powers <- list_neutral_powers
-    DECODE_result$list_frequencies <- list_frequencies
-
-    # DECODE_result$criterion_best_final <- criterion_best_final
+    DECODE_result$best_result$parameters_df <- best_fit_parameters
     return(DECODE_result)
 }
 
@@ -204,10 +197,14 @@ DECODE_given_tail_status <- function(vec_SFS_real,
                                      min_N_humps,
                                      max_N_humps,
                                      with_tail = NA,
-                                     max_trials,
-                                     library_SFS_component,
-                                     list_neutral_powers,
-                                     list_frequencies,
+                                     N_trials,
+                                     N_trials_tail_sensitivity,
+                                     SFS_totalsteps,
+                                     SFS_convolution_matrix,
+                                     neutral_power_min,
+                                     neutral_power_max,
+                                     cluster_frequency_min,
+                                     cluster_frequency_max,
                                      zero_cutoff,
                                      compute_parallel_fit,
                                      n_cores) {
@@ -222,19 +219,23 @@ DECODE_given_tail_status <- function(vec_SFS_real,
         } else {
             cat(paste0("Inference for ", N_humps, " clusters without neutral tail component...\n"))
         }
-        fit_results <- DECODE_one_hump(
+        fit_results <- DECODE_given_tail_status_and_Ncluster(
             vec_SFS_real = vec_SFS_real,
             N_humps = N_humps,
             with_tail = with_tail,
-            max_trials = max_trials,
-            library_SFS_component = library_SFS_component,
-            list_neutral_powers = list_neutral_powers,
-            list_frequencies = list_frequencies,
+            N_trials = N_trials,
+            SFS_totalsteps = SFS_totalsteps,
+            SFS_convolution_matrix = SFS_convolution_matrix,
+            neutral_power_min = neutral_power_min,
+            neutral_power_max = neutral_power_max,
+            cluster_frequency_min = cluster_frequency_min,
+            cluster_frequency_max = cluster_frequency_max,
             zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel_fit,
             n_cores = n_cores
         )
         vec_para_best_current <- fit_results$best_parameters
+        component_distributions_best_current <- fit_results$best_component_distributions
         criterion_all_best_current <- data.frame(
             AIC = fit_results$best_AIC,
             BIC = fit_results$best_BIC,
@@ -265,82 +266,13 @@ DECODE_given_tail_status <- function(vec_SFS_real,
         }
         report <- paste0(report, "\n")
         cat(report)
-        # ################################################################################################################################
-        # ################################################################################################################################
-        # ################################################################################################################################
-        # if (with_tail) {
-        #     component_distributions <- matrix(unlist(library_SFS_component$neutral$SFS_expected_normalized[[which(list_neutral_powers == vec_para_best_current[2])]]), nrow = 1)
-        #     ii <- 0
-        # } else {
-        #     component_distributions <- c()
-        #     ii <- -1
-        # }
-        # if (N_humps > 0) {
-        #     for (i in 1:N_humps) {
-        #         component_distributions <- rbind(
-        #             component_distributions,
-        #             unlist(library_SFS_component$cluster$SFS_expected_normalized[[which(list_frequencies == vec_para_best_current[2 * (i + ii) + 2])]])
-        #         )
-        #     }
-        # }
-        # #   Compute the latent variable distributions
-        # latent_variable_distributions <- component_distributions
-        # for (row in 1:nrow(latent_variable_distributions)) {
-        #     latent_variable_distributions[row, ] <- vec_para_best_current[2 * row - 1] * latent_variable_distributions[row, ]
-        # }
-        # for (col in 1:ncol(latent_variable_distributions)) {
-        #     latent_variable_distributions[, col] <- latent_variable_distributions[, col] / sum(latent_variable_distributions[, col])
-        # }
-        # latent_variable_distributions[which(latent_variable_distributions <= zero_cutoff | is.na(latent_variable_distributions))] <- zero_cutoff
-        # #   Compute the MAP allocations for mutations to clusters
-        # indicator_latent_variable_distributions <- matrix(0, nrow = nrow(latent_variable_distributions), ncol = ncol(latent_variable_distributions))
-        # for (col in 1:ncol(latent_variable_distributions)) {
-        #     max_p <- which(latent_variable_distributions[, col] == max(latent_variable_distributions[, col]))[1]
-        #     indicator_latent_variable_distributions[max_p, col] <- 1
-        # }
-        # #   Compute the entropy
-        # entropy <- sum(vec_SFS_real * colSums(latent_variable_distributions * log(latent_variable_distributions)))
-        # entropy_MAP <- sum(vec_SFS_real * colSums(indicator_latent_variable_distributions * log(latent_variable_distributions)))
-
-
-
-        # logL <- fit_results$best_logLikelihood
-        # BIC <- logL - 0.5 * length(vec_para_best_current) * log(mutation_count)
-        # cat("\n")
-        # cat(paste0("Number of parameters: ", length(vec_para_best_current), "\n"))
-        # cat(paste0("Sample size:          ", mutation_count, "\n"))
-        # cat(paste0("Log-likelihood:       ", logL, "\n"))
-        # cat(paste0("\nBIC:                  ", BIC, "\n"))
-        # cat(paste0("\nEntropy:              ", entropy, "\n"))
-        # # cat(paste0("\nEntropy:              ", entropy_MAP, "\n"))
-        # cat(paste0("\nICL:                  ", -BIC - entropy, "\n"))
-        # # cat(paste0("\nICL:                  ", -BIC - entropy_MAP, "\n"))
-
-
-
-        # # cat("\nLatent distributions:\n")
-        # # print(latent_variable_distributions)
-        # # cat("Z matrix:\n")
-        # # print(latent_variable_distributions * log(latent_variable_distributions))
-        # # cat("Observed SFS:\n")
-        # # print(vec_SFS_real)
-        # # cat("Multiplicative factors:\n")
-        # # print(colSums(latent_variable_distributions * log(latent_variable_distributions)))
-        # # cat(paste0("Entropy:              ", entropy, "\n"))
-        # # cat(paste0("Likelihood:           ", logL, "\n"))
-        # # cat(paste0("Completed logL:       ", logL + entropy, "\n"))
-        # # cat(paste0("BIC:                  ", BIC, "\n"))
-        # # cat(paste0("ICL:                  ", BIC - entropy, "\n"))
-        # ################################################################################################################################
-        # ################################################################################################################################
-        # ################################################################################################################################
         #   Check if the increased hump count leads to lower criterion score...
-        # if (criterion_best_current < criterion_best_final) {
         if (criterion_best_current < criterion_ratio * criterion_best_final) {
             #   ... if yes, then update the best fit and continue with 1 more hump
             criterion_best_final <- criterion_best_current
             criterion_all_final <- criterion_all_best_current
             vec_para_best_final <- vec_para_best_current
+            component_distributions_best_final <- component_distributions_best_current
             N_humps <- N_humps + 1
             if (N_humps > max_N_humps) break
         } else {
@@ -348,33 +280,546 @@ DECODE_given_tail_status <- function(vec_SFS_real,
             break
         }
     }
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    #---Sensitivity analysis for the tail parametrization
+    tail_sensitivity_test <- FALSE
+    if (with_tail) {
+        best_final_N_humps <- length(vec_para_best_final) / 2 - 1
+        if (best_final_N_humps == 0) break
+        cat(paste0("Sensitibity of tail parametrization with ", best_final_N_humps, " clusters...\n"))
+        tail_sensitivity_test <- TRUE
+        best_final_pi_0 <- vec_para_best_final[1]
+        test_pi_0_min <- max(0, best_final_pi_0 - 0.1) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        test_pi_0_max <- min(1, best_final_pi_0 + 0.1) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        best_final_neutral_power <- vec_para_best_final[2]
+        test_neutral_power_min <- max(neutral_power_min, best_final_neutral_power - 0.5) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        test_neutral_power_max <- min(neutral_power_max, best_final_neutral_power + 0.5) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        sensitivity_results <- DECODE_tail_parameter_sensitivity(
+            vec_SFS_real = vec_SFS_real,
+            N_humps = best_final_N_humps,
+            N_trials = N_trials_tail_sensitivity, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            SFS_totalsteps = SFS_totalsteps,
+            SFS_convolution_matrix = SFS_convolution_matrix,
+            pi_0 = best_final_pi_0,
+            pi_0_min = test_pi_0_min,
+            pi_0_max = test_pi_0_max,
+            neutral_power = best_final_neutral_power,
+            neutral_power_min = test_neutral_power_min,
+            neutral_power_max = test_neutral_power_max,
+            cluster_frequency_min = cluster_frequency_min,
+            cluster_frequency_max = cluster_frequency_max,
+            zero_cutoff = zero_cutoff,
+            compute_parallel = compute_parallel_fit,
+            n_cores = n_cores
+        )
+    }
+    ####################################################################
+    ####################################################################
+    ####################################################################
     #---Report the best fit
     result <- list()
     result$best_fit <- list()
     result$best_fit$parameters <- vec_para_best_final
+    result$best_fit$component_distributions <- component_distributions_best_final
     result$best_fit$selected_criterion <- criterion_all_final
     result$best_fit$selected_criterion_value <- criterion_best_final
     result$best_fit$tail_status <- with_tail
+    if (tail_sensitivity_test) result$best_fit$tail_sensitivity <- sensitivity_results
     return(result)
 }
 
-DECODE_one_hump <- function(vec_SFS_real,
-                            N_humps,
-                            with_tail,
-                            max_trials,
-                            library_SFS_component,
-                            list_neutral_powers,
-                            list_frequencies,
-                            zero_cutoff,
-                            compute_parallel,
-                            n_cores) {
-    mutation_count <- sum(vec_SFS_real)
-    if (with_tail) {
-        num_parameters <- 2 * N_humps + 1
-    } else {
-        num_parameters <- 2 * N_humps - 1
+DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
+                                                  N_humps,
+                                                  with_tail,
+                                                  N_trials,
+                                                  SFS_totalsteps,
+                                                  SFS_convolution_matrix,
+                                                  neutral_power = NA,
+                                                  pi_0 = NA,
+                                                  neutral_power_min,
+                                                  neutral_power_max,
+                                                  cluster_frequency_min,
+                                                  cluster_frequency_max,
+                                                  zero_cutoff,
+                                                  compute_criteria = TRUE,
+                                                  compute_parallel,
+                                                  n_cores,
+                                                  progress_bar = TRUE) {
+    if (compute_criteria) {
+        mutation_count <- sum(vec_SFS_real)
+        if (with_tail) {
+            num_parameters <- 2 * N_humps + 1
+        } else {
+            num_parameters <- 2 * N_humps - 1
+        }
+        if (neutral_power_max > neutral_power_min) num_parameters <- num_parameters + 1
     }
-    if (length(list_neutral_powers) > 1) num_parameters <- num_parameters + 1
+    #---Find best variable parameters (A & K's) for each fixed parameter set
+    if (compute_parallel == FALSE) {
+        all_logLikelihood <- c()
+        all_para <- c()
+        all_component_distributions <- list()
+        if (compute_criteria) {
+            all_AIC <- c()
+            all_BIC <- c()
+            all_ICL <- c()
+            all_ICL_MAP <- c()
+        }
+        if (progress_bar) {
+            pb <- txtProgressBar(
+                min = 0,
+                max = N_trials,
+                style = 3,
+                width = 50,
+                char = "+"
+            )
+        }
+        for (i in 1:N_trials) {
+            if (progress_bar) setTxtProgressBar(pb, i)
+            #   Sample neutral component power and cluster frequencies
+            if (with_tail & is.na(neutral_power)) {
+                neutral_power <- runif(1, neutral_power_min, neutral_power_max)
+            } else if (!with_tail) {
+                neutral_power <- NA
+            }
+            cluster_frequencies <- sort(runif(N_humps, cluster_frequency_min, cluster_frequency_max), decreasing = TRUE)
+            #   Build the SFS component library
+            component_distributions <- build_SFS_library(
+                neutral_power = neutral_power,
+                cluster_frequencies = cluster_frequencies,
+                SFS_totalsteps = SFS_totalsteps,
+                SFS_convolution_matrix = SFS_convolution_matrix
+            )
+            #   Find component proportions
+            results <- DECODE_for_pis(
+                vec_SFS_real = vec_SFS_real,
+                neutral_power = neutral_power,
+                pi_0 = pi_0,
+                cluster_frequencies = cluster_frequencies,
+                component_distributions = component_distributions,
+                zero_cutoff = zero_cutoff
+            )
+            logLikelihood <- results$log_L
+            vec_para <- results$parameters
+            component_distributions <- results$component_distributions
+            all_para <- rbind(all_para, vec_para)
+            all_component_distributions[[i]] <- component_distributions
+            all_logLikelihood <- c(all_logLikelihood, logLikelihood)
+            if (compute_criteria) {
+                criteria <- cluster_count_criteria(
+                    num_parameters = num_parameters,
+                    log_L = logLikelihood,
+                    num_samples = mutation_count,
+                    vec_SFS_real = vec_SFS_real,
+                    vec_para = vec_para,
+                    component_distributions = component_distributions
+                )
+                AIC <- criteria$AIC
+                BIC <- criteria$BIC
+                ICL <- criteria$ICL
+                ICL_MAP <- criteria$ICL_MAP
+                all_AIC <- c(all_AIC, AIC)
+                all_BIC <- c(all_BIC, BIC)
+                all_ICL <- c(all_ICL, ICL)
+                all_ICL_MAP <- c(all_ICL_MAP, ICL_MAP)
+            }
+        }
+        if (progress_bar) cat("\n")
+    } else {
+        library(parallel)
+        library(pbapply)
+        #   Start parallel cluster
+        if (is.null(n_cores)) {
+            numCores <- detectCores()
+        } else {
+            numCores <- n_cores
+        }
+        cl <- makePSOCKcluster(numCores - 1)
+        #   Prepare input parameters
+        vec_SFS_real <<- vec_SFS_real
+        with_tail <<- with_tail
+        N_humps <<- N_humps
+        SFS_totalsteps <<- SFS_totalsteps
+        N_end <<- N_end
+        SFS_convolution_matrix <<- SFS_convolution_matrix
+        pi_0 <<- pi_0
+        neutral_power <<- neutral_power
+        neutral_power_min <<- ifelse(missing(neutral_power_min), NA, neutral_power_min)
+        neutral_power_max <<- ifelse(missing(neutral_power_max), NA, neutral_power_max)
+        cluster_frequency_min <<- cluster_frequency_min
+        cluster_frequency_max <<- cluster_frequency_max
+        matrix_binomial_PDF <<- matrix_binomial_PDF
+        zero_cutoff <<- zero_cutoff
+        compute_criteria <<- compute_criteria
+        clusterExport(cl, varlist = c(
+            "zero_cutoff",
+            "compute_criteria",
+            "vec_SFS_real",
+            "with_tail",
+            "N_humps",
+            "SFS_totalsteps",
+            "N_end",
+            "SFS_convolution_matrix",
+            "pi_0",
+            "neutral_power",
+            "neutral_power_min",
+            "neutral_power_max",
+            "cluster_frequency_min",
+            "cluster_frequency_max",
+            "DECODE_for_pis",
+            "build_SFS_library",
+            "build_SFS_library_Griffiths_Tavare",
+            "compute_loglikelihood",
+            "compute_SFS",
+            "cluster_count_criteria"
+        ))
+        #   Find best variable parameters in parallel mode
+        func_parallel <- function(i) {
+            #   Sample neutral component power and cluster frequencies
+            if (with_tail & is.na(neutral_power)) {
+                neutral_power <- runif(1, neutral_power_min, neutral_power_max)
+            } else if (!with_tail) {
+                neutral_power <- NA
+            }
+            cluster_frequencies <- sort(runif(N_humps, cluster_frequency_min, cluster_frequency_max), decreasing = TRUE)
+            #   Build the SFS component library
+            component_distributions <- build_SFS_library(
+                neutral_power = neutral_power,
+                cluster_frequencies = cluster_frequencies,
+                SFS_totalsteps = SFS_totalsteps,
+                SFS_convolution_matrix = SFS_convolution_matrix
+            )
+            #   Find component proportions
+            results <- DECODE_for_pis(
+                vec_SFS_real = vec_SFS_real,
+                neutral_power = neutral_power,
+                pi_0 = pi_0,
+                cluster_frequencies = cluster_frequencies,
+                component_distributions = component_distributions,
+                zero_cutoff = zero_cutoff
+            )
+            logLikelihood <- results$log_L
+            vec_para <- results$parameters
+            component_distributions <- results$component_distributions
+            if (compute_criteria) {
+                criteria <- cluster_count_criteria(
+                    num_parameters = num_parameters,
+                    log_L = logLikelihood,
+                    num_samples = mutation_count,
+                    vec_SFS_real = vec_SFS_real,
+                    vec_para = vec_para,
+                    component_distributions = component_distributions
+                )
+                AIC <- criteria$AIC
+                BIC <- criteria$BIC
+                ICL <- criteria$ICL
+                ICL_MAP <- criteria$ICL_MAP
+                return(
+                    list(
+                        para = vec_para,
+                        component_distributions = component_distributions,
+                        logLikelihood = logLikelihood,
+                        AIC = AIC,
+                        BIC = BIC,
+                        ICL = ICL,
+                        ICL_MAP = ICL_MAP
+                    )
+                )
+            } else {
+                return(
+                    list(
+                        para = vec_para,
+                        component_distributions = component_distributions,
+                        logLikelihood = logLikelihood
+                    )
+                )
+            }
+        }
+        if (progress_bar) {
+            output <- pblapply(cl = cl, X = 1:N_trials, FUN = function(i) {
+                return(func_parallel(i))
+            })
+        } else {
+            output <- parLapply(cl = cl, X = 1:N_trials, fun = function(i) {
+                return(func_parallel(i))
+            })
+        }
+        stopCluster(cl)
+        #   Extract the results
+        all_para <- do.call(rbind, lapply(output, function(x) x$para))
+        all_component_distributions <- lapply(output, function(x) x$component_distributions)
+        all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
+        if (compute_criteria) {
+            all_AIC <- sapply(output, function(x) x$AIC)
+            all_BIC <- sapply(output, function(x) x$BIC)
+            all_ICL <- sapply(output, function(x) x$ICL)
+            all_ICL_MAP <- sapply(output, function(x) x$ICL_MAP)
+        }
+    }
+    #---Find the best fit
+    best_index <- which.max(all_logLikelihood)
+    fit_results <- list()
+    fit_results$best_parameters <- all_para[best_index, ]
+    fit_results$best_component_distributions <- all_component_distributions[[best_index]]
+    fit_results$best_logLikelihood <- all_logLikelihood[best_index]
+    if (compute_criteria) {
+        fit_results$best_AIC <- all_AIC[best_index]
+        fit_results$best_BIC <- all_BIC[best_index]
+        fit_results$best_ICL <- all_ICL[best_index]
+        fit_results$best_ICL_MAP <- all_ICL_MAP[best_index]
+    }
+    return(fit_results)
+}
+
+DECODE_for_pis <- function(vec_SFS_real,
+                           neutral_power,
+                           pi_0 = NA,
+                           cluster_frequencies,
+                           component_distributions,
+                           zero_cutoff) {
+    # 	Function for parameter transformation
+    parameter_transform <- function(parameters) {
+        vec_pi <- exp(parameters)
+        if (is.na(pi_0)) {
+            vec_pi <- vec_pi / sum(vec_pi)
+        } else {
+            vec_pi <- c(pi_0, (1 - pi_0) * vec_pi / sum(vec_pi))
+        }
+        return(vec_pi)
+    }
+    # 	Function for optimization
+    func_fit <- function(parameters) {
+        vec_pi <- parameter_transform(parameters)
+        if (is.na(neutral_power)) {
+            loglikelihood <- compute_loglikelihood(
+                A = NA,
+                vec_K = vec_pi,
+                component_distributions = component_distributions,
+                vec_SFS_real = vec_SFS_real,
+                zero_cutoff = zero_cutoff
+            )
+        } else {
+            loglikelihood <- compute_loglikelihood(
+                A = vec_pi[1],
+                vec_K = vec_pi[-1],
+                component_distributions = component_distributions,
+                vec_SFS_real = vec_SFS_real,
+                zero_cutoff = zero_cutoff
+            )
+        }
+        return(loglikelihood)
+    }
+    N_humps <- length(cluster_frequencies)
+    if (N_humps == 0) {
+        parameters <- c(1)
+    } else {
+        # 	Initial values for parameters
+        if (is.na(neutral_power)) {
+            parameters_initial <- rep(0, N_humps)
+        } else if (!is.na(pi_0)) {
+            parameters_initial <- rep(0, N_humps)
+        } else {
+            parameters_initial <- rep(0, N_humps + 1)
+        }
+        # 	Optimization using optim function
+        optim_results <- optim(
+            par = parameters_initial,
+            fn = func_fit,
+            method = "Nelder-Mead",
+            control = list(fnscale = -1)
+        )
+        # 	Extract the results
+        parameters <- optim_results$par
+    }
+    vec_pi <- parameter_transform(parameters)
+    log_L <- func_fit(parameters)
+    # 	Prepare the parameters to be returned
+    if (is.na(neutral_power)) {
+        vec_para <- c()
+    } else {
+        vec_para <- c(vec_pi[1], neutral_power)
+    }
+    if (N_humps > 0) {
+        for (i in 1:N_humps) {
+            if (is.na(neutral_power)) {
+                vec_para <- c(vec_para, vec_pi[i], cluster_frequencies[i])
+            } else {
+                vec_para <- c(vec_para, vec_pi[i + 1], cluster_frequencies[i])
+            }
+        }
+    }
+    output <- list()
+    output$log_L <- log_L
+    output$parameters <- vec_para
+    output$component_distributions <- component_distributions
+    return(output)
+}
+
+DECODE_tail_parameter_sensitivity <- function(vec_SFS_real,
+                                              N_humps,
+                                              N_trials = 300,
+                                              SFS_totalsteps,
+                                              SFS_convolution_matrix,
+                                              pi_0,
+                                              pi_0_min,
+                                              pi_0_max,
+                                              neutral_power,
+                                              neutral_power_min,
+                                              neutral_power_max,
+                                              cluster_frequency_min,
+                                              cluster_frequency_max,
+                                              zero_cutoff,
+                                              compute_parallel,
+                                              n_cores,
+                                              progress_bar = TRUE) {
+    # cat("\n\n\n") # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    library(sensitivity)
+    #   Find the maximal log-likelihood
+    tmp <- DECODE_given_tail_status_and_Ncluster(
+        vec_SFS_real = vec_SFS_real,
+        N_humps = N_humps,
+        with_tail = TRUE,
+        N_trials = N_trials,
+        SFS_totalsteps = SFS_totalsteps,
+        SFS_convolution_matrix = SFS_convolution_matrix,
+        neutral_power = neutral_power,
+        pi_0 = pi_0,
+        cluster_frequency_min = cluster_frequency_min,
+        cluster_frequency_max = cluster_frequency_max,
+        zero_cutoff = zero_cutoff,
+        compute_criteria = FALSE,
+        compute_parallel = compute_parallel,
+        n_cores = n_cores,
+        progress_bar = FALSE
+    )
+    max_logLikelihood <- tmp$best_logLikelihood
+    #   Define the model to compute Morris sensitivity
+    model <- function(parameters) {
+        if (compute_parallel == FALSE) {
+            ratio_logLikelihood <- rep(0, nrow(parameters))
+            if (progress_bar) {
+                pb <- txtProgressBar(
+                    min = 0,
+                    max = nrow(parameters),
+                    style = 3,
+                    width = 50,
+                    char = "+"
+                )
+            }
+            for (i in 1:nrow(parameters)) {
+                if (progress_bar) setTxtProgressBar(pb, i)
+                #   Find impact of different neutral parameters on likelihood
+                tmp <- DECODE_given_tail_status_and_Ncluster(
+                    vec_SFS_real = vec_SFS_real,
+                    N_humps = N_humps,
+                    with_tail = TRUE,
+                    N_trials = N_trials,
+                    SFS_totalsteps = SFS_totalsteps,
+                    SFS_convolution_matrix = SFS_convolution_matrix,
+                    neutral_power = parameters[i, 2],
+                    pi_0 = parameters[i, 1],
+                    cluster_frequency_min = cluster_frequency_min,
+                    cluster_frequency_max = cluster_frequency_max,
+                    zero_cutoff = zero_cutoff,
+                    compute_criteria = FALSE,
+                    compute_parallel = FALSE,
+                    progress_bar = FALSE
+                )
+                ratio_logLikelihood[i] <- tmp$best_logLikelihood / max_logLikelihood
+            }
+            if (progress_bar) cat("\n")
+        } else {
+            library(parallel)
+            library(pbapply)
+            #   Start parallel cluster
+            if (is.null(n_cores)) {
+                numCores <- detectCores()
+            } else {
+                numCores <- n_cores
+            }
+            cl <- makePSOCKcluster(numCores - 1)
+            #   Prepare input parameters
+            clusterExport(cl, varlist = c(
+                "N_end",
+                "build_SFS_library",
+                "build_SFS_library_Griffiths_Tavare",
+                "compute_loglikelihood",
+                "compute_SFS",
+                "DECODE_for_pis",
+                "DECODE_given_tail_status_and_Ncluster"
+            ))
+            #   Find impact of different neutral parameters on likelihood
+            func_parallel <- function(i) {
+                tmp <- DECODE_given_tail_status_and_Ncluster(
+                    vec_SFS_real = vec_SFS_real,
+                    N_humps = N_humps,
+                    with_tail = TRUE,
+                    N_trials = N_trials,
+                    SFS_totalsteps = SFS_totalsteps,
+                    SFS_convolution_matrix = SFS_convolution_matrix,
+                    neutral_power = parameters[i, 2],
+                    pi_0 = parameters[i, 1],
+                    cluster_frequency_min = cluster_frequency_min,
+                    cluster_frequency_max = cluster_frequency_max,
+                    zero_cutoff = zero_cutoff,
+                    compute_criteria = FALSE,
+                    compute_parallel = FALSE,
+                    progress_bar = FALSE
+                )
+                ratio_logLikelihood <- tmp$best_logLikelihood / max_logLikelihood
+            }
+            if (progress_bar) {
+                output <- pblapply(cl = cl, X = 1:nrow(parameters), FUN = function(i) {
+                    return(func_parallel(i))
+                })
+            } else {
+                output <- parLapply(cl = cl, X = 1:nrow(parameters), fun = function(i) {
+                    return(func_parallel(i))
+                })
+            }
+            stopCluster(cl)
+            #   Extract the results
+            ratio_logLikelihood <- unlist(output)
+        }
+        return(ratio_logLikelihood)
+    }
+    #   Compute the Morris sensitivity
+    morris_result <- morris(
+        model = model,
+        factors = 2,
+        r = 100,
+        design = list(type = "oat", levels = 5),
+        binf = c(pi_0_min, neutral_power_min),
+        bsup = c(pi_0_max, neutral_power_max),
+        scale = TRUE
+    )
+    #   Extract sensitivities of neutral tail power and mutation count
+    mu <- apply(morris_result$ee, 2, mean)
+    mu_star <- apply(morris_result$ee, 2, function(x) mean(abs(x)))
+    sigma <- apply(morris_result$ee, 2, sd)
+    pi_0_mu <- mu[1]
+    pi_0_mu_star <- mu_star[1]
+    pi_0_sigma <- sigma[1]
+    neutral_power_mu <- mu[2]
+    neutral_power_mu_star <- mu_star[2]
+    neutral_power_sigma <- sigma[2]
+    cat(paste0("Neutral power:      mu_*=", neutral_power_mu_star, "; sigma=", neutral_power_sigma, "\n"))
+    cat(paste0("Neutral proportion: mu_*=", pi_0_mu_star, "; sigma=", pi_0_sigma, "\n"))
+    # cat("\n\n\n") # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    result <- list()
+    result$morris <- morris_result
+    result$pi_0_mu <- pi_0_mu
+    result$pi_0_mu_star <- pi_0_mu_star
+    result$pi_0_sigma <- pi_0_sigma
+    result$neutral_power_mu <- neutral_power_mu
+    result$neutral_power_mu_star <- neutral_power_mu_star
+    result$neutral_power_sigma <- neutral_power_sigma
+    return(result)
+}
+
+cluster_count_criteria <- function(num_parameters, log_L, num_samples, vec_SFS_real, vec_para, component_distributions) {
     compute_AIC <- function(log_L) {
         AIC <- 2 * num_parameters - 2 * log_L
         return(AIC)
@@ -385,7 +830,7 @@ DECODE_one_hump <- function(vec_SFS_real,
     }
     compute_ICL <- function(log_L, num_samples, vec_SFS_real, vec_para, component_distributions) {
         #   Compute the latent variable distributions
-        latent_variable_distributions <- component_distributions
+        latent_variable_distributions <- component_distributions$SFS_expected_normalized
         for (row in 1:nrow(latent_variable_distributions)) {
             latent_variable_distributions[row, ] <- vec_para[2 * row - 1] * latent_variable_distributions[row, ]
         }
@@ -403,7 +848,7 @@ DECODE_one_hump <- function(vec_SFS_real,
     }
     compute_ICL_MAP <- function(log_L, num_samples, vec_SFS_real, vec_para, component_distributions) {
         #   Compute the latent variable distributions
-        latent_variable_distributions <- component_distributions
+        latent_variable_distributions <- component_distributions$SFS_expected_normalized
         for (row in 1:nrow(latent_variable_distributions)) {
             latent_variable_distributions[row, ] <- vec_para[2 * row - 1] * latent_variable_distributions[row, ]
         }
@@ -425,279 +870,38 @@ DECODE_one_hump <- function(vec_SFS_real,
         ICL_MAP <- -BIC - entropy_MAP
         return(ICL_MAP)
     }
-    #---Find number of hump frequency combinations there are
-    N_trials_true <- choose(length(list_frequencies), N_humps)
-    if (with_tail) N_trials_true <- length(list_neutral_powers) * N_trials_true
-    N_trials <- min(N_trials_true, max_trials)
-    #---Decide list of fixed parameter sets (alpha & p's)
-    if (N_trials_true <= N_trials) {
-        #   If there are not too many choices: find the best fit among all combinations
-        if (with_tail) {
-            list_fixed_para <- expand.grid(
-                neutral_power = list_neutral_powers,
-                cluster_frequencies = combn(list_frequencies, N_humps, simplify = FALSE)
-            )
-        } else {
-            list_fixed_para <- data.frame(neutral_power = rep(NA, N_trials))
-            list_fixed_para$cluster_frequencies <- combn(list_frequencies, N_humps, simplify = FALSE)
-
-
-            # # cluster_frequencies <- combn(list_frequencies, N_humps, simplify = FALSE)
-            # # list_fixed_para <- do.call(rbind, cluster_frequencies)
-
-            # list_fixed_para <- expand.grid(
-            #     cluster_frequencies = combn(list_frequencies, N_humps, simplify = FALSE)
-            # )
-            # # print(list_fixed_para)
-        }
-    } else {
-        #   If there are too many choices: try lots of random combinations and find the best fit
-        if (with_tail) {
-            list_fixed_para <- data.frame(
-                neutral_power = sample(list_neutral_powers, N_trials, replace = TRUE)
-            )
-        } else {
-            list_fixed_para <- data.frame(
-                neutral_power = rep(NA, N_trials)
-            )
-        }
-        list_fixed_para$cluster_frequencies <- lapply(1:N_trials, function(x) {
-            sort(sample(list_frequencies, N_humps, replace = FALSE), decreasing = TRUE)
-        })
-    }
-    #---Find best variable parameters (A & K's) for each fixed parameter set
-    if (compute_parallel == FALSE) {
-        all_logLikelihood <- c()
-        all_para <- c()
-        all_AIC <- c()
-        all_BIC <- c()
-        all_ICL <- c()
-        all_ICL_MAP <- c()
-        pb <- txtProgressBar(
-            min = 0,
-            max = nrow(list_fixed_para),
-            style = 3,
-            width = 50,
-            char = "+"
-        )
-        for (i in 1:nrow(list_fixed_para)) {
-            setTxtProgressBar(pb, i)
-            neutral_power <- list_fixed_para$neutral_power[i]
-            cluster_frequencies <- list_fixed_para$cluster_frequencies[[i]]
-            results <- DECODE_hump_component_sizes(
-                vec_SFS_real = vec_SFS_real,
-                neutral_power = neutral_power,
-                vec_p = cluster_frequencies,
-                N_humps = N_humps,
-                list_neutral_powers = list_neutral_powers,
-                list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component,
-                zero_cutoff = zero_cutoff
-            )
-            logLikelihood <- results$log_L
-            vec_para <- results$parameters
-            component_distributions <- results$component_distributions
-            AIC <- compute_AIC(logLikelihood)
-            BIC <- compute_BIC(logLikelihood, mutation_count)
-            ICL <- compute_ICL(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
-            ICL_MAP <- compute_ICL_MAP(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
-            all_para <- rbind(all_para, vec_para)
-            all_logLikelihood <- c(all_logLikelihood, logLikelihood)
-            all_AIC <- c(all_AIC, AIC)
-            all_BIC <- c(all_BIC, BIC)
-            all_ICL <- c(all_ICL, ICL)
-            all_ICL_MAP <- c(all_ICL_MAP, ICL_MAP)
-        }
-        cat("\n")
-    } else {
-        library(parallel)
-        library(pbapply)
-        #   Start parallel cluster
-        if (is.null(n_cores)) {
-            numCores <- detectCores()
-        } else {
-            numCores <- n_cores
-        }
-        cl <- makePSOCKcluster(numCores - 1)
-        #   Prepare input parameters
-        vec_SFS_real <<- vec_SFS_real
-        N_humps <<- N_humps
-        list_neutral_powers <<- list_neutral_powers
-        list_frequencies <<- list_frequencies
-        library_SFS_component <<- library_SFS_component
-        matrix_binomial_PDF <<- matrix_binomial_PDF
-        zero_cutoff <<- zero_cutoff
-        clusterExport(cl, varlist = c(
-            "zero_cutoff",
-            "vec_SFS_real",
-            "N_humps",
-            "list_neutral_powers",
-            "list_frequencies",
-            "library_SFS_component",
-            "DECODE_hump_component_sizes",
-            "compute_loglikelihood",
-            "compute_SFS"
-        ))
-        #   Find best variable parameters in parallel mode
-        output <- pblapply(cl = cl, X = 1:nrow(list_fixed_para), FUN = function(i) {
-            neutral_power <- list_fixed_para$neutral_power[i]
-            cluster_frequencies <- list_fixed_para$cluster_frequencies[[i]]
-            results <- DECODE_hump_component_sizes(
-                vec_SFS_real = vec_SFS_real,
-                neutral_power = neutral_power,
-                vec_p = cluster_frequencies,
-                N_humps = N_humps,
-                list_neutral_powers = list_neutral_powers,
-                list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component,
-                zero_cutoff = zero_cutoff
-            )
-            logLikelihood <- results$log_L
-            vec_para <- results$parameters
-            component_distributions <- results$component_distributions
-            AIC <- compute_AIC(logLikelihood)
-            BIC <- compute_BIC(logLikelihood, mutation_count)
-            ICL <- compute_ICL(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
-            ICL_MAP <- compute_ICL_MAP(logLikelihood, mutation_count, vec_SFS_real, vec_para, component_distributions)
-            return(
-                list(
-                    para = vec_para,
-                    logLikelihood = logLikelihood,
-                    AIC = AIC,
-                    BIC = BIC,
-                    ICL = ICL,
-                    ICL_MAP = ICL_MAP
-                )
-            )
-        })
-        stopCluster(cl)
-        #   Extract the results
-        all_para <- do.call(rbind, lapply(output, function(x) x$para))
-        all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
-        all_AIC <- sapply(output, function(x) x$AIC)
-        all_BIC <- sapply(output, function(x) x$BIC)
-        all_ICL <- sapply(output, function(x) x$ICL)
-        all_ICL_MAP <- sapply(output, function(x) x$ICL_MAP)
-    }
-    #---Find the best fit
-    # best_index <- which.max(all_logLikelihood)
-    best_index <- which.max(all_logLikelihood)
-    fit_results <- list()
-    fit_results$best_parameters <- all_para[best_index, ]
-    fit_results$best_logLikelihood <- all_logLikelihood[best_index]
-    fit_results$best_AIC <- all_AIC[best_index]
-    fit_results$best_BIC <- all_BIC[best_index]
-    fit_results$best_ICL <- all_ICL[best_index]
-    fit_results$best_ICL_MAP <- all_ICL_MAP[best_index]
-    return(fit_results)
+    criteria <- list()
+    criteria$AIC <- compute_AIC(log_L)
+    criteria$BIC <- compute_BIC(log_L, num_samples)
+    criteria$ICL <- compute_ICL(log_L, num_samples, vec_SFS_real, vec_para, component_distributions)
+    criteria$ICL_MAP <- compute_ICL_MAP(log_L, num_samples, vec_SFS_real, vec_para, component_distributions)
+    return(criteria)
 }
 
-DECODE_hump_component_sizes <- function(vec_SFS_real, neutral_power = NULL, vec_p = NULL, N_humps = NULL, list_neutral_powers, list_frequencies, library_SFS_component, zero_cutoff) {
-    if (is.null(neutral_power)) {
-        neutral_power <- sample(list_neutral_powers, 1)
-    }
-    if (is.null(vec_p)) {
-        # 	Choose the hump locations at random
-        vec_p <- sort(sample(list_frequencies, N_humps, replace = FALSE), decreasing = TRUE)
-    } else {
-        vec_p <- sort(vec_p, decreasing = TRUE)
-    }
-    if (is.null(N_humps)) {
-        N_humps <- length(vec_p)
-    }
-    # 	Function for parameter transformation
-    parameter_transform <- function(parameters) {
-        vec_pi <- exp(parameters)
-        vec_pi <- vec_pi / sum(vec_pi)
-        return(vec_pi)
-    }
-    # 	Function for optimization
-    func_fit <- function(parameters) {
-        vec_pi <- parameter_transform(parameters)
-        if (is.na(neutral_power)) {
-            loglikelihood <- compute_loglikelihood(
-                vec_A = c(NA, NA),
-                vec_K = vec_pi,
-                vec_p,
-                list_neutral_powers = list_neutral_powers,
-                list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component,
-                vec_SFS_real = vec_SFS_real,
-                zero_cutoff = zero_cutoff
-            )
-        } else {
-            loglikelihood <- compute_loglikelihood(
-                vec_A = c(vec_pi[1], neutral_power),
-                vec_K = vec_pi[-1],
-                vec_p,
-                list_neutral_powers = list_neutral_powers,
-                list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component,
-                vec_SFS_real = vec_SFS_real,
-                zero_cutoff = zero_cutoff
-            )
-        }
-        return(loglikelihood)
-    }
-    if (N_humps == 0) {
-        parameters <- c(1)
-    } else {
-        # 	Initial values for parameters
-        if (is.na(neutral_power)) {
-            parameters_initial <- rep(0, N_humps)
-        } else {
-            parameters_initial <- rep(0, N_humps + 1)
-        }
-        # 	Optimization using optim function
-        optim_results <- optim(
-            par = parameters_initial,
-            fn = func_fit,
-            method = "Nelder-Mead",
-            control = list(fnscale = -1)
-        )
-        # 	Extract the results
-        parameters <- optim_results$par
-    }
-    vec_pi <- parameter_transform(parameters)
-    log_L <- func_fit(parameters)
-    # 	Prepare the parameters to be returned
-    if (is.na(neutral_power)) {
-        vec_para <- c()
-        component_distributions <- c()
-    } else {
-        vec_para <- c(vec_pi[1], neutral_power)
-        component_distributions <- matrix(unlist(library_SFS_component$neutral$SFS_expected_normalized[[which(list_neutral_powers == neutral_power)]]), nrow = 1)
-    }
-    if (N_humps > 0) {
-        for (i in 1:N_humps) {
-            if (is.na(neutral_power)) {
-                vec_para <- c(vec_para, vec_pi[i], vec_p[i])
-            } else {
-                vec_para <- c(vec_para, vec_pi[i + 1], vec_p[i])
-            }
-            component_distributions <- rbind(
-                component_distributions,
-                unlist(library_SFS_component$cluster$SFS_expected_normalized[[which(list_frequencies == vec_p[i])]])
-            )
-        }
-    }
-    output <- list()
-    output$log_L <- log_L
-    output$parameters <- vec_para
-    output$component_distributions <- component_distributions
-    return(output)
-}
-
-parameter_conversion <- function(parameters,
-                                 tail_status,
-                                 parameters_df = TRUE,
+parameter_conversion <- function(result,
+                                 output_parameters_df = TRUE,
                                  mutation_count_for_fitting,
-                                 library_SFS_component,
-                                 list_neutral_powers,
-                                 list_frequencies,
                                  sample_size,
                                  matrix_binomial_sample_size,
                                  matrix_binomial_ploidy) {
+    parameters <- result$best_fit$parameters
+    component_distributions <- result$best_fit$component_distributions
+    tail_status <- result$best_fit$tail_status
+    if (!is.null(result$best_fit$tail_sensitivity)) {
+        pi_0_mu <- result$best_fit$tail_sensitivity$pi_0_mu
+        pi_0_mu_star <- result$best_fit$tail_sensitivity$pi_0_mu_star
+        pi_0_sigma <- result$best_fit$tail_sensitivity$pi_0_sigma
+        neutral_power_mu <- result$best_fit$tail_sensitivity$neutral_power_mu
+        neutral_power_mu_star <- result$best_fit$tail_sensitivity$neutral_power_mu_star
+        neutral_power_sigma <- result$best_fit$tail_sensitivity$neutral_power_sigma
+    } else {
+        pi_0_mu <- NA
+        pi_0_mu_star <- NA
+        pi_0_sigma <- NA
+        neutral_power_mu <- NA
+        neutral_power_mu_star <- NA
+        neutral_power_sigma <- NA
+    }
     if (tail_status) {
         vec_A <- parameters[1:2]
         N_humps <- length(parameters) / 2 - 1
@@ -722,17 +926,23 @@ parameter_conversion <- function(parameters,
     output$vec_p <- vec_p
     output$vec_K <- vec_K
     output$N_humps <- N_humps
-    if (parameters_df) {
+    if (output_parameters_df) {
         parameters_df <- data.frame()
         parameters_df[1, "Mutation_count_for_fitting"] <- mutation_count_for_fitting
         parameters_df[1, "Tail"] <- tail_status
+        parameters_df[1, "Tail_sensitivity_pi0_mu"] <- pi_0_mu
+        parameters_df[1, "Tail_sensitivity_pi0_mu_star"] <- pi_0_mu_star
+        parameters_df[1, "Tail_sensitivity_pi0_sigma"] <- pi_0_sigma
+        parameters_df[1, "Tail_sensitivity_alpha_mu"] <- neutral_power_mu
+        parameters_df[1, "Tail_sensitivity_alpha_mu_star"] <- neutral_power_mu_star
+        parameters_df[1, "Tail_sensitivity_alpha_sigma"] <- neutral_power_sigma
         if (tail_status) {
             parameters_df[1, "Tail_power"] <- vec_A[2]
             parameters_df[1, "Tail_mutcount_observed"] <-
                 vec_A[1] * mutation_count_for_fitting
             parameters_df[1, "Tail_mutcount_predicted"] <-
                 vec_A[1] * mutation_count_for_fitting *
-                    sum(library_SFS_component$neutral$SFS_exact[[which(list_neutral_powers == vec_A[2])]]) / sum(library_SFS_component$neutral$SFS_expected[[which(list_neutral_powers == vec_A[2])]]) *
+                    sum(component_distributions$SFS_exact[1, ]) / sum(component_distributions$SFS_expected[1, ]) *
                     sample_size / matrix_binomial_sample_size
         } else {
             parameters_df[1, "Tail_power"] <- NA
@@ -747,8 +957,8 @@ parameter_conversion <- function(parameters,
                     vec_K[k] * mutation_count_for_fitting
                 parameters_df[1, paste0("Cluster_mutcount_predicted_", k)] <-
                     vec_K[k] * mutation_count_for_fitting *
-                        sum(library_SFS_component$cluster$SFS_exact[[which(list_frequencies == vec_p[k])]]) /
-                        sum(library_SFS_component$cluster$SFS_expected[[which(list_frequencies == vec_p[k])]])
+                        sum(component_distributions$SFS_exact[k + 1, ]) /
+                        sum(component_distributions$SFS_expected[k + 1, ])
             }
         }
         output$parameters_df <- parameters_df
@@ -756,15 +966,12 @@ parameter_conversion <- function(parameters,
     return(output)
 }
 
-compute_loglikelihood <- function(vec_A, vec_K, vec_p, list_neutral_powers, list_frequencies, library_SFS_component, vec_SFS_real, zero_cutoff) {
+compute_loglikelihood <- function(A, vec_K, component_distributions, vec_SFS_real, zero_cutoff) {
     #----------------Compute the SFS probability distribution from model
     vec_SFS_model <- compute_SFS(
-        vec_A = vec_A,
+        A = A,
         vec_K = vec_K,
-        vec_p = vec_p,
-        list_neutral_powers = list_neutral_powers,
-        list_frequencies = list_frequencies,
-        library_SFS_component = library_SFS_component
+        component_distributions = component_distributions
     )
     vec_SFS_model[which(vec_SFS_model <= zero_cutoff)] <- zero_cutoff
     vec_SFS_model_normalized <- vec_SFS_model / sum(vec_SFS_model)
@@ -773,37 +980,71 @@ compute_loglikelihood <- function(vec_A, vec_K, vec_p, list_neutral_powers, list
     return(loglikelihood)
 }
 
-compute_SFS <- function(vec_A, vec_K, vec_p, list_neutral_powers, list_frequencies, library_SFS_component) {
+compute_SFS <- function(A, vec_K, component_distributions) {
     # 	Add the neutral component
-    A <- vec_A[1]
-    neutral_power <- vec_A[2]
-    if (is.na(A) | is.na(neutral_power)) {
-        A <- 0
-        neutral_power <- list_neutral_powers[1]
-    }
-    loc <- which(list_neutral_powers == neutral_power)
-    vec_SFS_model <- A * unlist(library_SFS_component$neutral$SFS_expected_normalized[[loc]])
+    vec_SFS_model <- component_distributions$SFS_expected_normalized[1, ]
+    if (!is.na(A)) vec_SFS_model <- A * vec_SFS_model
     # 	Add the binomial humps
-    for (i_hump in seq_along(vec_p)) {
-        K <- vec_K[i_hump]
-        p <- vec_p[i_hump]
-        loc <- which(list_frequencies == p)
-        vec_SFS_model <- vec_SFS_model + K * unlist(library_SFS_component$cluster$SFS_expected_normalized[[loc]])
+    for (i_hump in seq_along(vec_K)) {
+        vec_SFS_model <- vec_SFS_model + vec_K[i_hump] * component_distributions$SFS_expected_normalized[i_hump + 1, ]
     }
     # 	Return the full SFS
     return(vec_SFS_model)
 }
 
-build_SFS_library <- function(N_end,
-                              SFS_totalsteps,
-                              SFS_totalsteps_base,
-                              r_min,
-                              r_max,
-                              coverage_distribution,
-                              coverage_variables,
-                              sample_coverage,
-                              compute_parallel,
-                              n_cores) {
+build_SFS_library <- function(neutral_power, cluster_frequencies, SFS_totalsteps, SFS_convolution_matrix) {
+    SFS_exact <- c()
+    SFS_expected <- c()
+    SFS_expected_normalized <- c()
+    #   Build the neutral component
+    if (is.na(neutral_power)) {
+        vec_SFS_GT <- numeric(N_end)
+        vec_SFS_expected <- rep(0, SFS_totalsteps)
+        vec_SFS_expected_normalized <- rep(0, SFS_totalsteps)
+    } else {
+        vec_para <- c(1, neutral_power)
+        vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para)
+        vec_SFS_expected <- rep(0, SFS_totalsteps)
+        for (j in 1:SFS_totalsteps) {
+            vec_SFS_expected[j] <- sum(vec_SFS_GT * SFS_convolution_matrix[, j])
+        }
+        vec_SFS_expected_normalized <- vec_SFS_expected / sum(vec_SFS_expected)
+    }
+    SFS_exact <- rbind(SFS_exact, vec_SFS_GT)
+    SFS_expected <- rbind(SFS_expected, vec_SFS_expected)
+    SFS_expected_normalized <- rbind(SFS_expected_normalized, vec_SFS_expected_normalized)
+    #   Build the cluster components
+    if (length(cluster_frequencies) > 0) {
+        for (i in 1:length(cluster_frequencies)) {
+            vec_para <- c(0, 0, 1, cluster_frequencies[i])
+            vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para)
+            vec_SFS_expected <- rep(0, SFS_totalsteps)
+            for (j in 1:SFS_totalsteps) {
+                vec_SFS_expected[j] <- sum(vec_SFS_GT * SFS_convolution_matrix[, j])
+            }
+            SFS_exact <- rbind(SFS_exact, vec_SFS_GT)
+            SFS_expected <- rbind(SFS_expected, vec_SFS_expected)
+            SFS_expected_normalized <- rbind(SFS_expected_normalized, vec_SFS_expected / sum(vec_SFS_expected))
+        }
+    }
+    #   Return SFS component library
+    component_distributions <- list()
+    component_distributions$SFS_exact <- SFS_exact
+    component_distributions$SFS_expected <- SFS_expected
+    component_distributions$SFS_expected_normalized <- SFS_expected_normalized
+    return(component_distributions)
+}
+
+build_convolution_matrix <- function(N_end,
+                                     SFS_totalsteps,
+                                     SFS_totalsteps_base,
+                                     r_min,
+                                     r_max,
+                                     coverage_distribution,
+                                     coverage_variables,
+                                     sample_coverage,
+                                     compute_parallel,
+                                     n_cores) {
     #---Build convolution matrix to transform Griffiths-Tavare SFS to expected SFS
     vec_SFS_freq <- seq(0, 1, length.out = SFS_totalsteps + 1)
     if (compute_parallel == FALSE) {
@@ -863,9 +1104,6 @@ build_SFS_library <- function(N_end,
         output <- pblapply(cl = cl, X = 1:SFS_totalsteps, FUN = function(i) {
             j_lower <- round(SFS_totalsteps_base * vec_SFS_freq[i]) + 1 # x_1*r
             j_upper <- round(SFS_totalsteps_base * vec_SFS_freq[i + 1]) # x_2*r
-            ############################################################
-            ############################################################
-            ############################################################
             mat_convolution_col_i <- rep(0, N_end)
             r_values <- max(r_min, 1):r_max
 
@@ -875,59 +1113,12 @@ build_SFS_library <- function(N_end,
                 }))
                 return(value)
             })
-            ############################################################
-            ############################################################
-            ############################################################
-            # mat_convolution_col_i <- rep(0, N_end)
-            # for (m in 1:N_end) {
-            #     value <- 0
-            #     for (r in max(r_min, 1):r_max) {
-            #         value <- value + pdf_coverage(r,sample_coverage) * sum(matrix_binomial_PDF[r, m, j_lower:j_upper])
-            #     }
-            #     mat_convolution_col_i[m] <- value
-            # }
-            ############################################################
-            ############################################################
-            ############################################################
             return(mat_convolution_col_i)
         })
         stopCluster(cl)
         mat_convolution <- do.call(cbind, output)
     }
-    #---Build SFS library for neutral and cluster components
-    list_frequencies_tmp <- unique(c(-sort(list_neutral_powers), sort(list_frequencies)))
-    library_SFS_component <- list()
-    library_SFS_component$neutral$SFS_exact <- list()
-    library_SFS_component$neutral$SFS_expected <- list()
-    library_SFS_component$neutral$SFS_expected_normalized <- list()
-    library_SFS_component$cluster$SFS_exact <- list()
-    library_SFS_component$cluster$SFS_expected <- list()
-    library_SFS_component$cluster$SFS_expected_normalized <- list()
-    for (i in seq_along(list_frequencies_tmp)) {
-        p <- list_frequencies_tmp[i]
-        if (p <= 0) {
-            vec_para <- c(1, -p)
-            vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para)
-            vec_SFS_expected <- rep(0, SFS_totalsteps)
-            for (j in 1:SFS_totalsteps) {
-                vec_SFS_expected[j] <- sum(vec_SFS_GT * mat_convolution[, j])
-            }
-            library_SFS_component$neutral$SFS_exact[[i]] <- vec_SFS_GT
-            library_SFS_component$neutral$SFS_expected[[i]] <- vec_SFS_expected
-            library_SFS_component$neutral$SFS_expected_normalized[[i]] <- vec_SFS_expected / sum(vec_SFS_expected)
-        } else {
-            vec_para <- c(0, 0, 1, p)
-            vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para)
-            vec_SFS_expected <- rep(0, SFS_totalsteps)
-            for (j in 1:SFS_totalsteps) {
-                vec_SFS_expected[j] <- sum(vec_SFS_GT * mat_convolution[, j])
-            }
-            library_SFS_component$cluster$SFS_exact[[i - length(which(list_frequencies_tmp <= 0))]] <- vec_SFS_GT
-            library_SFS_component$cluster$SFS_expected[[i - length(which(list_frequencies_tmp <= 0))]] <- vec_SFS_expected
-            library_SFS_component$cluster$SFS_expected_normalized[[i - length(which(list_frequencies_tmp <= 0))]] <- vec_SFS_expected / sum(vec_SFS_expected)
-        }
-    }
-    return(library_SFS_component)
+    return(mat_convolution)
 }
 
 build_SFS_library_Griffiths_Tavare <- function(vec_para) {
@@ -950,7 +1141,6 @@ build_SFS_library_Griffiths_Tavare <- function(vec_para) {
             for (i in 1:no_hump) {
                 K <- para_K[i]
                 P <- para_P[i]
-                # dbinom change the binopdf in matlab to calculate the binomial prob.
                 vec_SFS_GT[m] <- vec_SFS_GT[m] + K * dbinom(m, N_end, P)
             }
         }

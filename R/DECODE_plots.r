@@ -2,19 +2,18 @@ DECODE_plot <- function(DECODE_result,
                         fit = "best",
                         data_marker_colors = NULL) {
     if (is.null(data_marker_colors)) data_marker_colors <- c("Data" = "black")
+
     vec_freq <- DECODE_result$SFS_frequencies
     vec_SFS_real <- DECODE_result$SFS_for_fitting
     mutation_table <- DECODE_result$mutational_table
     mutation_refcounts <- mutation_table$Ref_count
     mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
-    library_SFS_component <- DECODE_result$library_SFS_component
-    list_neutral_powers <- DECODE_result$list_neutral_powers
-    list_frequencies <- DECODE_result$list_frequencies
 
     if (fit == "best") {
-        vec_para_best_final <- DECODE_result$best_fit$parameters
-        tail_status_final <- DECODE_result$best_fit$tail_status
+        vec_para_best_final <- DECODE_result$best_result$best_fit$parameters
+        tail_status_final <- DECODE_result$best_result$best_fit$tail_status
+        component_distributions_best_final <- DECODE_result$best_result$best_fit$component_distributions
     }
 
     if ("Marker" %in% colnames(mutation_table)) {
@@ -24,9 +23,8 @@ DECODE_plot <- function(DECODE_result,
     }
 
     tmp <- parameter_conversion(
-        parameters = vec_para_best_final,
-        tail_status = tail_status_final,
-        parameters_df = FALSE
+        result = DECODE_result$best_result,
+        output_parameters_df = FALSE
     )
     vec_A <- tmp$vec_A
     vec_K <- tmp$vec_K
@@ -72,12 +70,9 @@ DECODE_plot <- function(DECODE_result,
     df_fit_order <- c()
     if (tail_status_final) {
         SFS_neutral <- compute_SFS(
-            vec_A = vec_A,
+            A = vec_A[1],
             vec_K = c(),
-            vec_p = c(),
-            list_neutral_powers = list_neutral_powers,
-            list_frequencies = list_frequencies,
-            library_SFS_component = library_SFS_component
+            component_distributions = component_distributions_best_final
         )
         SFS_neutral <- vec_A[1] * mutation_count * SFS_neutral / sum(SFS_neutral)
         df_fit <- rbind(df_fit, data.frame(frequency = vec_freq, count = SFS_neutral, fill = "Neutral tail"))
@@ -85,13 +80,12 @@ DECODE_plot <- function(DECODE_result,
     }
     if (N_humps > 0) {
         for (i in 1:N_humps) {
+            vec_K_tmp <- rep(0, N_humps)
+            vec_K_tmp[i] <- vec_K[i]
             SFS_hump <- compute_SFS(
-                vec_A = c(0, list_neutral_powers[1]),
-                vec_K = vec_K[i],
-                vec_p = vec_p[i],
-                list_neutral_powers = list_neutral_powers,
-                list_frequencies = list_frequencies,
-                library_SFS_component = library_SFS_component
+                A = 0,
+                vec_K = vec_K_tmp,
+                component_distributions = component_distributions_best_final
             )
             SFS_hump <- vec_K[i] * mutation_count * SFS_hump / sum(SFS_hump)
             df_fit <- rbind(df_fit, data.frame(frequency = vec_freq, count = SFS_hump, fill = paste0("Cluster ", i)))
@@ -822,6 +816,25 @@ analysis_ICGC <- function(sample_information_df,
             mobster_df_truncal_frequency_vs_sample_purity
         )
     }
+
+    if (is_decode) {
+        decode_df_truncal_frequency_vs_sample_purity <- data.frame(
+            Sample = decode_df$Sample,
+            Sample_short = sapply(strsplit(decode_df$Sample, "-"), `[`, 1),
+            Truncal_frequency = 2 * decode_df$ordered_p_1,
+            Purity = NA,
+            Method = "DECODE"
+        )
+        for (i in 1:nrow(decode_df_truncal_frequency_vs_sample_purity)) {
+            decode_df_truncal_frequency_vs_sample_purity$Purity[i] <- sample_information_df$purity[which(sample_information_df$aliquot_id == decode_df_truncal_frequency_vs_sample_purity$Sample[i])]
+        }
+        df_truncal_frequency_vs_sample_purity <- rbind(
+            df_truncal_frequency_vs_sample_purity,
+            decode_df_truncal_frequency_vs_sample_purity
+        )
+    }
+
+
     df_truncal_frequency_vs_sample_purity$Within_bounds <- NA
     df_truncal_frequency_vs_sample_purity$Within_bounds[
         which(
@@ -840,10 +853,11 @@ analysis_ICGC <- function(sample_information_df,
         )
     ] <- "Below"
     #---Plot truncal cluster frequency against sample purity
-    png(paste0(folder_workplace, "ICGC_1_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
+    png(paste0(folder_workplace, "ICGC_1_MOBSTER_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_point(
             data = df_truncal_frequency_vs_sample_purity,
+            # data = df_truncal_frequency_vs_sample_purity[which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER"), ],
             aes(x = Purity, y = Truncal_frequency, fill = Method, color = Method),
             alpha = 0.5, size = 20
         ) +
@@ -869,8 +883,11 @@ analysis_ICGC <- function(sample_information_df,
         geom_abline(intercept = bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 2, linetype = "dashed") +
         geom_abline(intercept = -bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 2, linetype = "dashed")
     print(p)
-    cat(paste0("\nSamples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
-    cat(paste0("Samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
-    cat(paste0("Samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n\n"))
+    cat(paste0("\nMOBSTER samples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER")), 2), "%)", "\n"))
+    cat(paste0("MOBSTER samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER")), 2), "%)", "\n"))
+    cat(paste0("MOBSTER samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER")), 2), "%)", "\n\n"))
+    cat(paste0("\nDECODE samples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE")), 2), "%)", "\n"))
+    cat(paste0("DECODE samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE")), 2), "%)", "\n"))
+    cat(paste0("DECODE samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE")), 2), "%)", "\n\n"))
     dev.off()
 }
