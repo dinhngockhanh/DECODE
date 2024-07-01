@@ -30,6 +30,7 @@ DECODE_plot <- function(DECODE_result,
     vec_K <- tmp$vec_K
     vec_p <- tmp$vec_p
     N_humps <- tmp$N_humps
+    tail_status <- tmp$tail_status
     #---Plot the SFS deconvolution
     color_scheme <- c(
         data_marker_colors,
@@ -223,15 +224,14 @@ analysis_synthetic_test <- function(groundtruth_df,
     cluster_count_min <- Inf
     cluster_count_max <- 0
     if (is_mobster) {
-        cluster_count_min <- min(cluster_count_min, min(mobster_df$Cluster_count))
-        cluster_count_max <- max(cluster_count_max, max(mobster_df$Cluster_count))
+        cluster_count_min <- min(cluster_count_min, min(mobster_df$Cluster_count, na.rm = TRUE))
+        cluster_count_max <- max(cluster_count_max, max(mobster_df$Cluster_count, na.rm = TRUE))
     }
     if (is_decode) {
-        cluster_count_min <- min(cluster_count_min, min(decode_df$Cluster_count))
-        cluster_count_max <- max(cluster_count_max, max(decode_df$Cluster_count))
+        cluster_count_min <- min(cluster_count_min, min(decode_df$Cluster_count, na.rm = TRUE))
+        cluster_count_max <- max(cluster_count_max, max(decode_df$Cluster_count, na.rm = TRUE))
     }
     if (is_mobster) {
-        # for (cluster_count in unique(mobster_df$Cluster_count)) {
         for (cluster_count in cluster_count_min:cluster_count_max) {
             df_cluster_count <- rbind(
                 df_cluster_count,
@@ -244,7 +244,6 @@ analysis_synthetic_test <- function(groundtruth_df,
             )
         }
         if (!is.na(tail_correct)) {
-            # for (cluster_count in unique(mobster_df$Cluster_count[which(mobster_df$Tail == tail_correct)])) {
             for (cluster_count in cluster_count_min:cluster_count_max) {
                 df_cluster_count <- rbind(
                     df_cluster_count,
@@ -305,6 +304,7 @@ analysis_synthetic_test <- function(groundtruth_df,
             mobster_cluster_df$Value_TRUTH[row] <- groundtruth_df[[paste0("ordered_", mobster_cluster_df$Parameter[row], "_", mobster_cluster_df$Cluster[row])]][mobster_cluster_df$Simulation[row]]
             mobster_cluster_df$Value_INFERRED[row] <- mobster_df[[paste0("ordered_", mobster_cluster_df$Parameter[row], "_", mobster_cluster_df$Cluster[row])]][mobster_cluster_df$Simulation[row]]
         }
+        mobster_cluster_df <- mobster_cluster_df[which(mobster_cluster_df$Simulation %in% mobster_df$Simulation[which(mobster_df$Succeed == TRUE)]), ]
         cluster_parameter_df <- rbind(cluster_parameter_df, mobster_cluster_df)
     }
     if (is_decode) {
@@ -364,7 +364,7 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_point(
-            data = characteristic_df,
+            data = characteristic_df[which(!is.na(characteristic_df$mobster_tail)), ],
             aes(x = Purity, y = Coverage, fill = mobster_tail, color = mobster_tail),
             alpha = 0.5, size = 20
         ) +
@@ -378,7 +378,8 @@ analysis_synthetic_test <- function(groundtruth_df,
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
-            legend.justification = c(0, 0.5)
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
         )
     print(p)
     dev.off()
@@ -386,7 +387,7 @@ analysis_synthetic_test <- function(groundtruth_df,
     png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
     p <- ggplot() +
         geom_point(
-            data = characteristic_df,
+            data = characteristic_df[which(!is.na(characteristic_df$mobster_cluster_count)), ],
             aes(x = Purity, y = Coverage, fill = mobster_cluster_count, color = mobster_cluster_count),
             alpha = 0.5, size = 20
         ) +
@@ -400,7 +401,8 @@ analysis_synthetic_test <- function(groundtruth_df,
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
-            legend.justification = c(0, 0.5)
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
         )
     print(p)
     dev.off()
@@ -422,7 +424,8 @@ analysis_synthetic_test <- function(groundtruth_df,
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
-            legend.justification = c(0, 0.5)
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
         )
     print(p)
     dev.off()
@@ -529,7 +532,7 @@ analysis_synthetic_test <- function(groundtruth_df,
         ) + xlim(range(common_range)) + ylim(range(common_range))
     if (text_notation) {
         p <- p +
-            geom_text(data = cluster_parameter_df, aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
+            geom_text(data = cluster_parameter_df[cluster_parameter_df$Parameter == "p", ], aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
     }
     print(p)
     dev.off()
@@ -570,7 +573,7 @@ analysis_synthetic_test <- function(groundtruth_df,
             ) + xlim(range(common_range)) + ylim(range(common_range))
         if (text_notation) {
             p <- p +
-                geom_text(data = mini_cluster_parameter_df, aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
+                geom_text(data = mini_cluster_parameter_df[mini_cluster_parameter_df$Parameter == "p", ], aes(x = Value_TRUTH, y = Value_INFERRED, label = Simulation, color = Method), size = 20, vjust = 0.5, hjust = 0.5)
         }
         print(p)
         dev.off()
@@ -591,7 +594,7 @@ analysis_synthetic_test <- function(groundtruth_df,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 3, 0, 0, "cm")
+            plot.margin = margin(0, 2, 0, 0, "cm")
         )
     common_range <- c(
         cluster_parameter_df$Value_TRUTH[cluster_parameter_df$Parameter == "K"],
@@ -632,7 +635,7 @@ analysis_synthetic_test <- function(groundtruth_df,
                 panel.grid.minor = element_line(colour = "white"),
                 legend.position = "top",
                 legend.justification = c(0, 0.5),
-                plot.margin = margin(0, 3, 0, 0, "cm")
+                plot.margin = margin(0, 2, 0, 0, "cm")
             )
         common_range <- c(
             mini_cluster_parameter_df$Value_TRUTH[mini_cluster_parameter_df$Parameter == "K"],
@@ -695,7 +698,8 @@ analysis_synthetic_test <- function(groundtruth_df,
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
-            legend.justification = c(0, 0.5)
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
         )
     common_range <- c(
         deconvolution_neutral_df$Value_TRUTH[deconvolution_neutral_df$Parameter == "A_observed"],
@@ -726,7 +730,8 @@ analysis_synthetic_test <- function(groundtruth_df,
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
-            legend.justification = c(0, 0.5)
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
         )
     common_range <- c(
         deconvolution_neutral_df$Value_TRUTH[deconvolution_neutral_df$Parameter == "A_complete"],
@@ -744,6 +749,36 @@ analysis_synthetic_test <- function(groundtruth_df,
     }
     print(p)
     dev.off()
+    #---Plot DECODE neutral compartment sensitivity studies
+    png(paste0(folder_workplace, "Comparison_7_DECODE_tail_sensitivity.png"), res = 150, width = 30, height = 30, units = "in")
+    p <- ggplot() +
+        geom_point(
+            data = decode_df,
+            aes(x = Tail_sensitivity_Bayesian_pi0_std, y = Tail_sensitivity_Morris_pi0_mean_abs, fill = "DECODE", color = "DECODE"),
+            alpha = 0.5, size = 20
+        ) +
+        xlab(expression(paste("Bayesian standard deviation of ", pi[0]))) +
+        ylab(expression(paste("Morris mean EE for ", pi[0]))) +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
+        )
+    if (text_notation) {
+        p <- p +
+            geom_text(
+                data = decode_df,
+                aes(x = Tail_sensitivity_Bayesian_pi0_std, y = Tail_sensitivity_Morris_pi0_mean_abs, label = Simulation, color = "DECODE"), size = 20, vjust = 0.5, hjust = 0.5
+            )
+    }
+    print(p)
+    dev.off()
 }
 
 analysis_ICGC <- function(sample_information_df,
@@ -753,11 +788,58 @@ analysis_ICGC <- function(sample_information_df,
                           text_notation = FALSE,
                           folder_workplace = "") {
     library(ggplot2)
+    library(dplyr)
     is_mobster <- !is.null(mobster_df)
     is_decode <- !is.null(decode_df)
     method_color_scheme <- c(
         "MOBSTER" = "darkorange2",
         "DECODE" = "magenta4"
+    )
+    shape_scheme <- c(
+        "Cluster_1" = 15,
+        "Cluster_2" = 16,
+        "Cluster_3" = 17,
+        "Cluster_4" = 18
+    )
+    shape_labels <- c(
+        "Cluster_1" = "1",
+        "Cluster_2" = "2",
+        "Cluster_3" = "3",
+        "Cluster_4" = "4"
+    )
+    cancer_type_color <- c(
+        "CNS-PiloAstro" = "lightblue",
+        "Liver-HCC" = "deeppink",
+        "Kidney-RCC" = "forestgreen",
+        "Prost-AdenoCA" = "darkviolet",
+        "Lymph-BNHL" = "darkorange",
+        "Panc-Endocrine" = "darkturquoise",
+        "Panc-AdenoCA" = "darkslategrey",
+        "CNS-Medullo" = "darksalmon",
+        "Breast-AdenoCA" = "goldenrod1",
+        "Stomach-AdenoCA" = "darkolivegreen",
+        "Skin-Melanoma" = "sienna",
+        "Lymph-CLL" = "burlywood",
+        "Eso-AdenoCA" = "plum",
+        "Myeloid-AML" = "palevioletred",
+        "Head-SCC" = "mediumaquamarine",
+        "Billary-AdenoCA" = "greenyellow",
+        "Ovary-AdenoCA" = "cornflowerblue",
+        "Billary-AdenoCA" = "magenta",
+        "Bone-Benign" = "green",
+        "Bone-Epith" = "bisque4",
+        "Bone-Osteosarc" = "ivory3",
+        "Breast-DCIS" = "navy",
+        "Breast-LobularCA" = "lightcoral",
+        "Myeloid-MDS" = "yellow3",
+        "Myeloid-MPN" = "steelblue4"
+    )
+    cluster_count_color_scheme <- c(
+        "1" = "#E69F00",
+        "2" = "#56B4E9",
+        "3" = "#009E73",
+        "4" = "#F0E442",
+        "5" = "#CC79A7"
     )
     shape_scheme <- c(
         "Cluster_1" = 15,
@@ -798,6 +880,213 @@ analysis_ICGC <- function(sample_information_df,
             }
         }
     }
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    #---Plot a bar graph of cancer types and tail detection
+    # Extract and merge required data
+    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Tail)
+    # Calculate Percentages
+    merged_data <- merged_data %>%
+        dplyr::group_by(histology_abbreviation) %>%
+        dplyr::count(Tail) %>%
+        dplyr::mutate(percentage = n / sum(n)) %>%
+        dplyr::ungroup()
+    # Create a data frame with all combinations of histology_abbreviation and Tail
+    all_combinations <- expand.grid(
+        histology_abbreviation = unique(merged_data$histology_abbreviation),
+        Tail = c(TRUE, FALSE)
+    )
+    merged_data_complete <- merge(all_combinations, merged_data, by = c("histology_abbreviation", "Tail"), all.x = TRUE)
+    merged_data_complete$percentage[is.na(merged_data_complete$percentage)] <- 0
+
+    # Plotting bar graph
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = percentage, fill = histology_abbreviation, alpha = Tail)) +
+        geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
+        scale_y_continuous(labels = scales::percent_format()) +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        scale_alpha_manual(
+            values = c("TRUE" = 1, "FALSE" = 0.3),
+            guide = guide_legend(
+                title = "Tail Detection",
+                override.aes = list(fill = "grey")
+            )
+        ) +
+        geom_text(aes(label = ifelse(percentage > 0, as.character(n), "")),
+            position = position_dodge(width = 0.9), vjust = -0.5, size = 5
+        ) +
+        labs(x = NULL, y = NULL) +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 2, "cm")
+        )
+    # Save the plot
+    png(paste0(folder_workplace, "ICGC_0_Cancer_Type_Tail_Detection_Bar_Graph.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a bar graph representing Cancer Type and cluster count detection - MOBSTER
+    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Cluster_count)
+    aggregated_data <- merged_data %>%
+        dplyr::group_by(histology_abbreviation, Cluster_count) %>%
+        dplyr::summarise(Sample_Count = n(), .groups = "drop")
+    all_combinations <- expand.grid(
+        histology_abbreviation = unique(aggregated_data$histology_abbreviation),
+        Cluster_count = 1:3
+    )
+    merged_data_complete <- merge(all_combinations, aggregated_data, by = c("histology_abbreviation", "Cluster_count"), all.x = TRUE)
+    merged_data_complete$Sample_Count[is.na(merged_data_complete$Sample_Count)] <- 0
+
+    # Create the plot
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Sample_Count, fill = factor(Cluster_count))) +
+        geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
+        scale_fill_manual(values = cluster_count_color_scheme, name = "Cluster Count") +
+        labs(x = "", y = "Sample Count") +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 2, "cm")
+        )
+    png(paste0(folder_workplace, "ICGC_0a_Cancer_Type_Cluster_Count_Bar_Graph_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a bar graph representing Cancer Type and cluster count detection - DECODE
+    merged_data <- merge(sample_information_df, decode_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Cluster_count)
+
+    aggregated_data <- merged_data %>%
+        dplyr::group_by(histology_abbreviation, Cluster_count) %>%
+        dplyr::summarise(Sample_Count = n(), .groups = "drop")
+
+    all_combinations <- expand.grid(
+        histology_abbreviation = unique(aggregated_data$histology_abbreviation),
+        Cluster_count = 1:3
+    )
+    merged_data_complete <- merge(all_combinations, aggregated_data, by = c("histology_abbreviation", "Cluster_count"), all.x = TRUE)
+    merged_data_complete$Sample_Count[is.na(merged_data_complete$Sample_Count)] <- 0
+
+    # Create the plot
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Sample_Count, fill = factor(Cluster_count))) +
+        geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
+        scale_fill_manual(values = cluster_count_color_scheme, name = "Cluster Count") +
+        labs(x = "", y = "Sample Count") +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 2, "cm")
+        )
+    png(paste0(folder_workplace, "ICGC_0a_Cancer_Type_Cluster_Count_Bar_Graph_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a bar graph representing Cancer Type and mutation count
+    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Mutation_count_in_fitting)
+
+    average_mutation_data <- merged_data %>%
+        dplyr::group_by(histology_abbreviation) %>%
+        dplyr::summarise(Average_Mutation_Count = mean(Mutation_count_in_fitting, na.rm = TRUE))
+
+    excluded_cancer_types <- c("") # Add any other cancer types to exclude, for when data is too large
+    average_mutation_data_filtered <- average_mutation_data %>%
+        dplyr::filter(!histology_abbreviation %in% excluded_cancer_types)
+
+    # Create the plot
+    p <- ggplot(average_mutation_data_filtered, aes(x = histology_abbreviation, y = Average_Mutation_Count, fill = histology_abbreviation)) +
+        geom_bar(stat = "identity", position = "dodge") +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "Average Mutation Count") +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 2, "cm")
+        )
+    png(paste0(folder_workplace, "ICGC_Cancer_Type_Mutation_Count_Bar_Graph.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a Violin Plot of Cancer type and neutral tail power MOBSTER
+    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Tail_power)
+
+    # Create the violin plot
+    p <- ggplot(merged_data, aes(x = histology_abbreviation, y = Tail_power, fill = histology_abbreviation)) +
+        geom_violin(width = 0.7, scale = "width") +
+        geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "Neutral Tail Power") +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 2, "cm")
+        )
+
+    p <- p +
+        geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
+    png(paste0(folder_workplace, "ICGC_0b_Cancer_Type_Tail_Power_Violin_Plot_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a Violin Plot of Cancer type and neutral tail power DECODE
+    merged_data <- merge(sample_information_df, decode_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Tail_power)
+
+    # Create the violin plot
+    p <- ggplot(merged_data, aes(x = histology_abbreviation, y = Tail_power, fill = histology_abbreviation)) +
+        geom_violin(width = 0.7, scale = "width") +
+        geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "Neutral Tail Power") +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 2, "cm")
+        )
+
+    p <- p +
+        geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
+    png(paste0(folder_workplace, "ICGC_0b_Cancer_Type_Tail_Power_Violin_Plot_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
     #---Find comparison of truncal cluster frequency against sample purity
     df_truncal_frequency_vs_sample_purity <- data.frame()
     if (is_mobster) {
@@ -816,25 +1105,6 @@ analysis_ICGC <- function(sample_information_df,
             mobster_df_truncal_frequency_vs_sample_purity
         )
     }
-
-    if (is_decode) {
-        decode_df_truncal_frequency_vs_sample_purity <- data.frame(
-            Sample = decode_df$Sample,
-            Sample_short = sapply(strsplit(decode_df$Sample, "-"), `[`, 1),
-            Truncal_frequency = 2 * decode_df$ordered_p_1,
-            Purity = NA,
-            Method = "DECODE"
-        )
-        for (i in 1:nrow(decode_df_truncal_frequency_vs_sample_purity)) {
-            decode_df_truncal_frequency_vs_sample_purity$Purity[i] <- sample_information_df$purity[which(sample_information_df$aliquot_id == decode_df_truncal_frequency_vs_sample_purity$Sample[i])]
-        }
-        df_truncal_frequency_vs_sample_purity <- rbind(
-            df_truncal_frequency_vs_sample_purity,
-            decode_df_truncal_frequency_vs_sample_purity
-        )
-    }
-
-
     df_truncal_frequency_vs_sample_purity$Within_bounds <- NA
     df_truncal_frequency_vs_sample_purity$Within_bounds[
         which(
@@ -853,14 +1123,26 @@ analysis_ICGC <- function(sample_information_df,
         )
     ] <- "Below"
     #---Plot truncal cluster frequency against sample purity
-    png(paste0(folder_workplace, "ICGC_1_MOBSTER_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
+    png(paste0(folder_workplace, "ICGC_1_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
+
+    common_range <- range(
+        c(
+            df_truncal_frequency_vs_sample_purity$Purity,
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency
+        ),
+        na.rm = TRUE
+    )
+
     p <- ggplot() +
         geom_point(
             data = df_truncal_frequency_vs_sample_purity,
-            # data = df_truncal_frequency_vs_sample_purity[which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER"), ],
             aes(x = Purity, y = Truncal_frequency, fill = Method, color = Method),
             alpha = 0.5, size = 20
         ) +
+        xlim(c(0, 1)) +
+        ylim(c(0, 1)) +
+        # xlim(common_range) +
+        # ylim(common_range) +
         scale_fill_manual(values = method_color_scheme, name = "") +
         scale_color_manual(values = method_color_scheme, name = "") +
         xlab("Sample purity") +
@@ -878,16 +1160,137 @@ analysis_ICGC <- function(sample_information_df,
         p <- p +
             geom_text(data = df_truncal_frequency_vs_sample_purity[which(df_truncal_frequency_vs_sample_purity$Within_bounds != "Correct"), ], aes(x = Purity, y = Truncal_frequency, label = Sample_short, color = Method), size = 20, vjust = 0, hjust = 0, angle = 45)
     }
+    # Extracting the calculated percentages
+    percent_within <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
+    percent_above <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
+    percent_below <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
+
+    # X position and offset
+    x_pos <- 0.08
+    offset <- 0.02
+
     p <- p +
-        geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 2) +
-        geom_abline(intercept = bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 2, linetype = "dashed") +
-        geom_abline(intercept = -bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 2, linetype = "dashed")
+        # Annotation for Within, Above, and Below percentages & counts
+        annotate("text", x = 0, y = 0, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
+        annotate("text", x = 0, y = 0.1, label = paste0(percent_above, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
+        annotate("text", x = 0.1, y = 0, label = paste0(percent_below, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), ")"), size = 20, colour = "black", angle = 45, hjust = 0)
+    # annotate("text", x = x_pos - 0.03, y = x_pos + offset - 0.03, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45) +
+    # annotate("text", x = x_pos - 0.05, y = x_pos + bound_truncal_frequency_vs_sample_purity + offset - 0.03, label = paste0(percent_above, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), ")"), size = 20, colour = "black", angle = 45) +
+    # annotate("text", x = x_pos + 0.02, y = x_pos - bound_truncal_frequency_vs_sample_purity - offset, label = paste0(percent_below, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), ")"), size = 20, colour = "black", angle = 45)
+
+    p <- p +
+        geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 3, alpha = 0.5) +
+        geom_abline(intercept = bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 3, alpha = 0.5, linetype = "dashed") +
+        geom_abline(intercept = -bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 3, alpha = 0.5, linetype = "dashed")
     print(p)
-    cat(paste0("\nMOBSTER samples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER")), 2), "%)", "\n"))
-    cat(paste0("MOBSTER samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER")), 2), "%)", "\n"))
-    cat(paste0("MOBSTER samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "MOBSTER")), 2), "%)", "\n\n"))
-    cat(paste0("\nDECODE samples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE")), 2), "%)", "\n"))
-    cat(paste0("DECODE samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE")), 2), "%)", "\n"))
-    cat(paste0("DECODE samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE" & df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / length(which(df_truncal_frequency_vs_sample_purity$Method == "DECODE")), 2), "%)", "\n\n"))
+    dev.off()
+    cat(paste0("\nSamples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
+    cat(paste0("Samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
+    write.table(df_truncal_frequency_vs_sample_purity$Sample[which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")], file = "MOBSTER>5%.txt", quote = FALSE, row.names = FALSE)
+    cat(paste0("Samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n\n"))
+    write.table(df_truncal_frequency_vs_sample_purity$Sample[which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")], file = "MOBSTER<5%.txt", quote = FALSE, row.names = FALSE)
+    #---Find comparison of truncal cluster frequency against sample purity - DECODE
+    df_truncal_frequency_vs_sample_purity <- data.frame()
+    if (is_decode) {
+        decode_df_truncal_frequency_vs_sample_purity <- data.frame(
+            Sample = decode_df$Sample,
+            Sample_short = sapply(strsplit(decode_df$Sample, "-"), `[`, 1),
+            Truncal_frequency = 2 * decode_df$ordered_p_1,
+            Purity = NA,
+            Method = "DECODE"
+        )
+        for (i in 1:nrow(decode_df_truncal_frequency_vs_sample_purity)) {
+            decode_df_truncal_frequency_vs_sample_purity$Purity[i] <- sample_information_df$purity[which(sample_information_df$aliquot_id == decode_df_truncal_frequency_vs_sample_purity$Sample[i])]
+        }
+        df_truncal_frequency_vs_sample_purity <- rbind(
+            df_truncal_frequency_vs_sample_purity,
+            decode_df_truncal_frequency_vs_sample_purity
+        )
+    }
+    df_truncal_frequency_vs_sample_purity$Within_bounds <- NA
+    df_truncal_frequency_vs_sample_purity$Within_bounds[
+        which(
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency < df_truncal_frequency_vs_sample_purity$Purity + bound_truncal_frequency_vs_sample_purity &
+                df_truncal_frequency_vs_sample_purity$Truncal_frequency > df_truncal_frequency_vs_sample_purity$Purity - bound_truncal_frequency_vs_sample_purity
+        )
+    ] <- "Correct"
+    df_truncal_frequency_vs_sample_purity$Within_bounds[
+        which(
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency >= df_truncal_frequency_vs_sample_purity$Purity + bound_truncal_frequency_vs_sample_purity
+        )
+    ] <- "Above"
+    df_truncal_frequency_vs_sample_purity$Within_bounds[
+        which(
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency <= df_truncal_frequency_vs_sample_purity$Purity - bound_truncal_frequency_vs_sample_purity
+        )
+    ] <- "Below"
+    #---Plot truncal cluster frequency against sample purity
+    png(paste0(folder_workplace, "ICGC_2_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
+
+    common_range <- range(
+        c(
+            df_truncal_frequency_vs_sample_purity$Purity,
+            df_truncal_frequency_vs_sample_purity$Truncal_frequency
+        ),
+        na.rm = TRUE
+    )
+
+    p <- ggplot() +
+        geom_point(
+            data = df_truncal_frequency_vs_sample_purity,
+            aes(x = Purity, y = Truncal_frequency, fill = Method, color = Method),
+            alpha = 0.5, size = 20
+        ) +
+        xlim(c(0, 1)) +
+        ylim(c(0, 1)) +
+        # xlim(common_range) +
+        # ylim(common_range) +
+        scale_fill_manual(values = method_color_scheme, name = "") +
+        scale_color_manual(values = method_color_scheme, name = "") +
+        xlab("Sample purity") +
+        ylab("2 \u00D7 Truncal cluster frequency") +
+        theme(
+            text = element_text(size = 120),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0, 2, 0, 0, "cm")
+        )
+    if (text_notation) {
+        p <- p +
+            geom_text(data = df_truncal_frequency_vs_sample_purity[which(df_truncal_frequency_vs_sample_purity$Within_bounds != "Correct"), ], aes(x = Purity, y = Truncal_frequency, label = Sample_short, color = Method), size = 20, vjust = 0, hjust = 0, angle = 45)
+    }
+
+    # Extracting the calculated percentages
+    percent_within <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
+    percent_above <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
+    percent_below <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
+
+    # X position and offset
+    x_pos <- 0.08
+    offset <- 0.02
+
+    p <- p +
+        # Annotation for Within, Above, and Below percentages & counts
+        annotate("text", x = 0, y = 0, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
+        annotate("text", x = 0, y = 0.1, label = paste0(percent_above, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
+        annotate("text", x = 0.1, y = 0, label = paste0(percent_below, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), ")"), size = 20, colour = "black", angle = 45, hjust = 0)
+    # annotate("text", x = x_pos - 0.03, y = x_pos + offset - 0.03, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45) +
+    # annotate("text", x = x_pos - 0.05, y = x_pos + bound_truncal_frequency_vs_sample_purity + offset - 0.03, label = paste0(percent_above, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), ")"), size = 20, colour = "black", angle = 45) +
+    # annotate("text", x = x_pos + 0.02, y = x_pos - bound_truncal_frequency_vs_sample_purity - offset, label = paste0(percent_below, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), ")"), size = 20, colour = "black", angle = 45)
+
+    p <- p +
+        # geom_segment(aes(x = 0.2, y = 0.2, xend = 1, yend = 1), color = "black", linewidth = 2) +
+        geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 3, alpha = 0.5) +
+        geom_abline(intercept = bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 3, alpha = 0.5, linetype = "dashed") +
+        geom_abline(intercept = -bound_truncal_frequency_vs_sample_purity, slope = 1, color = "black", linewidth = 3, alpha = 0.5, linetype = "dashed")
+    print(p)
+    cat(paste0("\nDECODE samples with truncal cluster frequency within ", 100 * bound_truncal_frequency_vs_sample_purity, "% of sample purity: ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
+    cat(paste0("DECODE samples with truncal cluster frequency > sample purity + ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n"))
+    write.table(df_truncal_frequency_vs_sample_purity$Sample[which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")], file = "DECODE>5%.txt", quote = FALSE, row.names = FALSE)
+    cat(paste0("DECODE samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n\n"))
+    write.table(df_truncal_frequency_vs_sample_purity$Sample[which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")], file = "DECODE<5%.txt", quote = FALSE, row.names = FALSE)
     dev.off()
 }

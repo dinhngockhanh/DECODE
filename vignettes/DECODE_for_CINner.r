@@ -333,81 +333,83 @@ cell_lifespan <- 10 # [in days]
 # )
 # inputBinomialMatrix <- readMat(filename_1)
 # matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
-#---Deconvolution for each SFS
-decode_df <- data.frame()
-decode_fits <- list()
-for (n_simulation in 1:n_simulations) {
-    cat("\n==========================================================================================================================\n") # nolint
-    cat(paste0("DECODE FOR SIMULATION ", n_simulation, "...\n"))
-    #---Input the SFS data
-    filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
-    mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
-    colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
-    #---SFS deconvolution with DECODE
-    DECODE_result <- DECODE(
-        mutation_table = mutation_table,
-        criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        neutral_power_min = 0.5,
-        neutral_power_max = 5,
-        cluster_frequency_min = 0.01,
-        cluster_frequency_max = 1,
-        matrix_binomial_PDF = matrix_binomial_PDF,
-        matrix_binomial_sample_size = matrix_binomial_sample_size,
-        matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
-        matrix_binomial_ploidy = matrix_binomial_ploidy,
-        sample_size = n_sample,
-        SFS_totalsteps = 100,
-        r_min = r_min,
-        r_max = r_max,
-        coverage_distribution = "sample-specific",
-        N_trials = 10000,
-        compute_parallel_fit = TRUE,
-        neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    )
-    save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
-    #---Plot DECODE deconvolution
-    load(paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
-    png(paste0(folder_workplace, "DECODE_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(DECODE_plot(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
-    dev.off()
-    # png(paste0(folder_workplace, "DECODE_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    # print(DECODE_plot_model_selection(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
-    # dev.off()
-    #---Save DECODE results
-    decode_fits[[n_simulation]] <- DECODE_result
-    decode_model <- DECODE_result$best_result$parameters_df
-    decode_df[n_simulation, "Simulation"] <- n_simulation
-    decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
-    decode_df[n_simulation, "Tail"] <- decode_model$Tail
-
-    decode_df[n_simulation, "Tail_sensitivity_pi0_mu"] <- decode_model$Tail_sensitivity_pi0_mu
-    decode_df[n_simulation, "Tail_sensitivity_pi0_mu_star"] <- decode_model$Tail_sensitivity_pi0_mu_star
-    decode_df[n_simulation, "Tail_sensitivity_pi0_sigma"] <- decode_model$Tail_sensitivity_pi0_sigma
-    decode_df[n_simulation, "Tail_sensitivity_alpha_mu"] <- decode_model$Tail_sensitivity_alpha_mu
-    decode_df[n_simulation, "Tail_sensitivity_alpha_mu_star"] <- decode_model$Tail_sensitivity_alpha_mu_star
-    decode_df[n_simulation, "Tail_sensitivity_alpha_sigma"] <- decode_model$Tail_sensitivity_alpha_sigma
-
-    decode_df[n_simulation, "Tail_power"] <- decode_model$Tail_power
-    decode_df[n_simulation, "Tail_mutcount_observed"] <- decode_model$Tail_mutcount_observed
-    decode_df[n_simulation, "Tail_mutcount_predicted"] <- decode_model$Tail_mutcount_predicted
-    decode_df[n_simulation, "Cluster_count"] <- decode_model$Cluster_count
-    for (k in 1:decode_model$Cluster_count) {
-        decode_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- decode_model[[paste0("Cluster_mutcount_observed_", k)]]
-        decode_df[n_simulation, paste0("Cluster_mutcount_predicted_", k)] <- decode_model[[paste0("Cluster_mutcount_predicted_", k)]]
-        decode_df[n_simulation, paste0("Cluster_frequency_", k)] <- decode_model[[paste0("Cluster_frequency_", k)]]
-    }
-}
-write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
-save(decode_fits, file = paste0("DECODE.rda"))
-# # ==============================================================ANALYSIS
-# groundtruth_df <- read.csv("Parameters_true.csv")
-# mobster_df <- read.csv("Parameters_MOBSTER.csv")
-# decode_df <- read.csv("Parameters_DECODE.csv")
-# analysis_synthetic_test(
-#     groundtruth_df = groundtruth_df,
-#     mobster_df = mobster_df,
-#     decode_df = decode_df,
-#     text_notation = TRUE,
-#     cluster_count = n_selective_clones + 1,
-#     tail = TRUE
-# )
+# #---Deconvolution for each SFS
+# decode_df <- data.frame()
+# decode_fits <- list()
+# for (n_simulation in 1:n_simulations) {
+#     cat("\n==========================================================================================================================\n") # nolint
+#     cat(paste0("DECODE FOR SIMULATION ", n_simulation, "...\n"))
+#     #---Input the SFS data
+#     filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
+#     mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
+#     colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
+#     #---SFS deconvolution with DECODE
+#     DECODE_result <- DECODE(
+#         mutation_table = mutation_table,
+#         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#         neutral_power_min = 0.5,
+#         neutral_power_max = 5,
+#         cluster_frequency_min = 0.01,
+#         cluster_frequency_max = 1,
+#         matrix_binomial_PDF = matrix_binomial_PDF,
+#         matrix_binomial_sample_size = matrix_binomial_sample_size,
+#         matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+#         matrix_binomial_ploidy = matrix_binomial_ploidy,
+#         sample_size = n_sample,
+#         SFS_totalsteps = 100,
+#         r_min = r_min,
+#         r_max = r_max,
+#         coverage_distribution = "sample-specific",
+#         N_trials = 10000,
+#         compute_parallel_fit = TRUE,
+#         neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#     )
+#     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
+#     #---Plot DECODE deconvolution
+#     load(paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
+#     png(paste0(folder_workplace, "DECODE_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+#     print(DECODE_plot(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
+#     dev.off()
+#     # png(paste0(folder_workplace, "DECODE_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+#     # print(DECODE_plot_model_selection(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
+#     # dev.off()
+#     #---Save DECODE results
+#     decode_fits[[n_simulation]] <- DECODE_result
+#     decode_model <- DECODE_result$best_result$parameters_df
+#     decode_df[n_simulation, "Simulation"] <- n_simulation
+#     decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
+#     decode_df[n_simulation, "Tail"] <- decode_model$Tail
+#     decode_df[n_simulation, "Tail_sensitivity_Bayesian_pi0_std"] <- decode_model$Tail_sensitivity_Bayesian_pi0_std
+#     decode_df[n_simulation, "Tail_sensitivity_Bayesian_alpha_std"] <- decode_model$Tail_sensitivity_Bayesian_alpha_std
+#     decode_df[n_simulation, "Tail_sensitivity_Morris_pi0_mean"] <- decode_model$Tail_sensitivity_Morris_pi0_mean
+#     decode_df[n_simulation, "Tail_sensitivity_Morris_pi0_mean_abs"] <- decode_model$Tail_sensitivity_Morris_pi0_mean_abs
+#     decode_df[n_simulation, "Tail_sensitivity_Morris_pi0_std"] <- decode_model$Tail_sensitivity_Morris_pi0_std
+#     decode_df[n_simulation, "Tail_sensitivity_Morris_alpha_mean"] <- decode_model$Tail_sensitivity_Morris_alpha_mean
+#     decode_df[n_simulation, "Tail_sensitivity_Morris_alpha_mean_abs"] <- decode_model$Tail_sensitivity_Morris_alpha_mean_abs
+#     decode_df[n_simulation, "Tail_sensitivity_Morris_alpha_std"] <- decode_model$Tail_sensitivity_Morris_alpha_std
+#     decode_df[n_simulation, "Tail_power"] <- decode_model$Tail_power
+#     decode_df[n_simulation, "Tail_mutcount_observed"] <- decode_model$Tail_mutcount_observed
+#     decode_df[n_simulation, "Tail_mutcount_predicted"] <- decode_model$Tail_mutcount_predicted
+#     decode_df[n_simulation, "Cluster_count"] <- decode_model$Cluster_count
+#     if (decode_model$Cluster_count >= 1) {
+#         for (k in 1:decode_model$Cluster_count) {
+#             decode_df[n_sample, paste0("Cluster_mutcount_observed_", k)] <- decode_model[[paste0("Cluster_mutcount_observed_", k)]]
+#             decode_df[n_sample, paste0("Cluster_mutcount_predicted_", k)] <- decode_model[[paste0("Cluster_mutcount_predicted_", k)]]
+#             decode_df[n_sample, paste0("Cluster_frequency_", k)] <- decode_model[[paste0("Cluster_frequency_", k)]]
+#         }
+#     }
+# }
+# write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
+# save(decode_fits, file = paste0("DECODE.rda"))
+# ==============================================================ANALYSIS
+groundtruth_df <- read.csv("Parameters_true.csv")
+mobster_df <- read.csv("Parameters_MOBSTER.csv")
+decode_df <- read.csv("Parameters_DECODE.csv")
+analysis_synthetic_test(
+    groundtruth_df = groundtruth_df,
+    mobster_df = mobster_df,
+    decode_df = decode_df,
+    text_notation = TRUE,
+    cluster_count = n_selective_clones + 1,
+    tail = TRUE
+)
