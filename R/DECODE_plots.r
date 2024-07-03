@@ -932,7 +932,7 @@ analysis_ICGC <- function(sample_information_df,
             plot.margin = margin(0, 2, 0, 2, "cm")
         )
     # Save the plot
-    png(paste0(folder_workplace, "ICGC_0_Cancer_Type_Tail_Detection_Bar_Graph.png"), res = 150, width = 30, height = 15, units = "in")
+    png(paste0(folder_workplace, "ICGC_1_tail_detection_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -964,7 +964,7 @@ analysis_ICGC <- function(sample_information_df,
             legend.justification = c(0, 0.5),
             plot.margin = margin(0, 2, 0, 2, "cm")
         )
-    png(paste0(folder_workplace, "ICGC_0a_Cancer_Type_Cluster_Count_Bar_Graph_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
+    png(paste0(folder_workplace, "ICGC_2_cluster_count_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -998,7 +998,7 @@ analysis_ICGC <- function(sample_information_df,
             legend.justification = c(0, 0.5),
             plot.margin = margin(0, 2, 0, 2, "cm")
         )
-    png(paste0(folder_workplace, "ICGC_0a_Cancer_Type_Cluster_Count_Bar_Graph_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
+    png(paste0(folder_workplace, "ICGC_2_cluster_count_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -1029,7 +1029,7 @@ analysis_ICGC <- function(sample_information_df,
             legend.justification = c(0, 0.5),
             plot.margin = margin(0, 2, 0, 2, "cm")
         )
-    png(paste0(folder_workplace, "ICGC_Cancer_Type_Mutation_Count_Bar_Graph.png"), res = 150, width = 30, height = 15, units = "in")
+    png(paste0(folder_workplace, "ICGC_0_mutation_count.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -1056,7 +1056,7 @@ analysis_ICGC <- function(sample_information_df,
 
     p <- p +
         geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
-    png(paste0(folder_workplace, "ICGC_0b_Cancer_Type_Tail_Power_Violin_Plot_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
+    png(paste0(folder_workplace, "ICGC_4_neutral_tail_power_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -1083,7 +1083,7 @@ analysis_ICGC <- function(sample_information_df,
 
     p <- p +
         geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
-    png(paste0(folder_workplace, "ICGC_0b_Cancer_Type_Tail_Power_Violin_Plot_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
+    png(paste0(folder_workplace, "ICGC_4_neutral_tail_power_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -1123,7 +1123,7 @@ analysis_ICGC <- function(sample_information_df,
         )
     ] <- "Below"
     #---Plot truncal cluster frequency against sample purity
-    png(paste0(folder_workplace, "ICGC_1_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
+    png(paste0(folder_workplace, "ICGC_3_truncal_frequency_vs_sample_purity_MOBSTER.png"), res = 150, width = 30, height = 30, units = "in")
 
     common_range <- range(
         c(
@@ -1225,8 +1225,7 @@ analysis_ICGC <- function(sample_information_df,
         )
     ] <- "Below"
     #---Plot truncal cluster frequency against sample purity
-    png(paste0(folder_workplace, "ICGC_2_truncal_frequency_vs_sample_purity.png"), res = 150, width = 30, height = 30, units = "in")
-
+    png(paste0(folder_workplace, "ICGC_3_truncal_frequency_vs_sample_purity_DECODE.png"), res = 150, width = 30, height = 30, units = "in")
     common_range <- range(
         c(
             df_truncal_frequency_vs_sample_purity$Purity,
@@ -1234,7 +1233,6 @@ analysis_ICGC <- function(sample_information_df,
         ),
         na.rm = TRUE
     )
-
     p <- ggplot() +
         geom_point(
             data = df_truncal_frequency_vs_sample_purity,
@@ -1267,20 +1265,10 @@ analysis_ICGC <- function(sample_information_df,
     percent_within <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
     percent_above <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
     percent_below <- 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2)
-
-    # X position and offset
-    x_pos <- 0.08
-    offset <- 0.02
-
     p <- p +
-        # Annotation for Within, Above, and Below percentages & counts
-        annotate("text", x = 0, y = 0, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
+        annotate("text", x = 0.0, y = 0.0, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
         annotate("text", x = 0, y = 0.1, label = paste0(percent_above, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), ")"), size = 20, colour = "black", angle = 45, hjust = 0) +
         annotate("text", x = 0.1, y = 0, label = paste0(percent_below, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), ")"), size = 20, colour = "black", angle = 45, hjust = 0)
-    # annotate("text", x = x_pos - 0.03, y = x_pos + offset - 0.03, label = paste0(percent_within, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Correct")), ")"), size = 20, colour = "black", angle = 45) +
-    # annotate("text", x = x_pos - 0.05, y = x_pos + bound_truncal_frequency_vs_sample_purity + offset - 0.03, label = paste0(percent_above, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")), ")"), size = 20, colour = "black", angle = 45) +
-    # annotate("text", x = x_pos + 0.02, y = x_pos - bound_truncal_frequency_vs_sample_purity - offset, label = paste0(percent_below, "% (n=", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), ")"), size = 20, colour = "black", angle = 45)
-
     p <- p +
         # geom_segment(aes(x = 0.2, y = 0.2, xend = 1, yend = 1), color = "black", linewidth = 2) +
         geom_abline(intercept = 0, slope = 1, color = "black", linewidth = 3, alpha = 0.5) +

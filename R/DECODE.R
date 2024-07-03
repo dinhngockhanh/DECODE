@@ -18,7 +18,7 @@ DECODE <- function(mutation_table,
                    N_trials = 10000,
                    N_trials_Morris_tail_sensitivity = 300,
                    neutral_tail = NA,
-                   min_N_humps = 0,
+                   min_N_humps = 1,
                    max_N_humps = Inf,
                    pi_cutoff = 0.02,
                    zero_cutoff = 1e-50,
@@ -276,7 +276,8 @@ DECODE_given_tail_status <- function(vec_SFS_real,
         }
         report <- paste0(report, "\n")
         #   Check if the increased hump count leads to lower criterion score without tiny selective components...
-        if ((criterion_best_current < criterion_ratio * criterion_best_final) & (min(cluster_pis) >= pi_cutoff)) {
+        # if ((criterion_best_current < criterion_ratio * criterion_best_final) & (min(cluster_pis) >= pi_cutoff)) {
+        if ((N_humps == min_N_humps) | ((criterion_best_current < criterion_ratio * criterion_best_final) & (min(cluster_pis) >= pi_cutoff))) {
             #   ... if yes, then update the best fit and continue with 1 more hump
             fit_results_best_final <- fit_results
             criterion_best_final <- criterion_best_current
