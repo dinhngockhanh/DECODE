@@ -186,64 +186,66 @@ cell_lifespan <- 10 # [in days]
 #     filename <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
 #     write.table(mut_table, filename, sep = " ", row.names = FALSE, col.names = FALSE)
 # }
-# # ========================================GROUND TRUTH FOR SFS VARIABLES
-# df_all_simulation_parameters <- read.csv("Parameters_simulation.csv", header = TRUE)
-# df <- data.frame()
-# for (n_simulation in 1:n_simulations) {
-#     print(n_simulation)
-#     #   Retrieve simulation input parameters
-#     purity <- df_all_simulation_parameters[["Purity"]][n_simulation]
-#     coverage <- df_all_simulation_parameters[["Sequencing.coverage"]][n_simulation]
-#     t_end_time <- df_all_simulation_parameters[["Age.of.MRCA..years."]][n_simulation] * 365
-#     vec_theta_parameters <- df_all_simulation_parameters[["Tumor.mutation.rate"]][n_simulation]
-#     n_sample <- df_all_simulation_parameters[["Sample.cell.count"]][n_simulation]
-#     ploidy <- df_all_simulation_parameters[["Ploidy"]][n_simulation]
-#     truncal_mutations <- df_all_simulation_parameters[["Truncal.mutation.count"]][n_simulation]
-#     #   Retrieve simulation stochastic parameters
-#     simulation_variables <- read.csv(paste0(folder_workplace, "_", n_simulation, "/1_simulation_variables.csv"))
-#     Ns <- simulation_variables$Count_in_population
-#     ns <- simulation_variables$Count_in_sample
-#     MRCA_ages <- simulation_variables$MRCA_ages
-#     #   Retrieve observed mutational data
-#     observed_mutation_table <- read.csv(paste0(folder_workplace, "_", n_simulation, "/1_mutational_data_BULK.csv"))
-#     #   Find observed clonal sizes in sample, including subclones
-#     ns_combined <- ns
-#     if (length(vec_hierarchy_s_mut) > 0) {
-#         for (i in length(vec_hierarchy_s_mut):1) {
-#             ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
-#         }
-#     }
-#     #   Find expected number of neutral mutations
-#     folder_workplace_sub <- paste0(folder_workplace, "_", n_simulation, "/")
-#     load(paste0(folder_workplace_sub, "simulation_1.rda"))
-#     A_total <- 0
-#     for (i in 1:length(simulation$sample_mutational_table_truth_node_markers)) {
-#         if (grepl("Foreground_", simulation$sample_mutational_table_truth_node_markers[[i]])) {
-#             A_total <- A_total + simulation$sample_mutational_table_truth_node_mutation_counts[[i]]
-#         }
-#     }
-#     #   Find observed number of neutral mutations
-#     A_observed_mobster <- length(which(grepl("Foreground_", observed_mutation_table$Marker)))
-#     A_observed_decode <- length(which(grepl("Foreground_", observed_mutation_table$Marker) &
-#         observed_mutation_table$Alt_count >= min_variant_read &
-#         (observed_mutation_table$Ref_count + observed_mutation_table$Alt_count) >= min_total_read))
-#     #   Find expected power of neutral mutations
-#     alpha <- 2
-#     #   Find expected binomial hump locations
-#     ps <- purity * ns_combined / n_sample / ploidy
-#     #   Find expected number of mutations in each binomial hump
-#     Ks_expected <- vec_theta_parameters * MRCA_ages
-#     if (length(vec_hierarchy_s_mut) > 0) {
-#         for (i in length(vec_hierarchy_s_mut):1) {
-#             Ks_expected[i + 1] <- Ks_expected[i + 1] - Ks_expected[vec_hierarchy_s_mut[i] + 1]
-#         }
-#     }
-#     Ks_expected[1] <- Ks_expected[1] + truncal_mutations
-#     #   Save the results
-#     df <- rbind(df, c(n_simulation, purity, coverage, A_total, A_observed_mobster, A_observed_decode, alpha, ps, Ks_expected))
-# }
-# names(df) <- c("Simulation", "Purity", "Coverage", "A_total", "A_observed_mobster", "A_observed_decode", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_expected_", 1:(n_selective_clones + 1)))
-# write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
+# ========================================GROUND TRUTH FOR SFS VARIABLES
+df_all_simulation_parameters <- read.csv("Parameters_simulation.csv", header = TRUE)
+df <- data.frame()
+for (n_simulation in 1:n_simulations) {
+    #   Retrieve simulation input parameters
+    purity <- df_all_simulation_parameters[["Purity"]][n_simulation]
+    coverage <- df_all_simulation_parameters[["Sequencing.coverage"]][n_simulation]
+    t_end_time <- df_all_simulation_parameters[["Age.of.MRCA..years."]][n_simulation] * 365
+    vec_theta_parameters <- df_all_simulation_parameters[["Tumor.mutation.rate"]][n_simulation]
+    n_sample <- df_all_simulation_parameters[["Sample.cell.count"]][n_simulation]
+    ploidy <- df_all_simulation_parameters[["Ploidy"]][n_simulation]
+    truncal_mutations <- df_all_simulation_parameters[["Truncal.mutation.count"]][n_simulation]
+    #   Retrieve simulation stochastic parameters
+    simulation_variables <- read.csv(paste0(folder_workplace, "_", n_simulation, "/1_simulation_variables.csv"))
+    Ns <- simulation_variables$Count_in_population
+    ns <- simulation_variables$Count_in_sample
+    MRCA_ages <- simulation_variables$MRCA_ages
+    #   Retrieve observed mutational data
+    observed_mutation_table <- read.csv(paste0(folder_workplace, "_", n_simulation, "/1_mutational_data_BULK.csv"))
+    #   Find observed clonal sizes in sample, including subclones
+    ns_combined <- ns
+    if (length(vec_hierarchy_s_mut) > 0) {
+        for (i in length(vec_hierarchy_s_mut):1) {
+            ns_combined[vec_hierarchy_s_mut[i] + 1] <- ns_combined[vec_hierarchy_s_mut[i] + 1] + ns_combined[i + 1]
+        }
+    }
+    #   Find total number of neutral mutations
+    folder_workplace_sub <- paste0(folder_workplace, "_", n_simulation, "/")
+    load(paste0(folder_workplace_sub, "simulation_1.rda"))
+    A_total <- 0
+    for (i in 1:length(simulation$sample_mutational_table_truth_node_markers)) {
+        if (grepl("Foreground_", simulation$sample_mutational_table_truth_node_markers[[i]])) {
+            A_total <- A_total + simulation$sample_mutational_table_truth_node_mutation_counts[[i]]
+        }
+    }
+    print("-----------------------------------------------------------")
+    print(n_simulation)
+    print(A_total)
+    #   Find observed number of neutral mutations
+    A_observed_mobster <- length(which(grepl("Foreground_", observed_mutation_table$Marker)))
+    A_observed_decode <- length(which(grepl("Foreground_", observed_mutation_table$Marker) &
+        observed_mutation_table$Alt_count >= min_variant_read &
+        (observed_mutation_table$Ref_count + observed_mutation_table$Alt_count) >= min_total_read))
+    #   Find expected power of neutral mutations
+    alpha <- 2
+    #   Find expected binomial hump locations
+    ps <- purity * ns_combined / n_sample / ploidy
+    #   Find expected number of mutations in each binomial hump
+    Ks_expected <- vec_theta_parameters * MRCA_ages
+    if (length(vec_hierarchy_s_mut) > 0) {
+        for (i in length(vec_hierarchy_s_mut):1) {
+            Ks_expected[i + 1] <- Ks_expected[i + 1] - Ks_expected[vec_hierarchy_s_mut[i] + 1]
+        }
+    }
+    Ks_expected[1] <- Ks_expected[1] + truncal_mutations
+    #   Save the results
+    df <- rbind(df, c(n_simulation, purity, coverage, A_total, A_observed_mobster, A_observed_decode, alpha, ps, Ks_expected))
+}
+names(df) <- c("Simulation", "Purity", "Coverage", "A_total", "A_observed_mobster", "A_observed_decode", "alpha", paste0("p_", 1:(n_selective_clones + 1)), paste0("K_expected_", 1:(n_selective_clones + 1)))
+write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
 # # ===============================================================MOBSTER
 # numCores <- detectCores()
 # cl <- makePSOCKcluster(numCores - 1)

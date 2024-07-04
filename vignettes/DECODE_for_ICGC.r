@@ -233,6 +233,13 @@ write.csv(sample_df, file = paste0(R_workplace, "/sample_information.csv"), row.
 sample_information_df <- read.csv(paste0(R_data, "/sample_information.csv"))
 mobster_df <- read.csv("Parameters_ICGC_MOBSTER.csv")
 decode_df <- read.csv("Parameters_ICGC_DECODE.csv")
+
+
+# mobster_df <- mobster_df[mobster_df$Mutation_count_in_fitting > 2000, ]
+# sample_information_df<-sample_information_df[which(sample_information_df$aliquot_id%in%mobster_df$Sample),]
+# decode_df<-decode_df[which(decode_df$Sample%in%mobster_df$Sample),]
+
+
 analysis_ICGC(
     sample_information_df = sample_information_df,
     mobster_df = mobster_df,

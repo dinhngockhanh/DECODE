@@ -994,7 +994,8 @@ parameter_conversion <- function(result,
                 vec_A[1] * mutation_count_for_fitting
             parameters_df[1, "Tail_mutcount_predicted"] <-
                 vec_A[1] * mutation_count_for_fitting *
-                    sum(component_distributions$SFS_exact[1, ]) / sum(component_distributions$SFS_expected[1, ]) *
+                    sum(component_distributions$SFS_exact[1, ]) /
+                    sum(component_distributions$SFS_expected[1, ]) *
                     sample_size / matrix_binomial_sample_size
         } else {
             parameters_df[1, "Tail_power"] <- NA

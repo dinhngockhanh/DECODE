@@ -887,7 +887,75 @@ analysis_ICGC <- function(sample_information_df,
     ####################################################################
     ####################################################################
     ####################################################################
-    #---Plot a bar graph of cancer types and tail detection
+    #---Plot a bar graph representing Cancer Type and mutation count
+    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Mutation_count_in_fitting)
+
+    average_mutation_data <- merged_data %>%
+        dplyr::group_by(histology_abbreviation) %>%
+        dplyr::summarise(Average_Mutation_Count = mean(Mutation_count_in_fitting, na.rm = TRUE))
+
+    # Plot ordered in descending order of mutation count
+    average_mutation_data_filtered <- average_mutation_data %>%
+        dplyr::arrange(desc(Average_Mutation_Count)) %>%
+        dplyr::mutate(histology_abbreviation = factor(histology_abbreviation, levels = unique(histology_abbreviation)))
+
+    ordered_histology_abbreviation <- average_mutation_data_filtered$histology_abbreviation
+
+    # Create the plot
+    p <- ggplot(average_mutation_data_filtered, aes(x = histology_abbreviation, y = Average_Mutation_Count, fill = histology_abbreviation)) +
+        geom_bar(stat = "identity", position = "dodge") +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "",title = 'Average mutation count') +
+        scale_y_log10() +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        )
+    png(paste0(folder_workplace, "ICGC_0_mutation_count.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a bar graph representing Cancer Type and sample count
+    # Extract Data
+    cancer_type_counts <- sample_information_df %>%
+        group_by(histology_abbreviation) %>%
+        summarise(samplecount = n(), .groups = "drop")
+
+    # Plot ordered in descending order of mutation count
+    cancer_type_counts$histology_abbreviation <- factor(cancer_type_counts$histology_abbreviation, levels = ordered_histology_abbreviation)
+
+    # Plotting bar graph
+    p <- ggplot(cancer_type_counts, aes(x = histology_abbreviation, y = samplecount, fill = histology_abbreviation)) +
+        geom_bar(stat = "identity", position = "dodge") +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "",  title = "Sample count") +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        )
+    # Save the plot
+    png(paste0(folder_workplace, "ICGC_0_sample_count.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a bar graph of cancer types and tail detection - MOBSTER
     # Extract and merge required data
     merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
         dplyr::select(aliquot_id, histology_abbreviation, Tail)
@@ -905,34 +973,109 @@ analysis_ICGC <- function(sample_information_df,
     merged_data_complete <- merge(all_combinations, merged_data, by = c("histology_abbreviation", "Tail"), all.x = TRUE)
     merged_data_complete$percentage[is.na(merged_data_complete$percentage)] <- 0
 
+    # Plot ordered in descending order of mutation count
+    merged_data_complete$histology_abbreviation <- factor(merged_data_complete$histology_abbreviation, levels = ordered_histology_abbreviation)
+
+    # Column for coloring for No-tail
+    merged_data_complete$fill_group <- ifelse(merged_data_complete$Tail == FALSE, "Non-Tail", as.character(merged_data_complete$histology_abbreviation))
+    merged_data_complete$fill_group <- factor(merged_data_complete$fill_group, levels = c("Non-Tail", unique(as.character(merged_data_complete$histology_abbreviation[merged_data_complete$Tail == TRUE]))))
+
     # Plotting bar graph
-    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = percentage, fill = histology_abbreviation, alpha = Tail)) +
-        geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = percentage, fill = fill_group, alpha = Tail)) +
+        geom_bar(stat = "identity", position = "stack", show.legend = TRUE) +
         scale_y_continuous(labels = scales::percent_format()) +
-        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        scale_fill_manual(values = c(cancer_type_color, "Non-Tail" = "grey"), guide = FALSE) +
         scale_alpha_manual(
             values = c("TRUE" = 1, "FALSE" = 0.3),
             guide = guide_legend(
-                title = "Tail Detection",
+                title = "MOBSTER - tail detection",
                 override.aes = list(fill = "grey")
             )
         ) +
-        geom_text(aes(label = ifelse(percentage > 0, as.character(n), "")),
-            position = position_dodge(width = 0.9), vjust = -0.5, size = 5
+        geom_text(
+            aes(
+                label = ifelse(percentage > 0, as.character(n), ""),
+                y = ifelse(Tail, 0, 1) # Adjust y based on Tail value
+            ),
+            position = position_dodge(width = 0.9), size = 5
         ) +
-        labs(x = NULL, y = NULL) +
+        labs(x = '', y = '') +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 2, "cm")
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
         )
     # Save the plot
     png(paste0(folder_workplace, "ICGC_1_tail_detection_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a bar graph of cancer types and tail detection - DECODE
+    # Extract and merge required data
+    merged_data <- merge(sample_information_df, decode_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Tail)
+    # Calculate Percentages
+    merged_data <- merged_data %>%
+        dplyr::group_by(histology_abbreviation) %>%
+        dplyr::count(Tail) %>%
+        dplyr::mutate(percentage = n / sum(n)) %>%
+        dplyr::ungroup()
+    # Create a data frame with all combinations of histology_abbreviation and Tail
+    all_combinations <- expand.grid(
+        histology_abbreviation = unique(merged_data$histology_abbreviation),
+        Tail = c(TRUE, FALSE)
+    )
+    merged_data_complete <- merge(all_combinations, merged_data, by = c("histology_abbreviation", "Tail"), all.x = TRUE)
+    merged_data_complete$percentage[is.na(merged_data_complete$percentage)] <- 0
+
+    # Plot ordered in descending order of mutation count
+    merged_data_complete$histology_abbreviation <- factor(merged_data_complete$histology_abbreviation, levels = ordered_histology_abbreviation)
+
+    # Column for coloring for No-tail
+    merged_data_complete$fill_group <- ifelse(merged_data_complete$Tail == FALSE, "Non-Tail", as.character(merged_data_complete$histology_abbreviation))
+    merged_data_complete$fill_group <- factor(merged_data_complete$fill_group, levels = c("Non-Tail", unique(as.character(merged_data_complete$histology_abbreviation[merged_data_complete$Tail == TRUE]))))
+
+    # Plotting bar graph
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = percentage, fill = fill_group, alpha = Tail)) +
+        geom_bar(stat = "identity", position = "stack", show.legend = TRUE) +
+        scale_y_continuous(labels = scales::percent_format()) +
+        scale_fill_manual(values = c(cancer_type_color, "Non-Tail" = "grey"), guide = FALSE) +
+        scale_alpha_manual(
+            values = c("TRUE" = 1, "FALSE" = 0.3),
+            guide = guide_legend(
+                title = "DECODE - tail detection",
+                override.aes = list(fill = "grey")
+            )
+        ) +
+        geom_text(
+            aes(
+                label = ifelse(percentage > 0, as.character(n), ""),
+                y = ifelse(Tail, 0, 1) # Adjust y based on Tail value
+            ),
+            position = position_dodge(width = 0.9), size = 5
+        ) +
+        labs(x = '', y = '') +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        )
+    # Save the plot
+    png(paste0(folder_workplace, "ICGC_1_tail_detection_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
 
@@ -949,20 +1092,37 @@ analysis_ICGC <- function(sample_information_df,
     merged_data_complete <- merge(all_combinations, aggregated_data, by = c("histology_abbreviation", "Cluster_count"), all.x = TRUE)
     merged_data_complete$Sample_Count[is.na(merged_data_complete$Sample_Count)] <- 0
 
+    # Calculate total samples per cancer type
+    aggregated_data_totals <- aggregated_data %>%
+        dplyr::group_by(histology_abbreviation) %>%
+        dplyr::summarise(Total_Sample_Count = sum(Sample_Count), .groups = "drop")
+
+    # Merge to get total sample count per cancer type in the complete dataset
+    merged_data_complete <- merge(merged_data_complete, aggregated_data_totals, by = "histology_abbreviation")
+
+    # Calculate percentage
+    merged_data_complete$Percentage <- (merged_data_complete$Sample_Count / merged_data_complete$Total_Sample_Count) 
+
+    # Plot ordered in descending order of mutation count
+    merged_data_complete$histology_abbreviation <- factor(merged_data_complete$histology_abbreviation, levels = ordered_histology_abbreviation)
+
     # Create the plot
-    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Sample_Count, fill = factor(Cluster_count))) +
-        geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
-        scale_fill_manual(values = cluster_count_color_scheme, name = "Cluster Count") +
-        labs(x = "", y = "Sample Count") +
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Percentage, fill = factor(Cluster_count, levels = rev(unique(Cluster_count))))) +
+        geom_bar(stat = "identity", position = "stack", show.legend = TRUE) +
+        scale_y_continuous(labels = scales::percent_format()) +
+        scale_fill_manual(values = cluster_count_color_scheme, name = "MOBSTER - cluster count") +
+        labs(x = "", y = "") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 2, "cm")
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
         )
     png(paste0(folder_workplace, "ICGC_2_cluster_count_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
@@ -983,110 +1143,41 @@ analysis_ICGC <- function(sample_information_df,
     merged_data_complete <- merge(all_combinations, aggregated_data, by = c("histology_abbreviation", "Cluster_count"), all.x = TRUE)
     merged_data_complete$Sample_Count[is.na(merged_data_complete$Sample_Count)] <- 0
 
+    # Calculate total samples per cancer type
+    aggregated_data_totals <- aggregated_data %>%
+        dplyr::group_by(histology_abbreviation) %>%
+        dplyr::summarise(Total_Sample_Count = sum(Sample_Count), .groups = "drop")
+
+    # Merge to get total sample count per cancer type in the complete dataset
+    merged_data_complete <- merge(merged_data_complete, aggregated_data_totals, by = "histology_abbreviation")
+
+    # Calculate percentage
+    merged_data_complete$Percentage <- (merged_data_complete$Sample_Count / merged_data_complete$Total_Sample_Count) 
+
+    # Plot ordered in descending order of mutation count
+    merged_data_complete$histology_abbreviation <- factor(merged_data_complete$histology_abbreviation, levels = ordered_histology_abbreviation)
+
     # Create the plot
-    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Sample_Count, fill = factor(Cluster_count))) +
-        geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
-        scale_fill_manual(values = cluster_count_color_scheme, name = "Cluster Count") +
-        labs(x = "", y = "Sample Count") +
+    p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Percentage, fill = factor(Cluster_count, levels = rev(unique(Cluster_count))))) +
+            geom_bar(stat = "identity", position = "stack", show.legend = TRUE) +
+        scale_y_continuous(labels = scales::percent_format()) +
+        scale_fill_manual(values = cluster_count_color_scheme, name = "DECODE - cluster count") +
+        labs(x = "", y = "") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 2, "cm")
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
         )
     png(paste0(folder_workplace, "ICGC_2_cluster_count_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
     print(p)
     dev.off()
-
-    #---Plot a bar graph representing Cancer Type and mutation count
-    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
-        dplyr::select(aliquot_id, histology_abbreviation, Mutation_count_in_fitting)
-
-    average_mutation_data <- merged_data %>%
-        dplyr::group_by(histology_abbreviation) %>%
-        dplyr::summarise(Average_Mutation_Count = mean(Mutation_count_in_fitting, na.rm = TRUE))
-
-    excluded_cancer_types <- c("") # Add any other cancer types to exclude, for when data is too large
-    average_mutation_data_filtered <- average_mutation_data %>%
-        dplyr::filter(!histology_abbreviation %in% excluded_cancer_types)
-
-    # Create the plot
-    p <- ggplot(average_mutation_data_filtered, aes(x = histology_abbreviation, y = Average_Mutation_Count, fill = histology_abbreviation)) +
-        geom_bar(stat = "identity", position = "dodge") +
-        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "Average Mutation Count") +
-        theme(
-            text = element_text(size = 40),
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            panel.grid.major = element_line(colour = "white"),
-            panel.grid.minor = element_line(colour = "white"),
-            legend.position = "top",
-            legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 2, "cm")
-        )
-    png(paste0(folder_workplace, "ICGC_0_mutation_count.png"), res = 150, width = 30, height = 15, units = "in")
-    print(p)
-    dev.off()
-
-    #---Plot a Violin Plot of Cancer type and neutral tail power MOBSTER
-    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
-        dplyr::select(aliquot_id, histology_abbreviation, Tail_power)
-
-    # Create the violin plot
-    p <- ggplot(merged_data, aes(x = histology_abbreviation, y = Tail_power, fill = histology_abbreviation)) +
-        geom_violin(width = 0.7, scale = "width") +
-        geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
-        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "Neutral Tail Power") +
-        theme(
-            text = element_text(size = 40),
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            panel.grid.major = element_line(colour = "white"),
-            panel.grid.minor = element_line(colour = "white"),
-            legend.position = "top",
-            legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 2, "cm")
-        )
-
-    p <- p +
-        geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
-    png(paste0(folder_workplace, "ICGC_4_neutral_tail_power_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
-    print(p)
-    dev.off()
-
-    #---Plot a Violin Plot of Cancer type and neutral tail power DECODE
-    merged_data <- merge(sample_information_df, decode_df, by.x = "aliquot_id", by.y = "Sample") %>%
-        dplyr::select(aliquot_id, histology_abbreviation, Tail_power)
-
-    # Create the violin plot
-    p <- ggplot(merged_data, aes(x = histology_abbreviation, y = Tail_power, fill = histology_abbreviation)) +
-        geom_violin(width = 0.7, scale = "width") +
-        geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
-        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "Neutral Tail Power") +
-        theme(
-            text = element_text(size = 40),
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            panel.grid.major = element_line(colour = "white"),
-            panel.grid.minor = element_line(colour = "white"),
-            legend.position = "top",
-            legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 2, "cm")
-        )
-
-    p <- p +
-        geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
-    png(paste0(folder_workplace, "ICGC_4_neutral_tail_power_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
-    print(p)
-    dev.off()
-
     #---Find comparison of truncal cluster frequency against sample purity
     df_truncal_frequency_vs_sample_purity <- data.frame()
     if (is_mobster) {
@@ -1133,6 +1224,8 @@ analysis_ICGC <- function(sample_information_df,
         na.rm = TRUE
     )
 
+    # Plot ordered in descending order of mutation count
+
     p <- ggplot() +
         geom_point(
             data = df_truncal_frequency_vs_sample_purity,
@@ -1154,7 +1247,7 @@ analysis_ICGC <- function(sample_information_df,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 0, "cm")
+            plot.margin = margin(0,0.5,0.5,0.5, "cm")
         )
     if (text_notation) {
         p <- p +
@@ -1233,6 +1326,8 @@ analysis_ICGC <- function(sample_information_df,
         ),
         na.rm = TRUE
     )
+
+    # Plot ordered in descending order of mutation count
     p <- ggplot() +
         geom_point(
             data = df_truncal_frequency_vs_sample_purity,
@@ -1254,7 +1349,7 @@ analysis_ICGC <- function(sample_information_df,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 0, "cm")
+            plot.margin = margin(0,0.5,0.5,0.5, "cm")
         )
     if (text_notation) {
         p <- p +
@@ -1280,5 +1375,69 @@ analysis_ICGC <- function(sample_information_df,
     write.table(df_truncal_frequency_vs_sample_purity$Sample[which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Above")], file = "DECODE>5%.txt", quote = FALSE, row.names = FALSE)
     cat(paste0("DECODE samples with truncal cluster frequency < sample purity - ", 100 * bound_truncal_frequency_vs_sample_purity, "%:       ", length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")), " (", 100 * round(length(which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")) / nrow(df_truncal_frequency_vs_sample_purity), 2), "%)", "\n\n"))
     write.table(df_truncal_frequency_vs_sample_purity$Sample[which(df_truncal_frequency_vs_sample_purity$Within_bounds == "Below")], file = "DECODE<5%.txt", quote = FALSE, row.names = FALSE)
+    dev.off()
+
+    #---Plot a Violin Plot of Cancer type and neutral tail power MOBSTER
+    merged_data <- merge(sample_information_df, mobster_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Tail_power)
+
+    # Plot ordered in descending order of mutation count
+    merged_data$histology_abbreviation <- factor(merged_data$histology_abbreviation, levels = ordered_histology_abbreviation)
+
+    # Create the violin plot
+    p <- ggplot(merged_data, aes(x = histology_abbreviation, y = Tail_power, fill = histology_abbreviation)) +
+        geom_violin(width = 0.7, scale = "width") +
+        geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "",title='MOBSTER - neutral tail power') +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        )
+
+    p <- p +
+        geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
+    png(paste0(folder_workplace, "ICGC_4_neutral_tail_power_MOBSTER.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a Violin Plot of Cancer type and neutral tail power DECODE
+    merged_data <- merge(sample_information_df, decode_df, by.x = "aliquot_id", by.y = "Sample") %>%
+        dplyr::select(aliquot_id, histology_abbreviation, Tail_power)
+
+    # Plot ordered in descending order of mutation count
+    merged_data$histology_abbreviation <- factor(merged_data$histology_abbreviation, levels = ordered_histology_abbreviation)
+
+    # Create the violin plot
+    p <- ggplot(merged_data, aes(x = histology_abbreviation, y = Tail_power, fill = histology_abbreviation)) +
+        geom_violin(width = 0.7, scale = "width") +
+        geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
+        scale_fill_manual(values = cancer_type_color, guide = FALSE) +
+        labs(x = "", y = "",title='DECODE - neutral tail power') +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90,hjust=0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        )
+
+    p <- p +
+        geom_abline(intercept = 2, slope = 0, color = "black", linewidth = 2, linetype = "dashed")
+    png(paste0(folder_workplace, "ICGC_4_neutral_tail_power_DECODE.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
     dev.off()
 }
