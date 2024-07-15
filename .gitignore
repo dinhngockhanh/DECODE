@@ -1,4 +1,7 @@
 data/
+vignettes/ICGC/
 vignettes/ICGC-MOBSTER/
+vignettes/ICGC-DECODE/
 vignettes/TEST/
 .DS_Store
+vignettes/.DS_Store

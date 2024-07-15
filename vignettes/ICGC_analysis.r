@@ -4,6 +4,7 @@ R_ICGC_processed_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-
 R_libPaths <- ""
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
+library(R.utils)
 # ====================================EXTRACT MUTATIONAL DATA FROM PCAWG
 #--------------------------------------------------Unzip mutational data
 directory <- paste0(R_ICGC_raw_data, "/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/indel")
@@ -31,7 +32,7 @@ sample_df <- data.frame(
 sample_df <- merge(sample_df, pcawg_sample_sheet, by = "aliquot_id")
 sample_df <- merge(sample_df, pcawg_specimen_histology_August2016_v9[which(pcawg_specimen_histology_August2016_v9$specimen_library_strategy == "WGS"), ], by = "icgc_specimen_id")
 sample_df <- merge(sample_df, consensus_20170218_purity_ploidy, by.x = "aliquot_id", by.y = "samplename")
-write.csv(sample_df, file = paste0(R_ICGC_processed_data, "/sample_information.csv"), row.names = FALSE)
+write.csv(sample_df, file = paste0(R_ICGC_processed_data, "/ICGC_sample_information.csv"), row.names = FALSE)
 #--------------------------------Extract mutational data for each sample
 pb <- txtProgressBar(
     min = 0,
@@ -126,7 +127,7 @@ for (i_sample in 1:length(sample_df$aliquot_id)) {
     }
 }
 #-----------------------------------------Extract purity & coverage data
-ICGC_sample_info <- read.csv(file.path(R_ICGC_processed_data, "/sample_information.csv"))
+ICGC_sample_info <- read.csv(file.path(R_ICGC_processed_data, "/ICGC_sample_information.csv"))
 ICGC_purity_coverage <- list()
 ICGC_purity_coverage$N_sample <- nrow(ICGC_sample_info)
 for (i in 1:nrow(ICGC_sample_info)) {
