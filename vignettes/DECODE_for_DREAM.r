@@ -5,10 +5,10 @@
 # R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
 # R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Elliott- Mac Mini
-R_data <- "/Users/khanhngocdinh/Documents/Elliott/PCAWG"
-R_workplace <- "/Users/khanhngocdinh/Desktop/DECODE TEST/DECODE-main-FINAL-4/vignettes"
+R_data <- "/Users/khanhngocdinh/Desktop/DECODE TEST/DECODE-main-FINAL-5/Dream"
+R_workplace <- "/Users/khanhngocdinh/Desktop/DECODE TEST/DECODE-main-FINAL-5/vignettes"
 R_libPaths <- ""
-R_libPaths_extra <- "/Users/khanhngocdinh/Desktop/DECODE TEST/DECODE-main-FINAL-4/R"
+R_libPaths_extra <- "/Users/khanhngocdinh/Desktop/DECODE TEST/DECODE-main-FINAL-5/R"
 R_libPaths_binomial_table <- "/Users/khanhngocdinh/Documents/Elliott/Binomial_tables"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
@@ -23,7 +23,7 @@ library(tidyverse)
 library(R.utils)
 library(parallel)
 library(pbapply)
-library(mobster)
+# library(mobster)
 library(R.matlab)
 library(ggplot2)
 
@@ -59,12 +59,12 @@ data_marker_colors <- c(
 )
 # ===========================================GET ICGC SAMPLE INFORMATION
 sample_df <- read.csv(paste0(R_data, "/DREAM_sample_information.csv"))
-sample_df <- sample_df[
-    which(
-        sample_df$wgd_status == "no_wgd" &
-            sample_df$wgd_uncertain == FALSE
-    ),
-]
+# sample_df <- sample_df[
+#     which(
+#         sample_df$wgd_status == "no_wgd" &
+#             sample_df$wgd_uncertain == FALSE
+#     ),
+# ]
 write.csv(sample_df, file = paste0(R_workplace, "/DREAM_sample_information.csv"), row.names = FALSE)
 # # ===============================================================MOBSTER
 # folder_workplace <- "ICGC-MOBSTER/"
@@ -144,33 +144,33 @@ write.csv(sample_df, file = paste0(R_workplace, "/DREAM_sample_information.csv")
 # ================================================================DECODE
 folder_workplace <- "DREAM-DECODE/"
 dir.create(folder_workplace)
-#---Input binomial table
-cat("\n==========================================================================================================================\n")
-cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
-filename_1 <- paste0(
-    R_libPaths_binomial_table, "/Binomial_PDF_",
-    matrix_binomial_sample_size, "_",
-    r_max, "_",
-    min_variant_read, "_",
-    min_total_read, "_",
-    matrix_binomial_sfs_stepcount, "_",
-    matrix_binomial_ploidy, ".mat"
-)
-inputBinomialMatrix <- readMat(filename_1)
-matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
+# #---Input binomial table
+# cat("\n==========================================================================================================================\n")
+# cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
+# filename_1 <- paste0(
+#     R_libPaths_binomial_table, "/Binomial_PDF_",
+#     matrix_binomial_sample_size, "_",
+#     r_max, "_",
+#     min_variant_read, "_",
+#     min_total_read, "_",
+#     matrix_binomial_sfs_stepcount, "_",
+#     matrix_binomial_ploidy, ".mat"
+# )
+# inputBinomialMatrix <- readMat(filename_1)
+# matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---Deconvolution for each SFS
 decode_df <- data.frame()
 decode_fits <- list()
 # for (n_sample in 1:length(sample_df$aliquot_id)) {
-for (n_sample in 490:491) {
-    sample <- sample_df$aliquot_id[n_sample]
+for (n_sample in 1:1) {
+    sample <- sample_df$Sample[n_sample]
     cat("\n==========================================================================================================================\n") # nolint
     cat(paste0("DECODE FOR SAMPLE ", sample, "...\n"))
     #---Input the SFS data
     filename_2 <- paste0(R_data, "/", sample, "_1_1.csv")
-    mutation_table <- read.csv(filename_2, sep = "\t", header = TRUE)
-    mutation_table$Ref_count <- mutation_table$t_ref_count
-    mutation_table$Alt_count <- mutation_table$t_alt_count
+    mutation_table <- read.csv(filename_2, header = TRUE)
+    mutation_table$Ref_count <- mutation_table$ref_tumor
+    mutation_table$Alt_count <- mutation_table$alt_tumor
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) {
         mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     }
@@ -251,4 +251,3 @@ save(decode_fits, file = paste0("DECODE.rda"))
 #     mobster_df = mobster_df,
 #     decode_df = decode_df,
 #     text_notation = FALSE
-)
