@@ -113,13 +113,13 @@ DECODE_plot <- function(DECODE_result,
     return(p)
 }
 
-analysis_synthetic_test <- function(groundtruth_df,
-                                    mobster_df = NULL,
-                                    decode_df = NULL,
-                                    text_notation = FALSE,
-                                    cluster_count = NA,
-                                    tail = NA,
-                                    folder_workplace = "") {
+analysis_CINner <- function(groundtruth_df,
+                            mobster_df = NULL,
+                            decode_df = NULL,
+                            text_notation = FALSE,
+                            cluster_count = NA,
+                            tail = NA,
+                            folder_workplace = "") {
     library(ggplot2)
     tail_correct <- tail
     cluster_count_correct <- cluster_count
@@ -191,8 +191,8 @@ analysis_synthetic_test <- function(groundtruth_df,
     #---Find distributions of characteristics in each method with respect to sample purity and coverage
     characteristic_df <- groundtruth_df
     characteristic_df$mobster_tail <- mobster_df$Tail
-    characteristic_df$mobster_cluster_count <- as.factor(mobster_df$Cluster_count)
-    characteristic_df$decode_cluster_count <- as.factor(decode_df$Cluster_count)
+    if (is_mobster) characteristic_df$mobster_cluster_count <- as.factor(mobster_df$Cluster_count)
+    if (is_decode) characteristic_df$decode_cluster_count <- as.factor(decode_df$Cluster_count)
     #---Find distributions of neutral tail power in each method
     if (is_mobster) {
         mobster_df$alpha <- mobster_df$Tail_power
@@ -361,74 +361,80 @@ analysis_synthetic_test <- function(groundtruth_df,
         deconvolution_neutral_df <- rbind(deconvolution_neutral_df, mobster_deconvolution_neutral_df)
     }
     #---Plot distributions of MOBSTER's tail detection w.r.t. sample purity and coverage
-    png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
-    p <- ggplot() +
-        geom_point(
-            data = characteristic_df[which(!is.na(characteristic_df$mobster_tail)), ],
-            aes(x = Purity, y = Coverage, fill = mobster_tail, color = mobster_tail),
-            alpha = 0.5, size = 20
-        ) +
-        scale_fill_manual(values = binary_color_scheme, name = "MOBSTER tail") +
-        scale_color_manual(values = binary_color_scheme, name = "MOBSTER tail") +
-        xlab("Purity") +
-        ylab("Sequencing coverage") +
-        theme(
-            text = element_text(size = 120),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            panel.grid.major = element_line(colour = "white"),
-            panel.grid.minor = element_line(colour = "white"),
-            legend.position = "top",
-            legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 0, "cm")
-        )
-    print(p)
-    dev.off()
+    if (is_mobster) {
+        png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
+        p <- ggplot() +
+            geom_point(
+                data = characteristic_df[which(!is.na(characteristic_df$mobster_tail)), ],
+                aes(x = Purity, y = Coverage, fill = mobster_tail, color = mobster_tail),
+                alpha = 0.5, size = 20
+            ) +
+            scale_fill_manual(values = binary_color_scheme, name = "MOBSTER tail") +
+            scale_color_manual(values = binary_color_scheme, name = "MOBSTER tail") +
+            xlab("Purity") +
+            ylab("Sequencing coverage") +
+            theme(
+                text = element_text(size = 120),
+                panel.background = element_rect(fill = "white", colour = "white"),
+                panel.grid.major = element_line(colour = "white"),
+                panel.grid.minor = element_line(colour = "white"),
+                legend.position = "top",
+                legend.justification = c(0, 0.5),
+                plot.margin = margin(0, 2, 0, 0, "cm")
+            )
+        print(p)
+        dev.off()
+    }
     #---Plot distributions of MOBSTER's cluster count w.r.t. sample purity and coverage
-    png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
-    p <- ggplot() +
-        geom_point(
-            data = characteristic_df[which(!is.na(characteristic_df$mobster_cluster_count)), ],
-            aes(x = Purity, y = Coverage, fill = mobster_cluster_count, color = mobster_cluster_count),
-            alpha = 0.5, size = 20
-        ) +
-        scale_fill_manual(values = cluster_count_color_scheme, name = "MOBSTER cluster count") +
-        scale_color_manual(values = cluster_count_color_scheme, name = "MOBSTER cluster count") +
-        xlab("Purity") +
-        ylab("Sequencing coverage") +
-        theme(
-            text = element_text(size = 120),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            panel.grid.major = element_line(colour = "white"),
-            panel.grid.minor = element_line(colour = "white"),
-            legend.position = "top",
-            legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 0, "cm")
-        )
-    print(p)
-    dev.off()
+    if (is_mobster) {
+        png(paste0(folder_workplace, "Comparison_0_sample_info_vs_mobster_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
+        p <- ggplot() +
+            geom_point(
+                data = characteristic_df[which(!is.na(characteristic_df$mobster_cluster_count)), ],
+                aes(x = Purity, y = Coverage, fill = mobster_cluster_count, color = mobster_cluster_count),
+                alpha = 0.5, size = 20
+            ) +
+            scale_fill_manual(values = cluster_count_color_scheme, name = "MOBSTER cluster count") +
+            scale_color_manual(values = cluster_count_color_scheme, name = "MOBSTER cluster count") +
+            xlab("Purity") +
+            ylab("Sequencing coverage") +
+            theme(
+                text = element_text(size = 120),
+                panel.background = element_rect(fill = "white", colour = "white"),
+                panel.grid.major = element_line(colour = "white"),
+                panel.grid.minor = element_line(colour = "white"),
+                legend.position = "top",
+                legend.justification = c(0, 0.5),
+                plot.margin = margin(0, 2, 0, 0, "cm")
+            )
+        print(p)
+        dev.off()
+    }
     #---Plot distributions of DECODE's cluster count w.r.t. sample purity and coverage
-    png(paste0(folder_workplace, "Comparison_0_sample_info_vs_decode_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
-    p <- ggplot() +
-        geom_point(
-            data = characteristic_df,
-            aes(x = Purity, y = Coverage, fill = decode_cluster_count, color = decode_cluster_count),
-            alpha = 0.5, size = 20
-        ) +
-        scale_fill_manual(values = cluster_count_color_scheme, name = "DECODE cluster count") +
-        scale_color_manual(values = cluster_count_color_scheme, name = "DECODE cluster count") +
-        xlab("Purity") +
-        ylab("Sequencing coverage") +
-        theme(
-            text = element_text(size = 120),
-            panel.background = element_rect(fill = "white", colour = "white"),
-            panel.grid.major = element_line(colour = "white"),
-            panel.grid.minor = element_line(colour = "white"),
-            legend.position = "top",
-            legend.justification = c(0, 0.5),
-            plot.margin = margin(0, 2, 0, 0, "cm")
-        )
-    print(p)
-    dev.off()
+    if (is_decode) {
+        png(paste0(folder_workplace, "Comparison_0_sample_info_vs_decode_cluster_count.png"), res = 150, width = 30, height = 30, units = "in")
+        p <- ggplot() +
+            geom_point(
+                data = characteristic_df,
+                aes(x = Purity, y = Coverage, fill = decode_cluster_count, color = decode_cluster_count),
+                alpha = 0.5, size = 20
+            ) +
+            scale_fill_manual(values = cluster_count_color_scheme, name = "DECODE cluster count") +
+            scale_color_manual(values = cluster_count_color_scheme, name = "DECODE cluster count") +
+            xlab("Purity") +
+            ylab("Sequencing coverage") +
+            theme(
+                text = element_text(size = 120),
+                panel.background = element_rect(fill = "white", colour = "white"),
+                panel.grid.major = element_line(colour = "white"),
+                panel.grid.minor = element_line(colour = "white"),
+                legend.position = "top",
+                legend.justification = c(0, 0.5),
+                plot.margin = margin(0, 2, 0, 0, "cm")
+            )
+        print(p)
+        dev.off()
+    }
     #---Plot distributions of tail detection
     png(paste0(folder_workplace, "Comparison_1_tail_detection.png"), res = 150, width = 30, height = 30, units = "in")
     xticks <- sort(unique(df_tail_detection$tail))
@@ -906,12 +912,12 @@ analysis_ICGC <- function(sample_information_df,
     p <- ggplot(average_mutation_data_filtered, aes(x = histology_abbreviation, y = Average_Mutation_Count, fill = histology_abbreviation)) +
         geom_bar(stat = "identity", position = "dodge") +
         scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "",title = 'Average mutation count') +
+        labs(x = "", y = "", title = "Average mutation count") +
         scale_y_log10() +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
@@ -937,11 +943,11 @@ analysis_ICGC <- function(sample_information_df,
     p <- ggplot(cancer_type_counts, aes(x = histology_abbreviation, y = samplecount, fill = histology_abbreviation)) +
         geom_bar(stat = "identity", position = "dodge") +
         scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "",  title = "Sample count") +
+        labs(x = "", y = "", title = "Sample count") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
@@ -999,11 +1005,11 @@ analysis_ICGC <- function(sample_information_df,
             ),
             position = position_dodge(width = 0.9), size = 5
         ) +
-        labs(x = '', y = '') +
+        labs(x = "", y = "") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0),
             panel.grid.major = element_line(colour = "white"),
@@ -1061,11 +1067,11 @@ analysis_ICGC <- function(sample_information_df,
             ),
             position = position_dodge(width = 0.9), size = 5
         ) +
-        labs(x = '', y = '') +
+        labs(x = "", y = "") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0),
             panel.grid.major = element_line(colour = "white"),
@@ -1101,7 +1107,7 @@ analysis_ICGC <- function(sample_information_df,
     merged_data_complete <- merge(merged_data_complete, aggregated_data_totals, by = "histology_abbreviation")
 
     # Calculate percentage
-    merged_data_complete$Percentage <- (merged_data_complete$Sample_Count / merged_data_complete$Total_Sample_Count) 
+    merged_data_complete$Percentage <- (merged_data_complete$Sample_Count / merged_data_complete$Total_Sample_Count)
 
     # Plot ordered in descending order of mutation count
     merged_data_complete$histology_abbreviation <- factor(merged_data_complete$histology_abbreviation, levels = ordered_histology_abbreviation)
@@ -1115,7 +1121,7 @@ analysis_ICGC <- function(sample_information_df,
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
@@ -1152,21 +1158,21 @@ analysis_ICGC <- function(sample_information_df,
     merged_data_complete <- merge(merged_data_complete, aggregated_data_totals, by = "histology_abbreviation")
 
     # Calculate percentage
-    merged_data_complete$Percentage <- (merged_data_complete$Sample_Count / merged_data_complete$Total_Sample_Count) 
+    merged_data_complete$Percentage <- (merged_data_complete$Sample_Count / merged_data_complete$Total_Sample_Count)
 
     # Plot ordered in descending order of mutation count
     merged_data_complete$histology_abbreviation <- factor(merged_data_complete$histology_abbreviation, levels = ordered_histology_abbreviation)
 
     # Create the plot
     p <- ggplot(merged_data_complete, aes(x = histology_abbreviation, y = Percentage, fill = factor(Cluster_count, levels = rev(unique(Cluster_count))))) +
-            geom_bar(stat = "identity", position = "stack", show.legend = TRUE) +
+        geom_bar(stat = "identity", position = "stack", show.legend = TRUE) +
         scale_y_continuous(labels = scales::percent_format()) +
         scale_fill_manual(values = cluster_count_color_scheme, name = "DECODE - cluster count") +
         labs(x = "", y = "") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
@@ -1247,7 +1253,7 @@ analysis_ICGC <- function(sample_information_df,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0,0.5,0.5,0.5, "cm")
+            plot.margin = margin(0, 0.5, 0.5, 0.5, "cm")
         )
     if (text_notation) {
         p <- p +
@@ -1349,7 +1355,7 @@ analysis_ICGC <- function(sample_information_df,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5),
-            plot.margin = margin(0,0.5,0.5,0.5, "cm")
+            plot.margin = margin(0, 0.5, 0.5, 0.5, "cm")
         )
     if (text_notation) {
         p <- p +
@@ -1389,11 +1395,11 @@ analysis_ICGC <- function(sample_information_df,
         geom_violin(width = 0.7, scale = "width") +
         geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
         scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "",title='MOBSTER - neutral tail power') +
+        labs(x = "", y = "", title = "MOBSTER - neutral tail power") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),
@@ -1421,11 +1427,11 @@ analysis_ICGC <- function(sample_information_df,
         geom_violin(width = 0.7, scale = "width") +
         geom_boxplot(width = 0.1, fill = "white", color = "black", alpha = 0.7) +
         scale_fill_manual(values = cancer_type_color, guide = FALSE) +
-        labs(x = "", y = "",title='DECODE - neutral tail power') +
+        labs(x = "", y = "", title = "DECODE - neutral tail power") +
         theme(
             text = element_text(size = 40),
             axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.text.y = element_text(angle = 90,hjust=0.5),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
             panel.background = element_rect(fill = "white", colour = "white"),
             plot.title = element_text(hjust = 0, size = 40),
             panel.grid.major = element_line(colour = "white"),

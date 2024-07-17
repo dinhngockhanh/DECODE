@@ -989,14 +989,22 @@ parameter_conversion <- function(result,
         parameters_df[1, "Tail_sensitivity_Morris_alpha_mean_abs"] <- neutral_power_mu_star
         parameters_df[1, "Tail_sensitivity_Morris_alpha_std"] <- neutral_power_sigma
         if (tail_status) {
+            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+            print(sum(component_distributions$SFS_exact[1, ]))
+            print(sum(component_distributions$SFS_expected[1, ]))
+            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
             parameters_df[1, "Tail_power"] <- vec_A[2]
             parameters_df[1, "Tail_mutcount_observed"] <-
                 vec_A[1] * mutation_count_for_fitting
             parameters_df[1, "Tail_mutcount_predicted"] <-
                 vec_A[1] * mutation_count_for_fitting *
                     sum(component_distributions$SFS_exact[1, ]) /
-                    sum(component_distributions$SFS_expected[1, ]) *
-                    sample_size / matrix_binomial_sample_size
+                    sum(component_distributions$SFS_expected[1, ])
+            #  * sample_size / matrix_binomial_sample_size
+            # vec_A[1] * mutation_count_for_fitting *
+            #     sum(component_distributions$SFS_exact[1, ]) /
+            #     sum(component_distributions$SFS_expected[1, ]) *
+            #     sample_size / matrix_binomial_sample_size
         } else {
             parameters_df[1, "Tail_power"] <- NA
             parameters_df[1, "Tail_mutcount_observed"] <- NA
@@ -1009,9 +1017,11 @@ parameter_conversion <- function(result,
                 parameters_df[1, paste0("Cluster_mutcount_observed_", k)] <-
                     vec_K[k] * mutation_count_for_fitting
                 parameters_df[1, paste0("Cluster_mutcount_predicted_", k)] <-
-                    vec_K[k] * mutation_count_for_fitting *
-                        sum(component_distributions$SFS_exact[k + 1, ]) /
+                    vec_K[k] * mutation_count_for_fitting /
                         sum(component_distributions$SFS_expected[k + 1, ])
+                # vec_K[k] * mutation_count_for_fitting *
+                #     sum(component_distributions$SFS_exact[k + 1, ]) /
+                #     sum(component_distributions$SFS_expected[k + 1, ])
             }
         }
         output$parameters_df <- parameters_df
@@ -1191,8 +1201,10 @@ build_SFS_library_Griffiths_Tavare <- function(vec_para) {
     }
     #---------------------------------------Compute the Griffiths-Tavare SFS
     vec_SFS_GT <- numeric(N_end)
-    for (m in 2:N_end) {
-        if (para_alpha > 0) vec_SFS_GT[m] <- para_A * N_end / (m^para_alpha)
+    # for (m in 2:N_end) {
+    for (m in 1:N_end) {
+        # if (para_alpha > 0) vec_SFS_GT[m] <- para_A * N_end / (m^para_alpha)
+        if (para_alpha > 0) vec_SFS_GT[m] <- para_A / (m^para_alpha)
         # vec_SFS_GT[m] <- para_A * N_end / (m * (m - 1))
         if (no_hump > 0) {
             for (i in 1:no_hump) {
@@ -1203,4 +1215,59 @@ build_SFS_library_Griffiths_Tavare <- function(vec_para) {
         }
     }
     return(vec_SFS_GT)
+}
+
+prep_distribution_patient <- function(vec_totcount) {
+    L <- max(vec_totcount)
+    sample_coverage <- data.frame(
+        total_readcount = 1:max(L, r_max),
+        pdf = 0
+    )
+    #   Compute coverage distribution
+    for (i in 1:length(vec_totcount)) {
+        pos <- which(sample_coverage$total_readcount == vec_totcount[i])
+        sample_coverage$pdf[pos] <- sample_coverage$pdf[pos] + 1
+    }
+    #   Delete coverage outside minimum and maximum number of reads
+    locs <- which(sample_coverage$total_readcount < r_min | sample_coverage$total_readcount > r_max)
+    if (length(locs) > 0) {
+        sample_coverage <- sample_coverage[-locs, ]
+    }
+    if (sum(sample_coverage$pdf) == 0) {
+        stop("No reads remain after imposing range of [r_min, r_max]")
+    }
+    #   Normalize distribution
+    sample_coverage$pdf <- sample_coverage$pdf / sum(sample_coverage$pdf)
+    #   Return results
+    return(sample_coverage)
+}
+
+pdf_coverage <- function(r, sample_coverage) {
+    # Compute the probability of a read number
+    # based on choice of sampling coverage distribution
+    if (coverage_distribution == "uniform") {
+        if (r < r_min || r > r_max || r_min > r_max) {
+            phi_r <- 0
+        } else if (r_min == r_max) {
+            if (coverage_variables <= r_min && dist_coverage_var_2 >= r_min) {
+                phi_r <- 1
+            } else {
+                phi_r <- 0
+            }
+        } else {
+            phi_r <- 1 / (dist_coverage_var_2 - coverage_variables)
+        }
+    } else if (coverage_distribution == "binomial") {
+        D <- coverage_variables
+        if (r < r_min || r > r_max || r_min > r_max) {
+            phi_r <- 0
+        } else if (D > 0) {
+            phi_r <- dbinom(r, size = N_end, prob = D / N_end)
+        } else {
+            phi_r <- -1
+        }
+    } else if (coverage_distribution == "sample-specific") {
+        phi_r <- sample_coverage$pdf[sample_coverage$total_readcount == r]
+    }
+    return(phi_r)
 }
