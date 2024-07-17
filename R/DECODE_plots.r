@@ -1447,3 +1447,161 @@ analysis_ICGC <- function(sample_information_df,
     print(p)
     dev.off()
 }
+analysis_DREAM <- function(sample_information_df,
+                           sample_excel_df,
+                           decode_df = NULL,
+                           decode_BIC_df = NULL,
+                           text_notation = FALSE,
+                           folder_workplace = "") {
+    library(ggplot2)
+    library(dplyr)
+    library(readxl)
+    library(readr)
+    library(scales)
+    is_decode <- !is.null(decode_df)
+    method_color_scheme <- c(
+        "MOBSTER" = "darkorange2",
+        "DECODE" = "magenta4",
+        "DECODE-BIC" = "blue3"
+    )
+
+    #---Plot a scatter box plot of Different algorithms and Scores - 1A
+    # Convert `Raw score` to numeric for DECODE scores
+    decode_scores <- read_csv("Calculated_Scores_1A.csv") %>%
+        dplyr::select(Score_1A) %>%
+        dplyr::rename(`Raw score` = Score_1A) %>%
+        dplyr::mutate(SubChallenge = "sc1A", Entry = "DECODE") %>%
+        dplyr::mutate(`Raw score` = as.numeric(`Raw score`))
+
+    # Convert `Raw score` to numeric for DECODE-BIC scores
+    decode_bic_scores <- read_csv("Calculated_Scores_1A_BIC.csv") %>%
+        dplyr::select(Score_1A) %>%
+        dplyr::rename(`Raw score` = Score_1A) %>%
+        dplyr::mutate(SubChallenge = "sc1A", Entry = "DECODE-BIC") %>%
+        dplyr::mutate(`Raw score` = as.numeric(`Raw score`))
+
+    # Prepare other data
+    sample_excel_df <- read_excel("DREAM2024_supplementary.xlsx") %>%
+        dplyr::filter(SubChallenge == "sc1A") %>%
+        dplyr::select(Entry, `Raw score`) %>%
+        dplyr::mutate(`Raw score` = as.numeric(as.character(`Raw score`)))
+
+    # Merge all data
+    combined_data <- bind_rows(sample_excel_df, decode_scores, decode_bic_scores)
+
+    # Ensure the Entry column is a factor with the correct levels
+    combined_data$Entry <- factor(combined_data$Entry,
+        levels = c(
+            "random-clone", "5641737", "5964755", "6052744", "6087270", "6181022",
+            "6087309", "6187040", "6087362", "6185506", "6181501", "6184520",
+            "6184761", "6187127", "6204327", "SOTA1", "SOTA2", "rand_q50",
+            "DECODE", "DECODE-BIC"
+        )
+    )
+
+    # Convert `Raw score` to numeric
+    combined_data$`Raw score` <- as.numeric(as.character(combined_data$`Raw score`))
+
+    # Check for any conversion errors
+    if (any(is.na(combined_data$`Raw score`))) {
+        warning("NA introduced by coercion")
+    }
+
+    # Filter out NA values in the Entry column
+    combined_data <- combined_data %>% filter(!is.na(Entry))
+
+    # Plot
+    p <- ggplot(combined_data, aes(x = Entry, y = `Raw score`, fill = Entry)) +
+        geom_point(position = position_jitterdodge(), aes(color = Entry)) +
+        geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+        scale_fill_manual(values = method_color_scheme) +
+        labs(title = "Scatter Box Plot of Algorithms and Scores", x = "Algorithm", y = "Score") +
+        theme_minimal() +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "none",
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        ) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5))
+
+    # Save the plot
+    png(paste0(folder_workplace, "DREAM2024_scatter_box_plot_Score1A.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+
+    #---Plot a scatter box plot of Different algorithms and Scores - 1B
+    # Convert `Raw score` to numeric for DECODE scores
+    decode_scores <- read_csv("Calculated_Scores_1B.csv") %>%
+        dplyr::select(Score_1B) %>%
+        dplyr::rename(`Raw score` = Score_1B) %>%
+        dplyr::mutate(SubChallenge = "sc1A", Entry = "DECODE") %>%
+        dplyr::mutate(`Raw score` = as.numeric(`Raw score`))
+
+    # Convert `Raw score` to numeric for DECODE-BIC scores
+    decode_bic_scores <- read_csv("Calculated_Scores_1B_BIC.csv") %>%
+        dplyr::select(Score_1B) %>%
+        dplyr::rename(`Raw score` = Score_1B) %>%
+        dplyr::mutate(SubChallenge = "sc1A", Entry = "DECODE-BIC") %>%
+        dplyr::mutate(`Raw score` = as.numeric(`Raw score`))
+
+    # Prepare other data
+    sample_excel_df <- read_excel("DREAM2024_supplementary.xlsx") %>%
+        dplyr::filter(SubChallenge == "sc1B") %>%
+        dplyr::select(Entry, `Raw score`) %>%
+        dplyr::mutate(`Raw score` = as.numeric(as.character(`Raw score`)))
+
+    # Merge all data
+    combined_data <- bind_rows(sample_excel_df, decode_scores, decode_bic_scores)
+
+    # Ensure the Entry column is a factor with the correct levels
+    combined_data$Entry <- factor(combined_data$Entry,
+        levels = c(
+            "random-clone", "5641737", "5964755", "6052744", "6087270", "6181022",
+            "6087309", "6187040", "6087362", "6185506", "6181501", "6184520",
+            "6184761", "6187127", "6204327", "SOTA1", "SOTA2", "rand_q50",
+            "DECODE", "DECODE-BIC"
+        )
+    )
+
+    # Convert `Raw score` to numeric
+    combined_data$`Raw score` <- as.numeric(as.character(combined_data$`Raw score`))
+
+    # Check for any conversion errors
+    if (any(is.na(combined_data$`Raw score`))) {
+        warning("NA introduced by coercion")
+    }
+
+    # Filter out NA values in the Entry column
+    combined_data <- combined_data %>% filter(!is.na(Entry))
+
+    # Plot
+    p <- ggplot(combined_data, aes(x = Entry, y = `Raw score`, fill = Entry)) +
+        geom_point(position = position_jitterdodge(), aes(color = Entry)) +
+        geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+        scale_fill_manual(values = method_color_scheme) +
+        labs(title = "Scatter Box Plot of Algorithms and Scores", x = "Algorithm", y = "Score") +
+        theme_minimal() +
+        theme(
+            text = element_text(size = 40),
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            axis.text.y = element_text(angle = 90, hjust = 0.5),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            plot.title = element_text(hjust = 0, size = 40),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "none",
+            plot.margin = margin(0.5, 0.5, 0, 2, "cm")
+        ) +
+        scale_y_continuous(breaks = pretty_breaks(n = 5))
+
+    # Save the plot
+    png(paste0(folder_workplace, "DREAM2024_scatter_box_plot_Score1B.png"), res = 150, width = 30, height = 15, units = "in")
+    print(p)
+    dev.off()
+}
