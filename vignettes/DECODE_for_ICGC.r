@@ -52,14 +52,14 @@ data_marker_colors <- c(
     "Truncal" = rgb(0, 0.4470, 0.7410)
 )
 # ===========================================GET ICGC SAMPLE INFORMATION
-sample_df <- read.csv(paste0(R_data, "/sample_information.csv"))
+sample_df <- read.csv(paste0(R_data, "/ICGC_sample_information.csv"))
 sample_df <- sample_df[
     which(
         sample_df$wgd_status == "no_wgd" &
             sample_df$wgd_uncertain == FALSE
     ),
 ]
-write.csv(sample_df, file = paste0(R_workplace, "/sample_information.csv"), row.names = FALSE)
+write.csv(sample_df, file = paste0(R_workplace, "/ICGC_sample_information.csv"), row.names = FALSE)
 # # ===============================================================MOBSTER
 # folder_workplace <- "ICGC-MOBSTER/"
 # dir.create(folder_workplace)
@@ -230,7 +230,7 @@ write.csv(sample_df, file = paste0(R_workplace, "/sample_information.csv"), row.
 # write.csv(decode_df, paste0("Parameters_ICGC_DECODE.csv"), row.names = FALSE)
 # save(decode_fits, file = paste0("DECODE.rda"))
 # ==============================================================ANALYSIS
-sample_information_df <- read.csv(paste0(R_data, "/sample_information.csv"))
+sample_information_df <- read.csv(paste0(R_data, "/ICGC_sample_information.csv"))
 mobster_df <- read.csv("Parameters_ICGC_MOBSTER.csv")
 decode_df <- read.csv("Parameters_ICGC_DECODE.csv")
 
