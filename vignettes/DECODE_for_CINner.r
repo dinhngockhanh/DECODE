@@ -313,33 +313,32 @@ write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
 # }
 # write.csv(mobster_df, paste0("Parameters_MOBSTER.csv"), row.names = FALSE)
 # save(mobster_fits, file = paste0("MOBSTER.rda"))
-# # ================================================================DECODE
-# #---Input binomial table
-# cat("\n==========================================================================================================================\n")
-# cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
-# filename_1 <- paste0(
-#     R_libPaths_binomial_table, "/Binomial_PDF_",
-#     matrix_binomial_sample_size, "_",
-#     r_max, "_",
-#     min_variant_read, "_",
-#     min_total_read, "_",
-#     matrix_binomial_sfs_stepcount, "_",
-#     matrix_binomial_ploidy, ".mat"
-# )
-# inputBinomialMatrix <- readMat(filename_1)
-# matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
+# ================================================================DECODE
+#---Input binomial table
+cat("\n==========================================================================================================================\n")
+cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
+filename_1 <- paste0(
+    R_libPaths_binomial_table, "/Binomial_PDF_",
+    matrix_binomial_sample_size, "_",
+    r_max, "_",
+    min_variant_read, "_",
+    min_total_read, "_",
+    matrix_binomial_sfs_stepcount, "_",
+    matrix_binomial_ploidy, ".mat"
+)
+inputBinomialMatrix <- readMat(filename_1)
+matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
 #---Deconvolution for each SFS
 decode_df <- data.frame()
 decode_fits <- list()
 for (n_simulation in 1:n_simulations) {
-    cat("\n==========================================================================================================================\n") # nolint
-    cat(paste0("DECODE FOR SIMULATION ", n_simulation, "...\n"))
     #---Input the SFS data
     filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
     mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
     colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
+        sample_id = n_simulation,
         mutation_table = mutation_table,
         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         neutral_power_min = 2, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

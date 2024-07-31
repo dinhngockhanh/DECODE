@@ -1,4 +1,5 @@
-DECODE <- function(mutation_table,
+DECODE <- function(sample_id = "",
+                   mutation_table,
                    criterion = "BIC",
                    criterion_ratio = 1,
                    neutral_power_min = 0.5,
@@ -26,14 +27,14 @@ DECODE <- function(mutation_table,
                    compute_parallel_fit = TRUE,
                    n_cores = NULL,
                    parameter_filename = NULL) {
+    library(crayon)
+    cat(paste0("\n\n\n", bold(red("PERFORMING DECODE FOR SAMPLE ")), bold(yellow(sample_id)), bold(red("...")), "\n"))
     mutation_refcounts <- mutation_table$Ref_count
     mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
     #---Prepare the total readcount distribution
-    cat("Prepare the total readcount distribution...\n")
     sample_coverage <- prep_distribution_patient(mutation_totcounts)
     #---Prepare the real SFS
-    cat("Prepare the real SFS...\n")
     no_mutations_total <- length(mutation_refcounts)
     vec_freq <- seq(1, SFS_totalsteps) / SFS_totalsteps
     vec_SFS_real <- rep(0, SFS_totalsteps)
@@ -47,7 +48,7 @@ DECODE <- function(mutation_table,
         }
     }
     #---Prepare the SFS convolution matrix
-    cat("Prepare the SFS convolution matrix...\n")
+    cat(paste0(green("Prepare the SFS convolution matrix..."), "\n"))
     SFS_convolution_matrix <- build_convolution_matrix(
         N_end = matrix_binomial_sample_size,
         SFS_totalsteps = SFS_totalsteps,
@@ -62,6 +63,8 @@ DECODE <- function(mutation_table,
     )
     #---DECODE
     DECODE_result <- list()
+    DECODE_result$sample_id <- sample_id
+    DECODE_result$SFS_totalsteps <- SFS_totalsteps
     DECODE_result$mutational_table <- mutation_table
     DECODE_result$SFS_frequencies <- vec_freq
     DECODE_result$SFS_for_fitting <- vec_SFS_real
@@ -165,19 +168,19 @@ DECODE <- function(mutation_table,
     criterion_final_result <- final_result$best_fit$selected_criterion_value
     if (tail_status_final_result) {
         N_humps_final_result <- length(parameters_final_result) / 2 - 1
-        report <- paste0("\n\n\nBEST FIT = neutral tail + ", N_humps_final_result, " clusters: ", criterion, " = ", round(criterion_final_result, 3), "; neutral: pi = ", round(parameters_final_result[1], 3), " with power = ", round(parameters_final_result[2], 3))
+        report <- paste0(underline(blue(paste0("Best fit = neutral tail + ", N_humps_final_result, " clusters "))), underline(yellow(paste0("(", criterion, " = ", round(criterion_final_result, 3), ")"))), underline(blue(":\n")))
+        report <- paste0(report, cyan("Neutral component: "), yellow(paste0("pi = ", round(parameters_final_result[1], 3))), cyan(", "), yellow(paste0("power = ", round(parameters_final_result[2], 3))), "\n")
         ii <- 0
     } else {
         N_humps_final_result <- length(parameters_final_result) / 2
-        report <- paste0("\n\n\nBEST FIT = no neutral tail + ", N_humps_final_result, " clusters: ", criterion, " = ", round(criterion_final_result, 3))
+        report <- paste0(underline(blue(paste0("Best fit = no neutral tail + ", N_humps_final_result, " clusters "))), underline(yellow(paste0("(", criterion, " = ", round(criterion_final_result, 3), ")"))), underline(blue(":\n")))
         ii <- -1
     }
     if (N_humps_final_result > 0) {
         for (i in 1:N_humps_final_result) {
-            report <- paste0(report, "; pi = ", round(parameters_final_result[2 * (i + ii) + 1], 3), " at freq = ", round(parameters_final_result[2 * (i + ii) + 2], 3))
+            report <- paste0(report, cyan(paste0("Cluster ", i, "        : ")), yellow(paste0("pi = ", round(parameters_final_result[2 * (i + ii) + 1], 3))), cyan(", "), yellow(paste0("f = ", round(parameters_final_result[2 * (i + ii) + 2], 3))), "\n")
         }
     }
-    report <- paste0(report, "\n\n\n\n")
     cat(report)
     #---Translation to parameters of cancer evolution in the sample
     tmp <- parameter_conversion(
@@ -222,9 +225,9 @@ DECODE_given_tail_status <- function(vec_SFS_real,
     while (TRUE) {
         #---Find best parameter set, given the number of humps
         if (with_tail) {
-            cat(paste0("Inference for ", N_humps, " clusters with neutral tail component...\n"))
+            cat(green(paste0("Inference for ", N_humps, " clusters with neutral tail component...\n")))
         } else {
-            cat(paste0("Inference for ", N_humps, " clusters without neutral tail component...\n"))
+            cat(green(paste0("Inference for ", N_humps, " clusters without neutral tail component...\n")))
         }
         fit_results <- DECODE_given_tail_status_and_Ncluster(
             vec_SFS_real = vec_SFS_real,
@@ -989,10 +992,6 @@ parameter_conversion <- function(result,
         parameters_df[1, "Tail_sensitivity_Morris_alpha_mean_abs"] <- neutral_power_mu_star
         parameters_df[1, "Tail_sensitivity_Morris_alpha_std"] <- neutral_power_sigma
         if (tail_status) {
-            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-            print(sum(component_distributions$SFS_exact[1, ]))
-            print(sum(component_distributions$SFS_expected[1, ]))
-            print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
             parameters_df[1, "Tail_power"] <- vec_A[2]
             parameters_df[1, "Tail_mutcount_observed"] <-
                 vec_A[1] * mutation_count_for_fitting
