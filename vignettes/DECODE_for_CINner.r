@@ -3,7 +3,8 @@ R_PCAWG <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columb
 R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
 R_libPaths <- ""
 R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
-R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
+R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/DECODE_binomial_matrices"
+# R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(data.table)
@@ -15,6 +16,7 @@ library(pbapply)
 library(mobster)
 library(R.matlab)
 library(ggplot2)
+library(crayon)
 
 setwd(R_libPaths_extra)
 files_sources <- list.files(pattern = "\\.[rR]$")
@@ -29,18 +31,17 @@ n_sample <- 1000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #---Set DECODE parameters
 # 	Total number of sampled cells in binomial table construction
 matrix_binomial_sample_size <- 1000
-# 	Minimum and maximum number of total reads
-r_min <- 0
-r_max <- 500
-# 	Minimum variant read count to be accepted
-min_variant_read <- 5
-# 	Minimum total read count to be accepted
-min_total_read <- 0
 # 	Number of steps to divide SFS frequencies in [0,1]
 matrix_binomial_sfs_stepcount <- 100
 # 	Choice of ploidy, which changes the binomial rate
 matrix_binomial_ploidy <- 2
-#---Options for DECODE plotting
+# 	Minimum variant read count to be accepted
+min_variant_read <- 5
+# 	Minimum total read count to be accepted
+min_total_read <- 0
+# 	Maximum total read count to be accepted
+max_total_read <- 500
+#---Color map for data markers in DECODE plots
 data_marker_colors <- c(
     "Data" = "black",
     "Foreground 0" = rgb(0.2, 0.2, 0.2),
@@ -85,6 +86,7 @@ clusterExport(cl, varlist = c(
     "ICGC_purity_coverage"
 ))
 clusterEvalQ(cl, library(data.table))
+cat(bold(red("\n\n\nMAKE SFS SIMULATIONS...\n")))
 df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = function(n_simulation) {
     ####################################################################
     ####################################################################
@@ -314,21 +316,6 @@ write.csv(df, paste0("Parameters_true.csv"), row.names = FALSE)
 # write.csv(mobster_df, paste0("Parameters_MOBSTER.csv"), row.names = FALSE)
 # save(mobster_fits, file = paste0("MOBSTER.rda"))
 # ================================================================DECODE
-#---Input binomial table
-cat("\n==========================================================================================================================\n")
-cat(paste0("LOAD THE BINOMIAL TABLE...\n"))
-filename_1 <- paste0(
-    R_libPaths_binomial_table, "/Binomial_PDF_",
-    matrix_binomial_sample_size, "_",
-    r_max, "_",
-    min_variant_read, "_",
-    min_total_read, "_",
-    matrix_binomial_sfs_stepcount, "_",
-    matrix_binomial_ploidy, ".mat"
-)
-inputBinomialMatrix <- readMat(filename_1)
-matrix_binomial_PDF <- inputBinomialMatrix$matrix.binomial.PDF
-#---Deconvolution for each SFS
 decode_df <- data.frame()
 decode_fits <- list()
 for (n_simulation in 1:n_simulations) {
@@ -338,27 +325,26 @@ for (n_simulation in 1:n_simulations) {
     colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
-        sample_id = n_simulation,
+        sample_id = paste0("Simulation-", n_simulation),
         mutation_table = mutation_table,
         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        max_N_humps = 1, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         neutral_power_min = 2, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         neutral_power_max = 2, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        max_N_humps = 1, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         # neutral_power_min = 0.5,
         # neutral_power_max = 5,
-        cluster_frequency_min = 0.01,
-        cluster_frequency_max = 1,
-        matrix_binomial_PDF = matrix_binomial_PDF,
+        ################################################################
+        # matrix_binomial_PDF = matrix_binomial_PDF,
+        libPaths_binomial_table = R_libPaths_binomial_table,
         matrix_binomial_sample_size = matrix_binomial_sample_size,
         matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
         matrix_binomial_ploidy = matrix_binomial_ploidy,
+        min_variant_read = min_variant_read,
+        min_total_read = min_total_read,
+        max_total_read = max_total_read,
+        ################################################################
         sample_size = n_sample,
         SFS_totalsteps = 100,
-        r_min = r_min,
-        r_max = r_max,
-        coverage_distribution = "sample-specific",
-        N_trials = 10000,
-        compute_parallel_fit = TRUE,
         neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     )
     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))

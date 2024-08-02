@@ -6,15 +6,17 @@ DECODE <- function(sample_id = "",
                    neutral_power_max = 5,
                    cluster_frequency_min = 0.01,
                    cluster_frequency_max = 1,
-                   matrix_binomial_PDF,
+                   #    matrix_binomial_PDF,
+                   libPaths_binomial_table,
                    matrix_binomial_sample_size,
                    matrix_binomial_sfs_stepcount,
                    matrix_binomial_ploidy,
+                   min_variant_read,
+                   min_total_read,
+                   max_total_read,
                    sample_size,
                    SFS_totalsteps,
-                   r_min,
-                   r_max,
-                   coverage_distribution,
+                   coverage_distribution = "sample-specific",
                    coverage_variables = NULL,
                    N_trials = 10000,
                    N_trials_Morris_tail_sensitivity = 300,
@@ -33,7 +35,17 @@ DECODE <- function(sample_id = "",
     mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
     #---Prepare the total readcount distribution
-    sample_coverage <- prep_distribution_patient(mutation_totcounts)
+    sample_coverage <- prep_distribution_patient(
+        mutations_total_read = mutation_totcounts,
+        max_total_read = max_total_read
+    )
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
     #---Prepare the real SFS
     no_mutations_total <- length(mutation_refcounts)
     vec_freq <- seq(1, SFS_totalsteps) / SFS_totalsteps
@@ -47,14 +59,30 @@ DECODE <- function(sample_id = "",
             vec_SFS_real[pos] <- vec_SFS_real[pos] + 1
         }
     }
+
+
+
+    #---Get DECODE binomial table
+    binomial_matrix <- DECODE_get_binomial_matrix(
+        folder = libPaths_binomial_table,
+        matrix_binomial_sample_size = matrix_binomial_sample_size,
+        matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+        matrix_binomial_ploidy = matrix_binomial_ploidy,
+        min_variant_read = min_variant_read,
+        min_total_read = min_total_read,
+        max_total_read = max_total_read
+    )
+    # output$matrix_binomial_PDF <- matrix_binomial_PDF
+    # output$ploidy <- matrix_binomial_ploidy
+    # output$min_variant_read <- min_variant_read
+
+
+
     #---Prepare the SFS convolution matrix
     cat(paste0(green("Prepare the SFS convolution matrix..."), "\n"))
     SFS_convolution_matrix <- build_convolution_matrix(
-        N_end = matrix_binomial_sample_size,
+        binomial_matrix = binomial_matrix,
         SFS_totalsteps = SFS_totalsteps,
-        SFS_totalsteps_base = matrix_binomial_sfs_stepcount,
-        r_min = r_min,
-        r_max = r_max,
         coverage_distribution = coverage_distribution,
         coverage_variables = coverage_variables,
         sample_coverage = sample_coverage,
@@ -1101,16 +1129,23 @@ build_SFS_library <- function(neutral_power, cluster_frequencies, SFS_totalsteps
     return(component_distributions)
 }
 
-build_convolution_matrix <- function(N_end,
+build_convolution_matrix <- function(binomial_matrix,
                                      SFS_totalsteps,
-                                     SFS_totalsteps_base,
-                                     r_min,
-                                     r_max,
                                      coverage_distribution,
                                      coverage_variables,
                                      sample_coverage,
                                      compute_parallel,
                                      n_cores) {
+    matrix_binomial_PDF <- binomial_matrix$matrix_binomial_PDF
+    print(dim(matrix_binomial_PDF))
+    N_end <- binomial_matrix$sample_size
+    print(N_end)
+    SFS_totalsteps_base <- binomial_matrix$sfs_stepcount
+    print(SFS_totalsteps_base)
+    min_total_read <- binomial_matrix$min_total_read
+    print(min_total_read)
+    max_total_read <- binomial_matrix$max_total_read
+    print(max_total_read)
     #---Build convolution matrix to transform Griffiths-Tavare SFS to expected SFS
     vec_SFS_freq <- seq(0, 1, length.out = SFS_totalsteps + 1)
     if (compute_parallel == FALSE) {
@@ -1128,7 +1163,7 @@ build_convolution_matrix <- function(N_end,
             j_upper <- round(SFS_totalsteps_base * vec_SFS_freq[i + 1]) # x_2*r
             for (m in 1:N_end) {
                 value <- 0
-                for (r in max(r_min, 1):r_max) {
+                for (r in max(min_total_read, 1):max_total_read) {
                     value <- value + pdf_coverage(r, sample_coverage) * sum(matrix_binomial_PDF[r, m, j_lower:j_upper])
                 }
                 mat_convolution[m, i] <- value
@@ -1147,8 +1182,8 @@ build_convolution_matrix <- function(N_end,
         #   Prepare input parameters
         SFS_totalsteps_base <<- SFS_totalsteps_base
         N_end <<- N_end
-        r_min <<- r_min
-        r_max <<- r_max
+        min_total_read <<- min_total_read
+        max_total_read <<- max_total_read
         pdf_coverage <<- pdf_coverage
         coverage_distribution <<- coverage_distribution
         coverage_variables <<- coverage_variables
@@ -1157,8 +1192,8 @@ build_convolution_matrix <- function(N_end,
         clusterExport(cl, varlist = c(
             "SFS_totalsteps_base",
             "N_end",
-            "r_min",
-            "r_max",
+            "min_total_read",
+            "max_total_read",
             "pdf_coverage",
             "coverage_distribution",
             "coverage_variables",
@@ -1171,7 +1206,7 @@ build_convolution_matrix <- function(N_end,
             j_lower <- round(SFS_totalsteps_base * vec_SFS_freq[i]) + 1 # x_1*r
             j_upper <- round(SFS_totalsteps_base * vec_SFS_freq[i + 1]) # x_2*r
             mat_convolution_col_i <- rep(0, N_end)
-            r_values <- max(r_min, 1):r_max
+            r_values <- max(min_total_read, 1):max_total_read
 
             mat_convolution_col_i <- sapply(1:N_end, function(m) {
                 value <- sum(sapply(r_values, function(r) {
@@ -1216,24 +1251,24 @@ build_SFS_library_Griffiths_Tavare <- function(vec_para) {
     return(vec_SFS_GT)
 }
 
-prep_distribution_patient <- function(vec_totcount) {
-    L <- max(vec_totcount)
+prep_distribution_patient <- function(mutations_total_read, max_total_read) {
+    L <- max(mutations_total_read)
     sample_coverage <- data.frame(
-        total_readcount = 1:max(L, r_max),
+        total_readcount = 1:max(L, max_total_read),
         pdf = 0
     )
     #   Compute coverage distribution
-    for (i in 1:length(vec_totcount)) {
-        pos <- which(sample_coverage$total_readcount == vec_totcount[i])
+    for (i in 1:length(mutations_total_read)) {
+        pos <- which(sample_coverage$total_readcount == mutations_total_read[i])
         sample_coverage$pdf[pos] <- sample_coverage$pdf[pos] + 1
     }
     #   Delete coverage outside minimum and maximum number of reads
-    locs <- which(sample_coverage$total_readcount < r_min | sample_coverage$total_readcount > r_max)
+    locs <- which(sample_coverage$total_readcount < min_total_read | sample_coverage$total_readcount > max_total_read)
     if (length(locs) > 0) {
         sample_coverage <- sample_coverage[-locs, ]
     }
     if (sum(sample_coverage$pdf) == 0) {
-        stop("No reads remain after imposing range of [r_min, r_max]")
+        stop("No reads remain after imposing range of [min_total_read, max_total_read]")
     }
     #   Normalize distribution
     sample_coverage$pdf <- sample_coverage$pdf / sum(sample_coverage$pdf)
@@ -1245,10 +1280,10 @@ pdf_coverage <- function(r, sample_coverage) {
     # Compute the probability of a read number
     # based on choice of sampling coverage distribution
     if (coverage_distribution == "uniform") {
-        if (r < r_min || r > r_max || r_min > r_max) {
+        if (r < min_total_read || r > max_total_read || min_total_read > max_total_read) {
             phi_r <- 0
-        } else if (r_min == r_max) {
-            if (coverage_variables <= r_min && dist_coverage_var_2 >= r_min) {
+        } else if (min_total_read == max_total_read) {
+            if (coverage_variables <= min_total_read && dist_coverage_var_2 >= min_total_read) {
                 phi_r <- 1
             } else {
                 phi_r <- 0
@@ -1258,7 +1293,7 @@ pdf_coverage <- function(r, sample_coverage) {
         }
     } else if (coverage_distribution == "binomial") {
         D <- coverage_variables
-        if (r < r_min || r > r_max || r_min > r_max) {
+        if (r < min_total_read || r > max_total_read || min_total_read > max_total_read) {
             phi_r <- 0
         } else if (D > 0) {
             phi_r <- dbinom(r, size = N_end, prob = D / N_end)
@@ -1269,4 +1304,128 @@ pdf_coverage <- function(r, sample_coverage) {
         phi_r <- sample_coverage$pdf[sample_coverage$total_readcount == r]
     }
     return(phi_r)
+}
+
+DECODE_get_binomial_matrix <- function(folder,
+                                       matrix_binomial_sample_size,
+                                       matrix_binomial_sfs_stepcount,
+                                       matrix_binomial_ploidy,
+                                       min_variant_read,
+                                       min_total_read,
+                                       max_total_read,
+                                       compute_parallel = TRUE,
+                                       n_cores = NULL) {
+    library(crayon)
+    #---Get the binomial PDF table if already produced before
+    file_list <- list.files(path = folder, pattern = "\\.rds$", full.names = TRUE)
+    for (file in file_list) {
+        output <- readRDS(file)
+        if (identical(class(output), "DECODE_binomial_matrix") &&
+            output$sample_size == matrix_binomial_sample_size &&
+            output$sfs_stepcount == matrix_binomial_sfs_stepcount &&
+            output$ploidy == matrix_binomial_ploidy &&
+            output$min_variant_read == min_variant_read &&
+            output$min_total_read == min_total_read &&
+            output$max_total_read == max_total_read) {
+            cat(paste0(green("Retrieve binomial table..."), "\n"))
+            return(output)
+        }
+    }
+    #---Prepare the binomial PDF table
+    cat(paste0(green("Prepare binomial table..."), "\n"))
+    if (compute_parallel == FALSE) {
+        pb <- txtProgressBar(
+            min = 1,
+            max = max_total_read,
+            style = 3,
+            width = 50,
+            char = "+"
+        )
+        matrix_binomial_PDF <- array(0, dim = c(max_total_read, matrix_binomial_sample_size, matrix_binomial_sfs_stepcount))
+        for (r in 1:max_total_read) {
+            setTxtProgressBar(pb, r)
+            for (m in 1:matrix_binomial_sample_size) {
+                for (i in 1:matrix_binomial_sfs_stepcount) {
+                    if (r < min(min_variant_read, min_total_read)) next
+                    #   Find boundaries for s = ( (i-1)*r/matrix_binomial_sfs_stepcount,i*r/matrix_binomial_sfs_stepcount ]
+                    r1 <- r * (i - 1) / matrix_binomial_sfs_stepcount
+                    r1 <- ifelse(r1 %% 1 == 0, r1 + 1, ceiling(r1))
+                    r1 <- max(min_variant_read, r1, 1)
+                    r2 <- floor(r * i / matrix_binomial_sfs_stepcount)
+                    if (r1 > r2) next
+                    #   Find P{s/r in ((i-1)/matrix_binomial_sfs_stepcount,i/matrix_binomial_sfs_stepcount] | m, r}
+                    Prob <- pbinom(r2, size = r, prob = m / (matrix_binomial_sample_size * matrix_binomial_ploidy)) -
+                        pbinom(r1 - 1, size = r, prob = m / (matrix_binomial_sample_size * matrix_binomial_ploidy))
+
+                    matrix_binomial_PDF[r, m, i] <- Prob
+                }
+            }
+        }
+    } else {
+        library(parallel)
+        library(pbapply)
+        #   Start parallel cluster
+        if (is.null(n_cores)) {
+            numCores <- detectCores()
+        } else {
+            numCores <- n_cores
+        }
+        cl <- makePSOCKcluster(numCores - 1)
+        #   Prepare input parameters
+        clusterExport(cl, varlist = c(
+            "matrix_binomial_sample_size",
+            "matrix_binomial_sfs_stepcount",
+            "matrix_binomial_ploidy",
+            "min_variant_read",
+            "min_total_read",
+            "max_total_read"
+        ))
+        #   Compute each sub-array
+        output <- pblapply(cl = cl, X = 1:max_total_read, FUN = function(r) {
+            submatrix_binomial_PDF <- array(0, dim = c(matrix_binomial_sample_size, matrix_binomial_sfs_stepcount))
+            for (m in 1:matrix_binomial_sample_size) {
+                for (i in 1:matrix_binomial_sfs_stepcount) {
+                    if (r < min(min_variant_read, min_total_read)) next
+                    #   Find boundaries for s = ( (i-1)*r/matrix_binomial_sfs_stepcount,i*r/matrix_binomial_sfs_stepcount ]
+                    r1 <- r * (i - 1) / matrix_binomial_sfs_stepcount
+                    r1 <- ifelse(r1 %% 1 == 0, r1 + 1, ceiling(r1))
+                    r1 <- max(min_variant_read, r1, 1)
+                    r2 <- floor(r * i / matrix_binomial_sfs_stepcount)
+                    if (r1 > r2) next
+                    #   Find P{s/r in ((i-1)/matrix_binomial_sfs_stepcount,i/matrix_binomial_sfs_stepcount] | m, r}
+                    Prob <- pbinom(r2, size = r, prob = m / (matrix_binomial_sample_size * matrix_binomial_ploidy)) -
+                        pbinom(r1 - 1, size = r, prob = m / (matrix_binomial_sample_size * matrix_binomial_ploidy))
+
+                    submatrix_binomial_PDF[m, i] <- Prob
+                }
+            }
+            return(submatrix_binomial_PDF)
+        })
+        matrix_binomial_PDF <- array(0, dim = c(max_total_read, matrix_binomial_sample_size, matrix_binomial_sfs_stepcount))
+        for (r in 1:max_total_read) {
+            matrix_binomial_PDF[r, , ] <- output[[r]]
+        }
+    }
+    #---Create DECODE_binomial_matrix object
+    output <- list()
+    output$matrix_binomial_PDF <- matrix_binomial_PDF
+    output$sample_size <- matrix_binomial_sample_size
+    output$sfs_stepcount <- matrix_binomial_sfs_stepcount
+    output$ploidy <- matrix_binomial_ploidy
+    output$min_variant_read <- min_variant_read
+    output$min_total_read <- min_total_read
+    output$max_total_read <- max_total_read
+    class(output) <- "DECODE_binomial_matrix"
+    filename <- paste0(
+        folder, "/DECODE_binomial_matrix_",
+        matrix_binomial_sample_size, "_",
+        matrix_binomial_sfs_stepcount, "_",
+        matrix_binomial_ploidy, "_",
+        min_variant_read, "_",
+        min_total_read, "_",
+        max_total_read,
+        ".rds"
+    )
+    saveRDS(output, file = filename)
+    return(output)
 }
