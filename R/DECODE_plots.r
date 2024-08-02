@@ -196,6 +196,11 @@ analysis_CINner <- function(groundtruth_df,
     #---Find distributions of neutral tail power in each method
     if (is_mobster) {
         mobster_df$alpha <- mobster_df$Tail_power
+        mobster_mean <- median(mobster_df$alpha, na.rm = TRUE)
+    }
+    if (is_decode) {
+        decode_df$alpha <- decode_df$Tail_power
+        decode_mean <- median(decode_df$alpha, na.rm = TRUE)
     }
     #---Find distributions of neutral tail detection in each method
     df_tail_detection <- data.frame()
@@ -682,11 +687,13 @@ analysis_CINner <- function(groundtruth_df,
     }
     if (is_mobster) {
         p <- p +
-            geom_histogram(data = mobster_df[!is.na(mobster_df$alpha), ], aes(x = alpha, fill = "MOBSTER"), alpha = 0.5)
+            geom_histogram(data = mobster_df[!is.na(mobster_df$alpha), ], aes(x = alpha, fill = "MOBSTER"), alpha = 0.5) +
+            geom_vline(xintercept = mobster_mean, color = "orange", linetype = "dashed", size = 3)
     }
     if (is_decode) {
         p <- p +
-            geom_histogram(data = decode_df[!is.na(decode_df$Tail_power), ], aes(x = Tail_power, fill = "DECODE"), alpha = 0.5)
+            geom_histogram(data = decode_df[!is.na(decode_df$Tail_power), ], aes(x = Tail_power, fill = "DECODE"), alpha = 0.5) +
+            geom_vline(xintercept = decode_mean, color = "purple", linetype = "dashed", size = 3)
     }
     print(p)
     dev.off()
