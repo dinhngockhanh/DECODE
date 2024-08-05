@@ -24,9 +24,8 @@ sapply(files_sources, source)
 setwd(R_workplace)
 
 folder_workplace <- "TEST/"
-n_simulations <- 8 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-n_sample <- 1000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+n_simulations <- 100 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # =====================================================DECODE parameters
 #---Set DECODE parameters
 # 	Total number of sampled cells in binomial table construction
@@ -140,7 +139,7 @@ df_all_simulation_parameters <- pblapply(cl = cl, X = 1:n_simulations, FUN = fun
         choice_theta = choice_theta,
         vec_theta_parameters = vec_theta_parameters,
         vec_theta_mean = vec_theta_mean,
-        save_rda = TRUE, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        save_rda = TRUE,
         save_true_mutation_table = FALSE,
         output_bulk = TRUE,
         output_sc = FALSE,
@@ -328,13 +327,6 @@ for (n_simulation in 1:n_simulations) {
         sample_id = paste0("Simulation-", n_simulation),
         mutation_table = mutation_table,
         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        max_N_humps = 1, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        neutral_power_min = 2, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        neutral_power_max = 2, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        # neutral_power_min = 0.5,
-        # neutral_power_max = 5,
-        ################################################################
-        # matrix_binomial_PDF = matrix_binomial_PDF,
         libPaths_binomial_table = R_libPaths_binomial_table,
         matrix_binomial_sample_size = matrix_binomial_sample_size,
         matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
@@ -342,10 +334,9 @@ for (n_simulation in 1:n_simulations) {
         min_variant_read = min_variant_read,
         min_total_read = min_total_read,
         max_total_read = max_total_read,
-        ################################################################
         sample_size = n_sample,
         sfs_stepcount = 100,
-        compute_parallel = TRUE, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        compute_parallel = TRUE,
         neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     )
     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))

@@ -267,14 +267,13 @@ DECODE_given_tail_status <- function(vec_SFS_real,
         criterion_best_current <- criterion_all_best_current[[criterion]]
         #   Report the best fit for the current hump count
         cluster_pis <- Inf
+        report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", round(criterion_best_current, 3))), "\n")
         if (with_tail) {
             N_humps <- length(vec_para_best_current) / 2 - 1
-            report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", round(criterion_best_current, 3))), "\n")
             report <- paste0(report, blue("Neutral component: "), cyan(paste0("pi = ", round(vec_para_best_current[1], 3))), blue(", "), cyan(paste0("power = ", round(vec_para_best_current[2], 3))), "\n")
             ii <- 0
         } else {
             N_humps <- length(vec_para_best_current) / 2
-            report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", round(criterion_best_current, 3))), "\n")
             ii <- -1
         }
         if (N_humps > 0) {
@@ -302,14 +301,12 @@ DECODE_given_tail_status <- function(vec_SFS_real,
     }
     #---Check if the neutral tail component is too tiny
     if (with_tail == TRUE & vec_para_best_final[1] < pi_cutoff) {
+        with_tail <- FALSE
         vec_para_best_final[seq(3, length(vec_para_best_final), by = 2)] <- vec_para_best_final[seq(3, length(vec_para_best_final), by = 2)] / sum(vec_para_best_final[seq(3, length(vec_para_best_final), by = 2)])
         vec_para_best_final <- vec_para_best_final[-c(1, 2)]
-
         component_distributions_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_best_final$SFS_exact[1, ]))
         component_distributions_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_best_final$SFS_expected[1, ]))
         component_distributions_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_best_final$SFS_expected_normalized[1, ]))
-
-        with_tail <- FALSE
     }
     # ####################################################################
     # ####################################################################
@@ -943,12 +940,8 @@ parameter_conversion <- function(result,
             parameters_df[1, "Tail_mutcount_predicted"] <-
                 vec_A[1] * mutation_count_for_fitting *
                     sum(component_distributions$SFS_exact[1, ]) /
-                    sum(component_distributions$SFS_expected[1, ])
-            #  * sample_size / matrix_binomial_sample_size
-            # vec_A[1] * mutation_count_for_fitting *
-            #     sum(component_distributions$SFS_exact[1, ]) /
-            #     sum(component_distributions$SFS_expected[1, ]) *
-            #     sample_size / matrix_binomial_sample_size
+                    sum(component_distributions$SFS_expected[1, ]) *
+                    sample_size / matrix_binomial_sample_size
         } else {
             parameters_df[1, "Tail_power"] <- NA
             parameters_df[1, "Tail_mutcount_observed"] <- NA
@@ -962,10 +955,8 @@ parameter_conversion <- function(result,
                     vec_K[k] * mutation_count_for_fitting
                 parameters_df[1, paste0("Cluster_mutcount_predicted_", k)] <-
                     vec_K[k] * mutation_count_for_fitting /
-                        sum(component_distributions$SFS_expected[k + 1, ])
-                # vec_K[k] * mutation_count_for_fitting *
-                #     sum(component_distributions$SFS_exact[k + 1, ]) /
-                #     sum(component_distributions$SFS_expected[k + 1, ])
+                        sum(component_distributions$SFS_expected[k + 1, ]) /
+                        sum(component_distributions$SFS_exact[k + 1, ])
             }
         }
         output$parameters_df <- parameters_df
