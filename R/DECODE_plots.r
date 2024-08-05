@@ -10,10 +10,12 @@ DECODE_plot <- function(DECODE_result,
     mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
 
+    SFS_totalsteps <- length(vec_freq)
+
     if (fit == "best") {
-        vec_para_best_final <- DECODE_result$best_result$best_fit$parameters
-        tail_status_final <- DECODE_result$best_result$best_fit$tail_status
-        component_distributions_best_final <- DECODE_result$best_result$best_fit$component_distributions
+        vec_para_best_final <- DECODE_result$final_fit$best_fit$parameters
+        tail_status_final <- DECODE_result$final_fit$best_fit$tail_status
+        component_distributions_best_final <- DECODE_result$final_fit$best_fit$component_distributions
     }
 
     if ("Marker" %in% colnames(mutation_table)) {
@@ -23,7 +25,7 @@ DECODE_plot <- function(DECODE_result,
     }
 
     tmp <- parameter_conversion(
-        result = DECODE_result$best_result,
+        result = DECODE_result$final_fit,
         output_parameters_df = FALSE
     )
     vec_A <- tmp$vec_A

@@ -344,7 +344,8 @@ for (n_simulation in 1:n_simulations) {
         max_total_read = max_total_read,
         ################################################################
         sample_size = n_sample,
-        SFS_totalsteps = 100,
+        sfs_stepcount = 100,
+        compute_parallel = TRUE, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     )
     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
@@ -358,7 +359,7 @@ for (n_simulation in 1:n_simulations) {
     # dev.off()
     #---Save DECODE results
     decode_fits[[n_simulation]] <- DECODE_result
-    decode_model <- DECODE_result$best_result$parameters_df
+    decode_model <- DECODE_result$final_fit$parameters_df
     decode_df[n_simulation, "Simulation"] <- n_simulation
     decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
     decode_df[n_simulation, "Tail"] <- decode_model$Tail
