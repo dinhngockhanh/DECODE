@@ -24,8 +24,7 @@ DECODE <- function(sample_id = "",
                    pi_cutoff = 0.02,
                    zero_cutoff = 1e-50,
                    compute_parallel = TRUE,
-                   n_cores = NULL,
-                   parameter_filename = NULL) {
+                   n_cores = NULL) {
     library(crayon)
     cat(paste0("\n\n\n", bold(red("PERFORMING DECODE FOR SAMPLE ")), bold(yellow(sample_id)), bold(red("...")), "\n"))
     mutation_refcounts <- mutation_table$Ref_count
@@ -80,13 +79,13 @@ DECODE <- function(sample_id = "",
     if (is.na(neutral_tail)) {
         result_with_tail <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
+            sfs_stepcount = sfs_stepcount,
+            with_tail = TRUE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            with_tail = TRUE,
             N_trials = N_trials,
-            sfs_stepcount = sfs_stepcount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
@@ -100,13 +99,13 @@ DECODE <- function(sample_id = "",
         DECODE_result$fits_with_tail <- result_with_tail
         result_without_tail <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
+            sfs_stepcount = sfs_stepcount,
+            with_tail = FALSE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            with_tail = FALSE,
             N_trials = N_trials,
-            sfs_stepcount = sfs_stepcount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
@@ -124,8 +123,6 @@ DECODE <- function(sample_id = "",
             final_result <- result_without_tail
         }
     } else if (neutral_tail == TRUE) {
-        ################################################################
-        ################################################################
         final_result <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
             sfs_stepcount = sfs_stepcount,
@@ -145,24 +142,17 @@ DECODE <- function(sample_id = "",
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
         DECODE_result$fits_with_tail <- final_result
     } else if (neutral_tail == FALSE) {
         final_result <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
+            sfs_stepcount = sfs_stepcount,
+            with_tail = FALSE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            with_tail = FALSE,
             N_trials = N_trials,
-            sfs_stepcount = sfs_stepcount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
@@ -206,12 +196,8 @@ DECODE <- function(sample_id = "",
         matrix_binomial_sample_size = matrix_binomial_sample_size,
         matrix_binomial_ploidy = matrix_binomial_ploidy
     )
-    best_fit_parameters <- tmp$parameters_df
-    if (!is.null(parameter_filename)) {
-        write.table(best_fit_parameters, parameter_filename, sep = "\t", quote = FALSE, row.names = FALSE)
-    }
+    DECODE_result$final_fit$parameters_df <- tmp$parameters_df
     #---Return the SFS deconvolution results
-    DECODE_result$final_fit$parameters_df <- best_fit_parameters
     return(DECODE_result)
 }
 
