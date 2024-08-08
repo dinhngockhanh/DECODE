@@ -1061,6 +1061,7 @@ get_binomial_matrix <- function(folder,
             return(output)
         }
     }
+    output <- NULL
     #---Function to compute the binomial PDF table for a given r
     func_submatrix_binomial_PDF <- function(r,
                                             matrix_binomial_sample_size,
@@ -1123,7 +1124,7 @@ get_binomial_matrix <- function(folder,
             "min_variant_read",
             "min_total_read",
             "max_total_read"
-        ))
+        ), envir = environment())
         #   Compute each sub-array
         output <- pblapply(cl = cl, X = 1:max_total_read, FUN = function(r) {
             return(func_submatrix_binomial_PDF(
