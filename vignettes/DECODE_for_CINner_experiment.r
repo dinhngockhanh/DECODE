@@ -28,9 +28,9 @@ n_simulations <- 100 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #---Set DECODE parameters
 # 	Minimum variant read count to be accepted
-min_variant_read <- 10 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+min_variant_read <- 5 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # 	Minimum total read count to be accepted
-min_total_read <- 0 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+min_total_read <- 50 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # ==========================================MAKE CINNER LITE SIMULATIONS
 dir.create(folder_workplace)
 load(file = paste0(R_PCAWG, "/ICGC_purity_coverage.rda"))
@@ -302,15 +302,15 @@ for (n_simulation in 8:8) {
     filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
     mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
     colnames(mutation_table) <- c("Ref_count", "Alt_count", "Marker")
-
-
-
-    png(paste0(folder_workplace, "DECODE_readcount_distribution_", n_simulation, ".png"), res = 150, width = 15, height = 15, units = "in")
-    print(DECODE_plot_readcounts(mutation_table))
-    dev.off()
-
-
-
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    # png(paste0(folder_workplace, "DECODE_readcount_distribution_", n_simulation, ".png"), res = 150, width = 15, height = 15, units = "in")
+    # print(DECODE_plot_readcounts(mutation_table))
+    # dev.off()
+    ####################################################################
+    ####################################################################
+    ####################################################################
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
         sample_id = paste0("Simulation-", n_simulation),
@@ -355,14 +355,6 @@ for (n_simulation in 8:8) {
     decode_df[n_simulation, "Simulation"] <- n_simulation
     decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
     decode_df[n_simulation, "Tail"] <- decode_model$Tail
-    decode_df[n_simulation, "Tail_sensitivity_Bayesian_pi0_std"] <- decode_model$Tail_sensitivity_Bayesian_pi0_std
-    decode_df[n_simulation, "Tail_sensitivity_Bayesian_alpha_std"] <- decode_model$Tail_sensitivity_Bayesian_alpha_std
-    decode_df[n_simulation, "Tail_sensitivity_Morris_pi0_mean"] <- decode_model$Tail_sensitivity_Morris_pi0_mean
-    decode_df[n_simulation, "Tail_sensitivity_Morris_pi0_mean_abs"] <- decode_model$Tail_sensitivity_Morris_pi0_mean_abs
-    decode_df[n_simulation, "Tail_sensitivity_Morris_pi0_std"] <- decode_model$Tail_sensitivity_Morris_pi0_std
-    decode_df[n_simulation, "Tail_sensitivity_Morris_alpha_mean"] <- decode_model$Tail_sensitivity_Morris_alpha_mean
-    decode_df[n_simulation, "Tail_sensitivity_Morris_alpha_mean_abs"] <- decode_model$Tail_sensitivity_Morris_alpha_mean_abs
-    decode_df[n_simulation, "Tail_sensitivity_Morris_alpha_std"] <- decode_model$Tail_sensitivity_Morris_alpha_std
     decode_df[n_simulation, "Tail_power"] <- decode_model$Tail_power
     decode_df[n_simulation, "Tail_mutcount_observed"] <- decode_model$Tail_mutcount_observed
     decode_df[n_simulation, "Tail_mutcount_predicted"] <- decode_model$Tail_mutcount_predicted
@@ -374,17 +366,6 @@ for (n_simulation in 8:8) {
             decode_df[n_simulation, paste0("Cluster_frequency_", k)] <- decode_model[[paste0("Cluster_frequency_", k)]]
         }
     }
-    # cat("***************************************************************\n")
-    # cat("OBSERVED MUTATION COUNT IN NEUTRAL TAIL:\n")
-    # cat(paste0("DECODE:     ", decode_df$Tail_mutcount_observed[n_simulation], "\n"))
-    # cat(paste0("Real:       ", df$A_observed_decode[n_simulation], "\n"))
-    # cat(paste0("Ratio:      ", decode_df$Tail_mutcount_observed[n_simulation] / df$A_observed_decode[n_simulation], "\n"))
-    # cat("***************************************************************\n")
-    # cat("TRUE MUTATION COUNT IN NEUTRAL TAIL:\n")
-    # cat(paste0("DECODE:     ", decode_df$Tail_mutcount_predicted[n_simulation], "\n"))
-    # cat(paste0("Real:       ", df$A_total[n_simulation], "\n"))
-    # cat(paste0("Ratio:      ", decode_df$Tail_mutcount_predicted[n_simulation] / df$A_total[n_simulation], "\n"))
-    # cat("***************************************************************\n")
 }
 write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
 save(decode_fits, file = paste0("DECODE.rda"))

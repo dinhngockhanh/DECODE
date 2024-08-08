@@ -18,7 +18,6 @@ DECODE <- function(sample_id = "",
                    coverage_distribution = "sample-specific",
                    coverage_variables = NULL,
                    N_trials = 10000,
-                   N_trials_Morris_tail_sensitivity = 300,
                    neutral_tail = NA,
                    min_N_humps = 1,
                    max_N_humps = Inf,
@@ -87,7 +86,6 @@ DECODE <- function(sample_id = "",
             max_N_humps = max_N_humps,
             with_tail = TRUE,
             N_trials = N_trials,
-            N_trials_Morris_tail_sensitivity = N_trials_Morris_tail_sensitivity,
             sfs_stepcount = sfs_stepcount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
@@ -108,7 +106,6 @@ DECODE <- function(sample_id = "",
             max_N_humps = max_N_humps,
             with_tail = FALSE,
             N_trials = N_trials,
-            N_trials_Morris_tail_sensitivity = N_trials_Morris_tail_sensitivity,
             sfs_stepcount = sfs_stepcount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
@@ -138,7 +135,6 @@ DECODE <- function(sample_id = "",
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             N_trials = N_trials,
-            N_trials_Morris_tail_sensitivity = N_trials_Morris_tail_sensitivity,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
@@ -166,7 +162,6 @@ DECODE <- function(sample_id = "",
             max_N_humps = max_N_humps,
             with_tail = FALSE,
             N_trials = N_trials,
-            N_trials_Morris_tail_sensitivity = N_trials_Morris_tail_sensitivity,
             sfs_stepcount = sfs_stepcount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
@@ -227,7 +222,6 @@ DECODE_given_tail_status <- function(vec_SFS_real,
                                      max_N_humps,
                                      with_tail,
                                      N_trials,
-                                     N_trials_Morris_tail_sensitivity,
                                      sfs_stepcount,
                                      SFS_convolution,
                                      neutral_power_min,
@@ -307,45 +301,6 @@ DECODE_given_tail_status <- function(vec_SFS_real,
         component_distributions_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_best_final$SFS_expected[1, ]))
         component_distributions_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_best_final$SFS_expected_normalized[1, ]))
     }
-    # ####################################################################
-    # ####################################################################
-    # ####################################################################
-    # #---Sensitivity analysis for the tail parametrization
-    tail_sensitivity_test <- FALSE
-    # if (with_tail) {
-    #     best_final_N_humps <- length(vec_para_best_final) / 2 - 1
-    #     if (best_final_N_humps == 0) break
-    #     cat(paste0("Sensitibity of tail parametrization with ", best_final_N_humps, " clusters...\n"))
-    #     tail_sensitivity_test <- TRUE
-    #     best_final_pi_0 <- vec_para_best_final[1]
-    #     test_pi_0_min <- max(0, best_final_pi_0 - 0.1) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    #     test_pi_0_max <- min(1, best_final_pi_0 + 0.1) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    #     best_final_neutral_power <- vec_para_best_final[2]
-    #     test_neutral_power_min <- max(neutral_power_min, best_final_neutral_power - 0.5) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    #     test_neutral_power_max <- min(neutral_power_max, best_final_neutral_power + 0.5) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    #     sensitivity_results <- DECODE_tail_parameter_sensitivity(
-    #         vec_SFS_real = vec_SFS_real,
-    #         N_humps = best_final_N_humps,
-    #         N_Morris_trials = N_trials_Morris_tail_sensitivity,
-    #         sfs_stepcount = sfs_stepcount,
-    #         SFS_convolution_matrix = SFS_convolution_matrix,
-    #         fit_results = fit_results_best_final,
-    #         pi_0 = best_final_pi_0,
-    #         pi_0_min = test_pi_0_min,
-    #         pi_0_max = test_pi_0_max,
-    #         neutral_power = best_final_neutral_power,
-    #         neutral_power_min = test_neutral_power_min,
-    #         neutral_power_max = test_neutral_power_max,
-    #         cluster_frequency_min = cluster_frequency_min,
-    #         cluster_frequency_max = cluster_frequency_max,
-    #         zero_cutoff = zero_cutoff,
-    #         compute_parallel = compute_parallel,
-    #         n_cores = n_cores
-    #     )
-    # }
-    # ####################################################################
-    # ####################################################################
-    # ####################################################################
     #---Report the best fit
     result <- list()
     result$all_fits <- all_fits
@@ -356,7 +311,6 @@ DECODE_given_tail_status <- function(vec_SFS_real,
     result$best_fit$all_criteria <- criterion_all_final
     result$best_fit$selected_criterion_value <- criterion_best_final
     result$best_fit$tail_status <- with_tail
-    if (tail_sensitivity_test) result$best_fit$tail_sensitivity <- sensitivity_results
     return(result)
 }
 
@@ -367,7 +321,6 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                                                   sfs_stepcount,
                                                   SFS_convolution,
                                                   neutral_power = NA,
-                                                  pi_0 = NA,
                                                   neutral_power_min,
                                                   neutral_power_max,
                                                   cluster_frequency_min,
@@ -554,18 +507,13 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
 
 DECODE_for_pis <- function(vec_SFS_real,
                            neutral_power,
-                           pi_0 = NA,
                            cluster_frequencies,
                            component_distributions,
                            zero_cutoff) {
     # 	Function for parameter transformation
     parameter_transform <- function(parameters) {
         vec_pi <- exp(parameters)
-        if (is.na(pi_0)) {
-            vec_pi <- vec_pi / sum(vec_pi)
-        } else {
-            vec_pi <- c(pi_0, (1 - pi_0) * vec_pi / sum(vec_pi))
-        }
+        vec_pi <- vec_pi / sum(vec_pi)
         return(vec_pi)
     }
     # 	Function for optimization
@@ -596,8 +544,6 @@ DECODE_for_pis <- function(vec_SFS_real,
     } else {
         # 	Initial values for parameters
         if (is.na(neutral_power)) {
-            parameters_initial <- rep(0, N_humps)
-        } else if (!is.na(pi_0)) {
             parameters_initial <- rep(0, N_humps)
         } else {
             parameters_initial <- rep(0, N_humps + 1)
@@ -634,177 +580,6 @@ DECODE_for_pis <- function(vec_SFS_real,
     output$parameters <- vec_para
     output$component_distributions <- component_distributions
     return(output)
-}
-
-DECODE_tail_parameter_sensitivity <- function(vec_SFS_real,
-                                              N_humps,
-                                              Bayesian_percentile = 0.01,
-                                              N_Morris_trials = 300,
-                                              sfs_stepcount,
-                                              SFS_convolution_matrix,
-                                              fit_results,
-                                              pi_0,
-                                              pi_0_min,
-                                              pi_0_max,
-                                              neutral_power,
-                                              neutral_power_min,
-                                              neutral_power_max,
-                                              cluster_frequency_min,
-                                              cluster_frequency_max,
-                                              zero_cutoff,
-                                              compute_parallel,
-                                              n_cores,
-                                              progress_bar = TRUE) {
-    #----------------------------------------Bayesian posterior analysis
-    N_keep <- max(10, round(Bayesian_percentile * length(fit_results$all_logLikelihood)))
-    indices_keep <- order(fit_results$all_logLikelihood, decreasing = TRUE)[1:N_keep]
-    parameters_keep <- fit_results$all_parameters[indices_keep, ]
-    pi_0_std <- sd(parameters_keep[, 1])
-    neutral_power_std <- sd(parameters_keep[, 2])
-    cat("Bayesian posterior analysis for neutral compartment:\n")
-    cat(paste0("Neutral power:      std=", neutral_power_std, "\n"))
-    cat(paste0("Neutral proportion: std=", pi_0_std, "\n"))
-    #----------------------------------------Morris sensitivity analysis
-    library(sensitivity)
-    #   Find the maximal log-likelihood
-    tmp <- DECODE_given_tail_status_and_Ncluster(
-        vec_SFS_real = vec_SFS_real,
-        N_humps = N_humps,
-        with_tail = TRUE,
-        N_trials = N_Morris_trials,
-        sfs_stepcount = sfs_stepcount,
-        SFS_convolution_matrix = SFS_convolution_matrix,
-        neutral_power = neutral_power,
-        pi_0 = pi_0,
-        cluster_frequency_min = cluster_frequency_min,
-        cluster_frequency_max = cluster_frequency_max,
-        zero_cutoff = zero_cutoff,
-        compute_criteria = FALSE,
-        compute_parallel = compute_parallel,
-        n_cores = n_cores,
-        progress_bar = FALSE
-    )
-    max_logLikelihood <- tmp$best_logLikelihood
-    #   Define the model to compute Morris sensitivity
-    model <- function(parameters) {
-        if (compute_parallel == FALSE) {
-            ratio_logLikelihood <- rep(0, nrow(parameters))
-            if (progress_bar) {
-                pb <- txtProgressBar(
-                    min = 0,
-                    max = nrow(parameters),
-                    style = 3,
-                    width = 50,
-                    char = "+"
-                )
-            }
-            for (i in 1:nrow(parameters)) {
-                if (progress_bar) setTxtProgressBar(pb, i)
-                #   Find impact of different neutral parameters on likelihood
-                tmp <- DECODE_given_tail_status_and_Ncluster(
-                    vec_SFS_real = vec_SFS_real,
-                    N_humps = N_humps,
-                    with_tail = TRUE,
-                    N_trials = N_Morris_trials,
-                    sfs_stepcount = sfs_stepcount,
-                    SFS_convolution_matrix = SFS_convolution_matrix,
-                    neutral_power = parameters[i, 2],
-                    pi_0 = parameters[i, 1],
-                    cluster_frequency_min = cluster_frequency_min,
-                    cluster_frequency_max = cluster_frequency_max,
-                    zero_cutoff = zero_cutoff,
-                    compute_criteria = FALSE,
-                    compute_parallel = FALSE,
-                    progress_bar = FALSE
-                )
-                ratio_logLikelihood[i] <- tmp$best_logLikelihood / max_logLikelihood
-            }
-            if (progress_bar) cat("\n")
-        } else {
-            library(parallel)
-            library(pbapply)
-            #   Start parallel cluster
-            numCores <- ifelse(is.null(n_cores), detectCores(), n_cores)
-            cl <- makePSOCKcluster(numCores - 1)
-            #   Prepare input parameters
-            clusterExport(cl, varlist = c(
-                "N_end",
-                "build_SFS_library",
-                "build_SFS_library_Griffiths_Tavare",
-                "compute_loglikelihood",
-                "compute_SFS",
-                "DECODE_for_pis",
-                "DECODE_given_tail_status_and_Ncluster"
-            ))
-            #   Find impact of different neutral parameters on likelihood
-            func_parallel <- function(i) {
-                tmp <- DECODE_given_tail_status_and_Ncluster(
-                    vec_SFS_real = vec_SFS_real,
-                    N_humps = N_humps,
-                    with_tail = TRUE,
-                    N_trials = N_Morris_trials,
-                    sfs_stepcount = sfs_stepcount,
-                    SFS_convolution_matrix = SFS_convolution_matrix,
-                    neutral_power = parameters[i, 2],
-                    pi_0 = parameters[i, 1],
-                    cluster_frequency_min = cluster_frequency_min,
-                    cluster_frequency_max = cluster_frequency_max,
-                    zero_cutoff = zero_cutoff,
-                    compute_criteria = FALSE,
-                    compute_parallel = FALSE,
-                    progress_bar = FALSE
-                )
-                ratio_logLikelihood <- tmp$best_logLikelihood / max_logLikelihood
-            }
-            if (progress_bar) {
-                output <- pblapply(cl = cl, X = 1:nrow(parameters), FUN = function(i) {
-                    return(func_parallel(i))
-                })
-            } else {
-                output <- parLapply(cl = cl, X = 1:nrow(parameters), fun = function(i) {
-                    return(func_parallel(i))
-                })
-            }
-            stopCluster(cl)
-            #   Extract the results
-            ratio_logLikelihood <- unlist(output)
-        }
-        return(ratio_logLikelihood)
-    }
-    #   Compute the Morris sensitivity
-    morris_result <- morris(
-        model = model,
-        factors = 2,
-        r = 100,
-        design = list(type = "oat", levels = 5),
-        binf = c(pi_0_min, neutral_power_min),
-        bsup = c(pi_0_max, neutral_power_max),
-        scale = TRUE
-    )
-    #   Extract sensitivities of neutral tail power and mutation count
-    mu <- apply(morris_result$ee, 2, mean)
-    mu_star <- apply(morris_result$ee, 2, function(x) mean(abs(x)))
-    sigma <- apply(morris_result$ee, 2, sd)
-    pi_0_mu <- mu[1]
-    pi_0_mu_star <- mu_star[1]
-    pi_0_sigma <- sigma[1]
-    neutral_power_mu <- mu[2]
-    neutral_power_mu_star <- mu_star[2]
-    neutral_power_sigma <- sigma[2]
-    cat("Morris sensitivity analysis for neutral compartment:\n")
-    cat(paste0("Neutral power:      mu_*=", neutral_power_mu_star, "; sigma=", neutral_power_sigma, "\n"))
-    cat(paste0("Neutral proportion: mu_*=", pi_0_mu_star, "; sigma=", pi_0_sigma, "\n"))
-    result <- list()
-    result$bayesian_pi_0_std <- pi_0_std
-    result$bayesian_neutral_power_std <- neutral_power_std
-    result$morris <- morris_result
-    result$morris_pi_0_mean <- pi_0_mu
-    result$morris_pi_0_mean_abs <- pi_0_mu_star
-    result$morris_pi_0_std <- pi_0_sigma
-    result$morris_neutral_power_mean <- neutral_power_mu
-    result$morris_neutral_power_mean_abs <- neutral_power_mu_star
-    result$morris_neutral_power_std <- neutral_power_sigma
-    return(result)
 }
 
 cluster_count_criteria <- function(num_parameters, log_L, num_samples, vec_SFS_real, parameters, component_distributions, zero_cutoff) {
@@ -876,25 +651,6 @@ parameter_conversion <- function(result,
     parameters <- result$best_fit$parameters
     component_distributions <- result$best_fit$component_distributions
     tail_status <- result$best_fit$tail_status
-    if (!is.null(result$best_fit$tail_sensitivity)) {
-        pi_0_std <- result$best_fit$tail_sensitivity$bayesian_pi_0_std
-        neutral_power_std <- result$best_fit$tail_sensitivity$bayesian_neutral_power_std
-        pi_0_mu <- result$best_fit$tail_sensitivity$morris_pi_0_mean
-        pi_0_mu_star <- result$best_fit$tail_sensitivity$morris_pi_0_mean_abs
-        pi_0_sigma <- result$best_fit$tail_sensitivity$morris_pi_0_std
-        neutral_power_mu <- result$best_fit$tail_sensitivity$morris_neutral_power_mean
-        neutral_power_mu_star <- result$best_fit$tail_sensitivity$morris_neutral_power_mean_abs
-        neutral_power_sigma <- result$best_fit$tail_sensitivity$morris_neutral_power_std
-    } else {
-        pi_0_std <- NA
-        neutral_power_std <- NA
-        pi_0_mu <- NA
-        pi_0_mu_star <- NA
-        pi_0_sigma <- NA
-        neutral_power_mu <- NA
-        neutral_power_mu_star <- NA
-        neutral_power_sigma <- NA
-    }
     if (tail_status) {
         vec_A <- parameters[1:2]
         N_humps <- length(parameters) / 2 - 1
@@ -924,14 +680,6 @@ parameter_conversion <- function(result,
         parameters_df <- data.frame()
         parameters_df[1, "Mutation_count_for_fitting"] <- mutation_count_for_fitting
         parameters_df[1, "Tail"] <- tail_status
-        parameters_df[1, "Tail_sensitivity_Bayesian_pi0_std"] <- pi_0_std
-        parameters_df[1, "Tail_sensitivity_Bayesian_alpha_std"] <- neutral_power_std
-        parameters_df[1, "Tail_sensitivity_Morris_pi0_mean"] <- pi_0_mu
-        parameters_df[1, "Tail_sensitivity_Morris_pi0_mean_abs"] <- pi_0_mu_star
-        parameters_df[1, "Tail_sensitivity_Morris_pi0_std"] <- pi_0_sigma
-        parameters_df[1, "Tail_sensitivity_Morris_alpha_mean"] <- neutral_power_mu
-        parameters_df[1, "Tail_sensitivity_Morris_alpha_mean_abs"] <- neutral_power_mu_star
-        parameters_df[1, "Tail_sensitivity_Morris_alpha_std"] <- neutral_power_sigma
         if (tail_status) {
             parameters_df[1, "Tail_power"] <- vec_A[2]
             parameters_df[1, "Tail_mutcount_observed"] <-
