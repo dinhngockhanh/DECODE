@@ -26,11 +26,6 @@ setwd(R_workplace)
 folder_workplace <- "TEST/"
 n_simulations <- 100 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-#---Set DECODE parameters
-# 	Minimum variant read count to be accepted
-min_variant_read <- 5 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# 	Minimum total read count to be accepted
-min_total_read <- 50 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # ==========================================MAKE CINNER LITE SIMULATIONS
 dir.create(folder_workplace)
 load(file = paste0(R_PCAWG, "/ICGC_purity_coverage.rda"))
@@ -308,31 +303,21 @@ for (n_simulation in 8:8) {
     # png(paste0(folder_workplace, "DECODE_readcount_distribution_", n_simulation, ".png"), res = 150, width = 15, height = 15, units = "in")
     # print(DECODE_plot_readcounts(mutation_table))
     # dev.off()
-    ####################################################################
-    ####################################################################
-    ####################################################################
     #---SFS deconvolution with DECODE
-    DECODE_result <- DECODE(
+    DECODE_result <- DECODE_experiment(
         sample_id = paste0("Simulation-", n_simulation),
         mutation_table = mutation_table,
         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        libPaths_binomial_table = R_libPaths_binomial_table,
-        matrix_binomial_sample_size = 1000,
-        matrix_binomial_sfs_stepcount = 100,
-        matrix_binomial_ploidy = 2,
-        min_variant_read = min_variant_read,
-        min_total_read = min_total_read,
-        max_total_read = 500,
         sample_size = n_sample,
-        sfs_stepcount = 100,
+        sfs_bincount = 100,
         compute_parallel = TRUE,
         neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     )
     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
     #---Plot DECODE deconvolution
     load(paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
-    png(paste0(folder_workplace, "DECODE_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(DECODE_plot(
+    png(paste0(folder_workplace, "DECODE_inference_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+    print(DECODE_plot_experiment(
         DECODE_result = DECODE_result,
         data_marker_colors = c(
             "Data" = "black",
@@ -346,29 +331,67 @@ for (n_simulation in 8:8) {
         )
     ))
     dev.off()
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    # #---SFS deconvolution with DECODE
+    # DECODE_result <- DECODE(
+    #     sample_id = paste0("Simulation-", n_simulation),
+    #     mutation_table = mutation_table,
+    #     criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    #     libPaths_binomial_table = R_libPaths_binomial_table,
+    #     matrix_binomial_sample_size = 1000,
+    #     matrix_binomial_sfs_bincount = 100,
+    #     matrix_binomial_ploidy = 2,
+    #     min_variant_read = min_variant_read,
+    #     min_total_read = min_total_read,
+    #     max_total_read = 500,
+    #     sample_size = n_sample,
+    #     sfs_bincount = 100,
+    #     compute_parallel = TRUE,
+    #     neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    # )
+    # save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
+    # #---Plot DECODE deconvolution
+    # load(paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
+    # png(paste0(folder_workplace, "DECODE_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
+    # print(DECODE_plot(
+    #     DECODE_result = DECODE_result,
+    #     data_marker_colors = c(
+    #         "Data" = "black",
+    #         "Foreground 0" = rgb(0.2, 0.2, 0.2),
+    #         "Foreground 1" = rgb(0.5, 0.5, 0.5),
+    #         "Foreground 2" = rgb(0.7, 0.7, 0.7),
+    #         "Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
+    #         "Background 1" = rgb(0.6350, 0.0780, 0.1840),
+    #         "Background 2" = rgb(0.4660, 0.6740, 0.1880),
+    #         "Truncal" = rgb(0, 0.4470, 0.7410)
+    #     )
+    # ))
+    # dev.off()
     # png(paste0(folder_workplace, "DECODE_model_selection_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
     # print(DECODE_plot_model_selection(DECODE_result = DECODE_result, data_marker_colors = data_marker_colors))
     # dev.off()
-    #---Save DECODE results
-    decode_fits[[n_simulation]] <- DECODE_result
-    decode_model <- DECODE_result$final_fit$parameters_df
-    decode_df[n_simulation, "Simulation"] <- n_simulation
-    decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
-    decode_df[n_simulation, "Tail"] <- decode_model$Tail
-    decode_df[n_simulation, "Tail_power"] <- decode_model$Tail_power
-    decode_df[n_simulation, "Tail_mutcount_observed"] <- decode_model$Tail_mutcount_observed
-    decode_df[n_simulation, "Tail_mutcount_predicted"] <- decode_model$Tail_mutcount_predicted
-    decode_df[n_simulation, "Cluster_count"] <- decode_model$Cluster_count
-    if (decode_model$Cluster_count >= 1) {
-        for (k in 1:decode_model$Cluster_count) {
-            decode_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- decode_model[[paste0("Cluster_mutcount_observed_", k)]]
-            decode_df[n_simulation, paste0("Cluster_mutcount_predicted_", k)] <- decode_model[[paste0("Cluster_mutcount_predicted_", k)]]
-            decode_df[n_simulation, paste0("Cluster_frequency_", k)] <- decode_model[[paste0("Cluster_frequency_", k)]]
-        }
-    }
+    # #---Save DECODE results
+    # decode_fits[[n_simulation]] <- DECODE_result
+    # decode_model <- DECODE_result$final_fit$parameters_df
+    # decode_df[n_simulation, "Simulation"] <- n_simulation
+    # decode_df[n_simulation, "Mutation_count_in_fitting"] <- decode_model$Mutation_count_for_fitting
+    # decode_df[n_simulation, "Tail"] <- decode_model$Tail
+    # decode_df[n_simulation, "Tail_power"] <- decode_model$Tail_power
+    # decode_df[n_simulation, "Tail_mutcount_observed"] <- decode_model$Tail_mutcount_observed
+    # decode_df[n_simulation, "Tail_mutcount_predicted"] <- decode_model$Tail_mutcount_predicted
+    # decode_df[n_simulation, "Cluster_count"] <- decode_model$Cluster_count
+    # if (decode_model$Cluster_count >= 1) {
+    #     for (k in 1:decode_model$Cluster_count) {
+    #         decode_df[n_simulation, paste0("Cluster_mutcount_observed_", k)] <- decode_model[[paste0("Cluster_mutcount_observed_", k)]]
+    #         decode_df[n_simulation, paste0("Cluster_mutcount_predicted_", k)] <- decode_model[[paste0("Cluster_mutcount_predicted_", k)]]
+    #         decode_df[n_simulation, paste0("Cluster_frequency_", k)] <- decode_model[[paste0("Cluster_frequency_", k)]]
+    #     }
+    # }
 }
-write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
-save(decode_fits, file = paste0("DECODE.rda"))
+# write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
+# save(decode_fits, file = paste0("DECODE.rda"))
 # ==============================================================ANALYSIS
 groundtruth_df <- read.csv("Parameters_true.csv")
 # mobster_df <- read.csv("Parameters_MOBSTER.csv")
