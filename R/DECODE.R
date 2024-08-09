@@ -362,7 +362,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                 num_samples = mutation_count,
                 vec_SFS_real = vec_SFS_real,
                 parameters = results$parameters,
-                component_distributions = results$component_distributions,
+                component_distributions = component_distributions,
                 zero_cutoff = zero_cutoff
             )
         }
@@ -561,7 +561,6 @@ DECODE_for_pis <- function(vec_SFS_real,
     output <- list()
     output$log_L <- log_L
     output$parameters <- vec_para
-    output$component_distributions <- component_distributions
     return(output)
 }
 
