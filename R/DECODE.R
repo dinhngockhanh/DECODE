@@ -8,13 +8,13 @@ DECODE <- function(sample_id = "",
                    cluster_frequency_max = 1,
                    libPaths_binomial_table,
                    matrix_binomial_sample_size,
-                   matrix_binomial_sfs_stepcount,
+                   matrix_binomial_sfs_bincount,
                    matrix_binomial_ploidy,
                    min_variant_read,
                    min_total_read,
                    max_total_read,
                    sample_size,
-                   sfs_stepcount,
+                   sfs_bincount,
                    coverage_distribution = "sample-specific",
                    coverage_variables = NULL,
                    N_trials = 10000,
@@ -38,9 +38,9 @@ DECODE <- function(sample_id = "",
         max_total_read = max_total_read
     )
     #---Prepare the real SFS
-    vec_freq <- seq(1, sfs_stepcount) / sfs_stepcount
-    vec_SFS_real <- rep(0, sfs_stepcount)
-    for (j in 1:sfs_stepcount) {
+    vec_freq <- seq(1, sfs_bincount) / sfs_bincount
+    vec_SFS_real <- rep(0, sfs_bincount)
+    for (j in 1:sfs_bincount) {
         vec_SFS_real[j] <- length(which(
             mutation_altcounts >= min_variant_read &
                 mutation_totcounts >= min_total_read &
@@ -52,7 +52,7 @@ DECODE <- function(sample_id = "",
     binomial_matrix <- get_binomial_matrix(
         folder = libPaths_binomial_table,
         matrix_binomial_sample_size = matrix_binomial_sample_size,
-        matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+        matrix_binomial_sfs_bincount = matrix_binomial_sfs_bincount,
         matrix_binomial_ploidy = matrix_binomial_ploidy,
         min_variant_read = min_variant_read,
         min_total_read = min_total_read,
@@ -64,7 +64,7 @@ DECODE <- function(sample_id = "",
     cat(bold(blue("Prepare the SFS convolution matrix...\n")))
     SFS_convolution <- build_convolution_matrix(
         binomial_matrix = binomial_matrix,
-        sfs_stepcount = sfs_stepcount,
+        sfs_bincount = sfs_bincount,
         coverage_distribution = coverage_distribution,
         coverage_variables = coverage_variables,
         sample_coverage = sample_coverage
@@ -72,14 +72,16 @@ DECODE <- function(sample_id = "",
     #---DECODE
     DECODE_result <- list()
     DECODE_result$sample_id <- sample_id
-    DECODE_result$sfs_stepcount <- sfs_stepcount
+    DECODE_result$sfs_bincount <- sfs_bincount
     DECODE_result$mutational_table <- mutation_table
     DECODE_result$SFS_frequencies <- vec_freq
     DECODE_result$SFS_for_fitting <- vec_SFS_real
+    DECODE_result$min_variant_read <- min_variant_read
+    DECODE_result$min_total_read <- min_total_read
     if (is.na(neutral_tail)) {
         result_with_tail <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
-            sfs_stepcount = sfs_stepcount,
+            sfs_bincount = sfs_bincount,
             with_tail = TRUE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
@@ -99,7 +101,7 @@ DECODE <- function(sample_id = "",
         DECODE_result$fits_with_tail <- result_with_tail
         result_without_tail <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
-            sfs_stepcount = sfs_stepcount,
+            sfs_bincount = sfs_bincount,
             with_tail = FALSE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
@@ -125,7 +127,7 @@ DECODE <- function(sample_id = "",
     } else if (neutral_tail == TRUE) {
         final_result <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
-            sfs_stepcount = sfs_stepcount,
+            sfs_bincount = sfs_bincount,
             with_tail = TRUE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
@@ -146,7 +148,7 @@ DECODE <- function(sample_id = "",
     } else if (neutral_tail == FALSE) {
         final_result <- DECODE_given_tail_status(
             vec_SFS_real = vec_SFS_real,
-            sfs_stepcount = sfs_stepcount,
+            sfs_bincount = sfs_bincount,
             with_tail = FALSE,
             criterion = criterion,
             criterion_ratio = criterion_ratio,
@@ -208,7 +210,7 @@ DECODE_given_tail_status <- function(vec_SFS_real,
                                      max_N_humps,
                                      with_tail,
                                      N_trials,
-                                     sfs_stepcount,
+                                     sfs_bincount,
                                      SFS_convolution,
                                      neutral_power_min,
                                      neutral_power_max,
@@ -229,7 +231,7 @@ DECODE_given_tail_status <- function(vec_SFS_real,
             N_humps = N_humps,
             with_tail = with_tail,
             N_trials = N_trials,
-            sfs_stepcount = sfs_stepcount,
+            sfs_bincount = sfs_bincount,
             SFS_convolution = SFS_convolution,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
@@ -304,7 +306,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                                                   N_humps,
                                                   with_tail,
                                                   N_trials,
-                                                  sfs_stepcount,
+                                                  sfs_bincount,
                                                   SFS_convolution,
                                                   neutral_power = NA,
                                                   neutral_power_min,
@@ -328,7 +330,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                                cluster_frequency_min,
                                cluster_frequency_max,
                                vec_SFS_real,
-                               sfs_stepcount,
+                               sfs_bincount,
                                N_end,
                                SFS_convolution_matrix,
                                zero_cutoff) {
@@ -343,7 +345,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
         component_distributions <- build_SFS_library(
             neutral_power = neutral_power,
             cluster_frequencies = cluster_frequencies,
-            sfs_stepcount = sfs_stepcount,
+            sfs_bincount = sfs_bincount,
             SFS_convolution_matrix = SFS_convolution_matrix,
             N_end = N_end
         )
@@ -403,7 +405,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                 cluster_frequency_min = cluster_frequency_min,
                 cluster_frequency_max = cluster_frequency_max,
                 vec_SFS_real = vec_SFS_real,
-                sfs_stepcount = sfs_stepcount,
+                sfs_bincount = sfs_bincount,
                 N_end = N_end,
                 SFS_convolution_matrix = SFS_convolution_matrix,
                 zero_cutoff = zero_cutoff
@@ -424,7 +426,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
         cl <- makePSOCKcluster(numCores - 1)
         #   Prepare input parameters
         clusterExport(cl, varlist = c(
-            "with_tail", "N_humps", "sfs_stepcount", "N_end", "zero_cutoff",
+            "with_tail", "N_humps", "sfs_bincount", "N_end", "zero_cutoff",
             "compute_criteria", "vec_SFS_real", "SFS_convolution_matrix",
             "neutral_power", "neutral_power_min", "neutral_power_max",
             "cluster_frequency_min", "cluster_frequency_max",
@@ -444,7 +446,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                     cluster_frequency_min = cluster_frequency_min,
                     cluster_frequency_max = cluster_frequency_max,
                     vec_SFS_real = vec_SFS_real,
-                    sfs_stepcount = sfs_stepcount,
+                    sfs_bincount = sfs_bincount,
                     N_end = N_end,
                     SFS_convolution_matrix = SFS_convolution_matrix,
                     zero_cutoff = zero_cutoff
@@ -462,7 +464,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                     cluster_frequency_min = cluster_frequency_min,
                     cluster_frequency_max = cluster_frequency_max,
                     vec_SFS_real = vec_SFS_real,
-                    sfs_stepcount = sfs_stepcount,
+                    sfs_bincount = sfs_bincount,
                     N_end = N_end,
                     SFS_convolution_matrix = SFS_convolution_matrix,
                     zero_cutoff = zero_cutoff
@@ -723,20 +725,20 @@ compute_SFS <- function(A, vec_K, component_distributions) {
     return(vec_SFS_model)
 }
 
-build_SFS_library <- function(neutral_power, cluster_frequencies, sfs_stepcount, SFS_convolution_matrix, N_end) {
+build_SFS_library <- function(neutral_power, cluster_frequencies, sfs_bincount, SFS_convolution_matrix, N_end) {
     SFS_exact <- c()
     SFS_expected <- c()
     SFS_expected_normalized <- c()
     #   Build the neutral component
     if (is.na(neutral_power)) {
         vec_SFS_GT <- numeric(N_end)
-        vec_SFS_expected <- rep(0, sfs_stepcount)
-        vec_SFS_expected_normalized <- rep(0, sfs_stepcount)
+        vec_SFS_expected <- rep(0, sfs_bincount)
+        vec_SFS_expected_normalized <- rep(0, sfs_bincount)
     } else {
         vec_para <- c(1, neutral_power)
         vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para = vec_para, N_end = N_end)
-        vec_SFS_expected <- rep(0, sfs_stepcount)
-        for (j in 1:sfs_stepcount) {
+        vec_SFS_expected <- rep(0, sfs_bincount)
+        for (j in 1:sfs_bincount) {
             vec_SFS_expected[j] <- sum(vec_SFS_GT * SFS_convolution_matrix[, j])
         }
         vec_SFS_expected_normalized <- vec_SFS_expected / sum(vec_SFS_expected)
@@ -749,8 +751,8 @@ build_SFS_library <- function(neutral_power, cluster_frequencies, sfs_stepcount,
         for (i in 1:length(cluster_frequencies)) {
             vec_para <- c(0, 0, 1, cluster_frequencies[i])
             vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para = vec_para, N_end = N_end)
-            vec_SFS_expected <- rep(0, sfs_stepcount)
-            for (j in 1:sfs_stepcount) {
+            vec_SFS_expected <- rep(0, sfs_bincount)
+            for (j in 1:sfs_bincount) {
                 vec_SFS_expected[j] <- sum(vec_SFS_GT * SFS_convolution_matrix[, j])
             }
             SFS_exact <- rbind(SFS_exact, vec_SFS_GT)
@@ -772,7 +774,7 @@ build_SFS_library <- function(neutral_power, cluster_frequencies, sfs_stepcount,
 
 get_binomial_matrix <- function(folder,
                                 matrix_binomial_sample_size,
-                                matrix_binomial_sfs_stepcount,
+                                matrix_binomial_sfs_bincount,
                                 matrix_binomial_ploidy,
                                 min_variant_read,
                                 min_total_read,
@@ -785,7 +787,7 @@ get_binomial_matrix <- function(folder,
         output <- readRDS(file)
         if (identical(class(output), "DECODE_binomial_matrix") &
             output$sample_size == matrix_binomial_sample_size &
-            output$sfs_stepcount == matrix_binomial_sfs_stepcount &
+            output$sfs_bincount == matrix_binomial_sfs_bincount &
             output$ploidy == matrix_binomial_ploidy &
             output$min_variant_read == min_variant_read &
             output$min_total_read == min_total_read &
@@ -798,21 +800,21 @@ get_binomial_matrix <- function(folder,
     #---Function to compute the binomial PDF table for a given r
     func_submatrix_binomial_PDF <- function(r,
                                             matrix_binomial_sample_size,
-                                            matrix_binomial_sfs_stepcount,
+                                            matrix_binomial_sfs_bincount,
                                             matrix_binomial_ploidy,
                                             min_variant_read,
                                             min_total_read) {
-        submatrix_binomial_PDF <- array(0, dim = c(matrix_binomial_sample_size, matrix_binomial_sfs_stepcount))
+        submatrix_binomial_PDF <- array(0, dim = c(matrix_binomial_sample_size, matrix_binomial_sfs_bincount))
         for (m in 1:matrix_binomial_sample_size) {
-            for (i in 1:matrix_binomial_sfs_stepcount) {
+            for (i in 1:matrix_binomial_sfs_bincount) {
                 if (r < min(min_variant_read, min_total_read)) next
-                #   Find boundaries for s = ( (i-1)*r/matrix_binomial_sfs_stepcount,i*r/matrix_binomial_sfs_stepcount ]
-                r1 <- r * (i - 1) / matrix_binomial_sfs_stepcount
+                #   Find boundaries for s = ( (i-1)*r/matrix_binomial_sfs_bincount,i*r/matrix_binomial_sfs_bincount ]
+                r1 <- r * (i - 1) / matrix_binomial_sfs_bincount
                 r1 <- ifelse(r1 %% 1 == 0, r1 + 1, ceiling(r1))
                 r1 <- max(min_variant_read, r1, 1)
-                r2 <- floor(r * i / matrix_binomial_sfs_stepcount)
+                r2 <- floor(r * i / matrix_binomial_sfs_bincount)
                 if (r1 > r2) next
-                #   Find P{s/r in ((i-1)/matrix_binomial_sfs_stepcount,i/matrix_binomial_sfs_stepcount] | m, r}
+                #   Find P{s/r in ((i-1)/matrix_binomial_sfs_bincount,i/matrix_binomial_sfs_bincount] | m, r}
                 Prob <- pbinom(r2, size = r, prob = m / (matrix_binomial_sample_size * matrix_binomial_ploidy)) -
                     pbinom(r1 - 1, size = r, prob = m / (matrix_binomial_sample_size * matrix_binomial_ploidy))
                 submatrix_binomial_PDF[m, i] <- Prob
@@ -830,13 +832,13 @@ get_binomial_matrix <- function(folder,
             width = 50,
             char = "+"
         )
-        matrix_binomial_PDF <- array(0, dim = c(max_total_read, matrix_binomial_sample_size, matrix_binomial_sfs_stepcount))
+        matrix_binomial_PDF <- array(0, dim = c(max_total_read, matrix_binomial_sample_size, matrix_binomial_sfs_bincount))
         for (r in 1:max_total_read) {
             setTxtProgressBar(pb, r)
             matrix_binomial_PDF[r, , ] <- func_submatrix_binomial_PDF(
                 r = r,
                 matrix_binomial_sample_size = matrix_binomial_sample_size,
-                matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+                matrix_binomial_sfs_bincount = matrix_binomial_sfs_bincount,
                 matrix_binomial_ploidy = matrix_binomial_ploidy,
                 min_variant_read = min_variant_read,
                 min_total_read = min_total_read
@@ -852,7 +854,7 @@ get_binomial_matrix <- function(folder,
         #   Prepare input parameters
         clusterExport(cl, varlist = c(
             "matrix_binomial_sample_size",
-            "matrix_binomial_sfs_stepcount",
+            "matrix_binomial_sfs_bincount",
             "matrix_binomial_ploidy",
             "min_variant_read",
             "min_total_read",
@@ -863,14 +865,14 @@ get_binomial_matrix <- function(folder,
             return(func_submatrix_binomial_PDF(
                 r = r,
                 matrix_binomial_sample_size = matrix_binomial_sample_size,
-                matrix_binomial_sfs_stepcount = matrix_binomial_sfs_stepcount,
+                matrix_binomial_sfs_bincount = matrix_binomial_sfs_bincount,
                 matrix_binomial_ploidy = matrix_binomial_ploidy,
                 min_variant_read = min_variant_read,
                 min_total_read = min_total_read
             ))
         })
         stopCluster(cl)
-        matrix_binomial_PDF <- array(0, dim = c(max_total_read, matrix_binomial_sample_size, matrix_binomial_sfs_stepcount))
+        matrix_binomial_PDF <- array(0, dim = c(max_total_read, matrix_binomial_sample_size, matrix_binomial_sfs_bincount))
         for (r in 1:max_total_read) {
             matrix_binomial_PDF[r, , ] <- output[[r]]
         }
@@ -879,7 +881,7 @@ get_binomial_matrix <- function(folder,
     output <- list()
     output$matrix_binomial_PDF <- matrix_binomial_PDF
     output$sample_size <- matrix_binomial_sample_size
-    output$sfs_stepcount <- matrix_binomial_sfs_stepcount
+    output$sfs_bincount <- matrix_binomial_sfs_bincount
     output$ploidy <- matrix_binomial_ploidy
     output$min_variant_read <- min_variant_read
     output$min_total_read <- min_total_read
@@ -888,7 +890,7 @@ get_binomial_matrix <- function(folder,
     filename <- paste0(
         folder, "/DECODE_binomial_matrix_",
         matrix_binomial_sample_size, "_",
-        matrix_binomial_sfs_stepcount, "_",
+        matrix_binomial_sfs_bincount, "_",
         matrix_binomial_ploidy, "_",
         min_variant_read, "_",
         min_total_read, "_",
@@ -900,14 +902,14 @@ get_binomial_matrix <- function(folder,
 }
 
 build_convolution_matrix <- function(binomial_matrix,
-                                     sfs_stepcount,
+                                     sfs_bincount,
                                      coverage_distribution,
                                      coverage_variables,
                                      sample_coverage) {
     library(progress)
     matrix_binomial_PDF <- binomial_matrix$matrix_binomial_PDF
     N_end <- binomial_matrix$sample_size
-    SFS_totalsteps_base <- binomial_matrix$sfs_stepcount
+    SFS_totalsteps_base <- binomial_matrix$sfs_bincount
     min_total_read <- binomial_matrix$min_total_read
     max_total_read <- binomial_matrix$max_total_read
     #---Compute the total readcount PDF
@@ -921,20 +923,20 @@ build_convolution_matrix <- function(binomial_matrix,
         sample_coverage_distribution <- sample_coverage
     }
     #---Build convolution matrix to transform Griffiths-Tavare SFS to expected SFS
-    vec_SFS_freq <- seq(0, 1, length.out = sfs_stepcount + 1)
-    mat_convolution <- matrix(0, nrow = N_end, ncol = sfs_stepcount)
+    vec_SFS_freq <- seq(0, 1, length.out = sfs_bincount + 1)
+    mat_convolution <- matrix(0, nrow = N_end, ncol = sfs_bincount)
     pb <- txtProgressBar(
         min = 0,
-        max = sfs_stepcount,
+        max = sfs_bincount,
         style = 3,
         width = 50,
         char = "+"
     )
     start_time <- Sys.time()
-    for (i in 1:sfs_stepcount) {
+    for (i in 1:sfs_bincount) {
         setTxtProgressBar(pb, i)
         elapsed_time <- Sys.time() - start_time
-        estimated_total_time <- (elapsed_time / i) * sfs_stepcount
+        estimated_total_time <- (elapsed_time / i) * sfs_bincount
         remaining_time <- estimated_total_time - elapsed_time
         cat(sprintf(" elapsed=%02ds remaining=%02ds\r", as.integer(elapsed_time), as.integer(remaining_time)))
         j_lower <- round(SFS_totalsteps_base * vec_SFS_freq[i]) + 1 # x_1*r

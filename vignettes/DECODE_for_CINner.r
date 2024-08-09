@@ -309,13 +309,13 @@ for (n_simulation in 1:n_simulations) {
         criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         libPaths_binomial_table = R_libPaths_binomial_table,
         matrix_binomial_sample_size = 1000,
-        matrix_binomial_sfs_stepcount = 100,
+        matrix_binomial_sfs_bincount = 100,
         matrix_binomial_ploidy = 2,
         min_variant_read = min_variant_read,
         min_total_read = min_total_read,
         max_total_read = 500,
         sample_size = n_sample,
-        sfs_stepcount = 100,
+        sfs_bincount = 100,
         compute_parallel = TRUE,
         neutral_tail = TRUE # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     )

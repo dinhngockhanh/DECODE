@@ -178,8 +178,11 @@ DECODE_plot_readcounts <- function(mutation_table,
     #---Plot the readcount distribution
     p <- ggplot(df_dist, aes(x = min_total_read, y = min_variant_read, fill = freq)) +
         geom_tile() +
-        # scale_fill_gradientn(colors = rainbow(10), name = "Proportion of retained mutations") +
-        scale_fill_gradientn(colors = c("#0072B2", "#56B4E9", "#009E73", "#E69F00", "#D55E00"), name = "Proportion of retained mutations") +
+        scale_fill_gradientn(
+            colors = c("#0072B2", "#56B4E9", "#009E73", "#E69F00", "#D55E00"),
+            values = c(0, 0.25, 0.5, 0.75, 1),
+            name = "Proportion of retained mutations"
+        ) +
         theme_minimal() +
         labs(title = "", x = "Minimum total readcount", y = "Minimum alternative readcount") +
         theme(
