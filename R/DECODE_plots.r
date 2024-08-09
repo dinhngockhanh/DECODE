@@ -10,7 +10,6 @@ DECODE_plot <- function(DECODE_result,
     mutation_refcounts <- mutation_table$Ref_count
     mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
-
     SFS_totalsteps <- length(vec_freq)
 
     if (fit == "best") {
