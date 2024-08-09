@@ -308,7 +308,6 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                                                   N_trials,
                                                   sfs_bincount,
                                                   SFS_convolution,
-                                                  neutral_power = NA,
                                                   neutral_power_min,
                                                   neutral_power_max,
                                                   cluster_frequency_min,
@@ -335,11 +334,7 @@ DECODE_given_tail_status_and_Ncluster <- function(vec_SFS_real,
                                SFS_convolution_matrix,
                                zero_cutoff) {
         #   Sample neutral component power and cluster frequencies
-        if (with_tail & is.na(neutral_power)) {
-            neutral_power <- runif(1, neutral_power_min, neutral_power_max)
-        } else if (!with_tail) {
-            neutral_power <- NA
-        }
+        neutral_power <- ifelse(with_tail, runif(1, neutral_power_min, neutral_power_max), NA)
         cluster_frequencies <- sort(runif(N_humps, cluster_frequency_min, cluster_frequency_max), decreasing = TRUE)
         #   Build the SFS component library
         component_distributions <- build_SFS_library(
