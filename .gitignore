@@ -1,8 +1,8 @@
 data/
-DECODE_binomial_matrices/
 vignettes/ICGC/
 vignettes/ICGC-MOBSTER/
 vignettes/ICGC-DECODE/
 vignettes/TEST/
+vignettes/TCGA-COAD/
 .DS_Store
 vignettes/.DS_Store

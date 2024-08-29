@@ -984,7 +984,9 @@ build_SFS_library_Griffiths_Tavare <- function(vec_para, N_end) {
     return(vec_SFS_GT)
 }
 
-prep_distribution_patient <- function(mutations_total_read, min_total_read, max_total_read) {
+prep_distribution_patient <- function(mutations_total_read, min_total_read = NULL, max_total_read = NULL) {
+    if (is.null(min_total_read)) min_total_read <- min(mutations_total_read)
+    if (is.null(max_total_read)) max_total_read <- max(mutations_total_read)
     sample_coverage <- data.frame(
         total_readcount = min_total_read:max_total_read,
         pdf = 0

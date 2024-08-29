@@ -11,48 +11,55 @@ DECODE_plot_experiment <- function(DECODE_result,
     mutation_refcounts <- mutation_table$Ref_count
     mutation_altcounts <- mutation_table$Alt_count
     mutation_totcounts <- mutation_refcounts + mutation_altcounts
+    tmp <- parameter_conversion_experiment(
+        result = DECODE_result$final_fit,
+        output_parameters_df = FALSE
+    )
     if (mode == "inference") {
         vec_SFS_real <- DECODE_result$SFS_for_fitting
         min_variant_read <- DECODE_result$min_variant_read_inference
         min_total_read <- DECODE_result$min_total_read_inference
+        if (fit == "best") {
+            vec_para_best_final <- DECODE_result$final_fit$best_fit$parameters_inference
+            tail_status_final <- DECODE_result$final_fit$best_fit$tail_status
+            component_distributions_best_final <- DECODE_result$final_fit$best_fit$component_distributions_inference
+        }
+        vec_A <- tmp$inference$vec_A
+        vec_K <- tmp$inference$vec_K
+        vec_p <- tmp$inference$vec_p
+        N_humps <- tmp$inference$N_humps
+        tail_status <- tmp$inference$tail_status
     } else if (mode == "validation") {
         vec_SFS_real <- DECODE_result$SFS_for_validating
         min_variant_read <- DECODE_result$min_variant_read_validation
         min_total_read <- DECODE_result$min_total_read_validation
+        if (fit == "best") {
+            vec_para_best_final <- DECODE_result$final_fit$best_fit$parameters_validation
+            tail_status_final <- DECODE_result$final_fit$best_fit$tail_status
+            component_distributions_best_final <- DECODE_result$final_fit$best_fit$component_distributions_validation
+        }
+        vec_A <- tmp$validation$vec_A
+        vec_K <- tmp$validation$vec_K
+        vec_p <- tmp$validation$vec_p
+        N_humps <- tmp$validation$N_humps
+        tail_status <- tmp$validation$tail_status
     }
-
-    if (fit == "best") {
-        vec_para_best_final <- DECODE_result$final_fit$best_fit$parameters
-        tail_status_final <- DECODE_result$final_fit$best_fit$tail_status
-        component_distributions_best_final <- DECODE_result$final_fit$best_fit$component_distributions
-    }
-
     if ("Marker" %in% colnames(mutation_table)) {
         mutation_markers <- mutation_table$Marker
     } else {
         mutation_markers <- c()
     }
-
-    tmp <- parameter_conversion(
-        result = DECODE_result$final_fit,
-        output_parameters_df = FALSE
-    )
-    vec_A <- tmp$vec_A
-    vec_K <- tmp$vec_K
-    vec_p <- tmp$vec_p
-    N_humps <- tmp$N_humps
-    tail_status <- tmp$tail_status
     #---Plot the SFS deconvolution
     color_scheme <- c(
         data_marker_colors,
-        "Neutral tail" = "black",
-        "Cluster 1" = "firebrick2",
-        "Cluster 2" = "springgreen3",
-        "Cluster 3" = "royalblue2",
-        "Cluster 4" = "darkturquoise",
-        "Cluster 5" = "darkorange",
-        "Cluster 6" = "magenta3",
-        "Cluster 7" = "salmon4"
+        "Neutral tail" = "#999999",
+        "Cluster 1" = "#D55E00",
+        "Cluster 2" = "#009E73",
+        "Cluster 3" = "#0072B2",
+        "Cluster 4" = "#E69F00",
+        "Cluster 5" = "#56B4E9",
+        "Cluster 6" = "#CC79A7",
+        "Cluster 7" = "#F0E442"
     )
     mutation_count <- sum(vec_SFS_real)
     #   Prepare the data for plotting
@@ -107,7 +114,7 @@ DECODE_plot_experiment <- function(DECODE_result,
     df_fit$fill <- factor(df_fit$fill, levels = rev(df_fit_order))
     df_data$fill <- factor(df_data$fill, levels = rev(names(data_marker_colors)))
     p <- ggplot() +
-        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.5) +
+        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.8) +
         geom_bar(data = df_data, aes(x = frequency, y = count, fill = fill), stat = "identity", width = 0.5 / SFS_totalsteps) +
         scale_fill_manual(values = color_scheme, name = "") +
         guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
@@ -120,6 +127,140 @@ DECODE_plot_experiment <- function(DECODE_result,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5)
+        )
+    return(p)
+}
+
+DECODE_plot_readcounts <- function(DECODE_result,
+                                   freq_cutoff = 10,
+                                   compute_parallel = TRUE,
+                                   n_cores = NULL) {
+    library(ggplot2)
+    library(shadowtext)
+    library(reshape2)
+    mutation_table <- DECODE_result$mutational_table
+    mutation_table$Tot_count <- mutation_table$Ref_count + mutation_table$Alt_count
+    min_variant_read_inference <- max(DECODE_result$min_variant_read_inference, min(mutation_table$Alt_count))
+    min_total_read_inference <- max(DECODE_result$min_total_read_inference, min(mutation_table$Tot_count))
+    min_variant_read_validation <- max(DECODE_result$min_variant_read_validation, min(mutation_table$Alt_count))
+    min_total_read_validation <- max(DECODE_result$min_total_read_validation, min(mutation_table$Tot_count))
+    #---Find joint distribution of variant and total readcounts
+    vec_min_variant_read <- min(mutation_table$Alt_count):max(mutation_table$Alt_count)
+    vec_min_total_read <- min(mutation_table$Tot_count):max(mutation_table$Tot_count)
+    func_dist_given_min_variant_read <- function(min_variant_read, mutation_table) {
+        df <- data.frame()
+        for (min_total_read in vec_min_total_read) {
+            df <- rbind(
+                df,
+                data.frame(
+                    min_total_read = min_total_read,
+                    min_variant_read = min_variant_read,
+                    freq = 100 * sum(mutation_table$Alt_count >= min_variant_read & mutation_table$Tot_count >= min_total_read) / nrow(mutation_table)
+                )
+            )
+        }
+        return(df)
+    }
+    if (compute_parallel == FALSE) {
+        df_dist <- data.frame()
+        pb <- txtProgressBar(
+            min = 1,
+            max = length(vec_min_variant_read),
+            style = 3,
+            width = 50,
+            char = "+"
+        )
+        for (min_variant_read in vec_min_variant_read) {
+            df_dist <- rbind(
+                df_dist,
+                func_dist_given_min_variant_read(min_variant_read, mutation_table)
+            )
+            setTxtProgressBar(pb, min_variant_read)
+        }
+    } else {
+        library(parallel)
+        library(pbapply)
+        #   Start parallel cluster
+        numCores <- ifelse(is.null(n_cores), detectCores(), n_cores)
+        cl <- makePSOCKcluster(numCores - 1)
+        #   Prepare input parameters
+        clusterExport(cl, varlist = c("mutation_table"))
+        #   Compute each sub-dataframe
+        output <- pblapply(cl = cl, X = vec_min_variant_read, FUN = function(min_variant_read) {
+            return(func_dist_given_min_variant_read(min_variant_read, mutation_table))
+        })
+        stopCluster(cl)
+        df_dist <- do.call(rbind, output)
+    }
+    #---Reduce the distribution to region satisfying the frequency cutoff
+    max_total_read <- vec_min_total_read[which(df_dist$freq[which(df_dist$min_variant_read == vec_min_variant_read[1])] < freq_cutoff)[1]]
+    max_variant_read <- vec_min_variant_read[which(df_dist$freq[which(df_dist$min_total_read == vec_min_total_read[1])] < freq_cutoff)[1]]
+    df_dist <- df_dist[which(df_dist$min_total_read <= max_total_read & df_dist$min_variant_read <= max_variant_read), ]
+    #---Plot the readcount distribution
+    freq_inference <- round(df_dist$freq[df_dist$min_total_read == min_total_read_inference & df_dist$min_variant_read == min_variant_read_inference], 2)
+    freq_validation <- round(df_dist$freq[df_dist$min_total_read == min_total_read_validation & df_dist$min_variant_read == min_variant_read_validation], 2)
+    text_inference <- paste0("Inference (", freq_inference, "% mutations retained)")
+    text_validation <- paste0("Validation (", freq_validation, "% mutations retained)")
+    color_inference <- "#DF536B"
+    color_validation <- "#2297E6"
+    p <- ggplot(df_dist, aes(x = min_total_read, y = min_variant_read, fill = freq)) +
+        geom_tile() +
+        geom_rect(
+            aes(
+                xmin = min_total_read_inference - 0.5, xmax = min_total_read_inference + 0.5,
+                ymin = min_variant_read_inference - 0.5, ymax = min_variant_read_inference + 0.5
+            ),
+            fill = NA, color = "white", size = 1
+        ) +
+        geom_shadowtext(
+            aes(
+                x = min_total_read_inference + 2,
+                y = min_variant_read_inference,
+                label = text_inference
+            ),
+            angle = 45,
+            hjust = 0,
+            vjust = 0,
+            size = 8,
+            color = color_inference,
+            bg.color = "white",
+            fontface = "bold"
+        ) +
+        geom_rect(
+            aes(
+                xmin = min_total_read_validation - 0.5, xmax = min_total_read_validation + 0.5,
+                ymin = min_variant_read_validation - 0.5, ymax = min_variant_read_validation + 0.5
+            ),
+            fill = NA, color = "white", size = 1
+        ) +
+        geom_shadowtext(
+            aes(
+                x = min_total_read_validation + 2,
+                y = min_variant_read_validation,
+                label = text_validation
+            ),
+            angle = 45,
+            hjust = 0,
+            vjust = 0,
+            size = 8,
+            color = color_validation,
+            bg.color = "white",
+            fontface = "bold"
+        ) +
+        scale_fill_gradientn(
+            colors = c("#0072B2", "#56B4E9", "#009E73", "#E69F00", "#D55E00"),
+            name = "% retained mutations"
+        ) +
+        theme_minimal() +
+        labs(title = "", x = "Minimum total readcount", y = "Minimum alternative readcount") +
+        theme(
+            text = element_text(size = 30),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            legend.key.width = unit(3.5, "cm"),
         )
     return(p)
 }
@@ -158,9 +299,9 @@ DECODE_experiment <- function(sample_id = "",
     matrix_binomial_sample_size <- 1000
     matrix_binomial_sfs_bincount <- sfs_bincount
     matrix_binomial_ploidy <- 2
-    min_variant_read_inference <- 5
-    min_total_read_inference <- 55
-    min_variant_read_validation <- 5
+    min_variant_read_inference <- 4
+    min_total_read_inference <- 50
+    min_variant_read_validation <- 7
     min_total_read_validation <- 0
     if (is.null(max_total_read)) max_total_read <- max(mutation_totcounts)
     ####################################################################
@@ -343,28 +484,28 @@ DECODE_experiment <- function(sample_id = "",
     DECODE_result$final_fit <- final_result
     #---Report the best fit
     tail_status_final_result <- final_result$best_fit$tail_status
-    parameters_final_result <- final_result$best_fit$parameters
+    parameters_inference_final_result <- final_result$best_fit$parameters_inference
     criterion_final_result <- final_result$best_fit$selected_criterion_value
     if (tail_status_final_result) {
-        N_humps_final_result <- length(parameters_final_result) / 2 - 1
+        N_humps_final_result <- length(parameters_inference_final_result) / 2 - 1
         report <- bold(underline(red(paste0("Best fit = neutral tail + ", N_humps_final_result, " clusters:\n"))))
         report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", round(criterion_final_result, 3))), "\n")
-        report <- paste0(report, red("Neutral component: "), yellow(paste0("pi = ", round(parameters_final_result[1], 3))), red(", "), yellow(paste0("power = ", round(parameters_final_result[2], 3))), "\n")
+        report <- paste0(report, red("Neutral component: "), yellow(paste0("pi = ", round(parameters_inference_final_result[1], 3))), red(", "), yellow(paste0("power = ", round(parameters_inference_final_result[2], 3))), "\n")
         ii <- 0
     } else {
-        N_humps_final_result <- length(parameters_final_result) / 2
+        N_humps_final_result <- length(parameters_inference_final_result) / 2
         report <- bold(underline(red(paste0("Best fit = no neutral tail + ", N_humps_final_result, " clusters:\n"))))
         report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", round(criterion_final_result, 3))), "\n")
         ii <- -1
     }
     if (N_humps_final_result > 0) {
         for (i in 1:N_humps_final_result) {
-            report <- paste0(report, red(paste0("Cluster ", i, "        : ")), yellow(paste0("pi = ", round(parameters_final_result[2 * (i + ii) + 1], 3))), red(", "), yellow(paste0("f = ", round(parameters_final_result[2 * (i + ii) + 2], 3))), "\n")
+            report <- paste0(report, red(paste0("Cluster ", i, "        : ")), yellow(paste0("pi = ", round(parameters_inference_final_result[2 * (i + ii) + 1], 3))), red(", "), yellow(paste0("f = ", round(parameters_inference_final_result[2 * (i + ii) + 2], 3))), "\n")
         }
     }
     cat(report)
     #---Translation to parameters of cancer evolution in the sample
-    tmp <- parameter_conversion(
+    tmp <- parameter_conversion_experiment(
         result = final_result,
         mutation_count_for_fitting = sum(vec_SFS_real_inference),
         sample_size = sample_size,
@@ -419,25 +560,27 @@ DECODE_given_tail_status_experiment <- function(vec_SFS_real_inference,
             n_cores = n_cores
         )
         all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
-        vec_para_best_current <- fit_results$best$parameters
-        component_distributions_best_current <- fit_results$best$component_distributions
+        parameters_inference_best_current <- fit_results$best$parameters_inference
+        parameters_validation_best_current <- fit_results$best$parameters_validation
+        component_distributions_inference_best_current <- fit_results$best$component_distributions_inference
+        component_distributions_validation_best_current <- fit_results$best$component_distributions_validation
         criterion_all_best_current <- fit_results$best$criteria
         criterion_best_current <- criterion_all_best_current[[criterion]]
         #   Report the best fit for the current hump count
         cluster_pis <- Inf
         report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", round(criterion_best_current, 3))), "\n")
         if (with_tail) {
-            N_humps <- length(vec_para_best_current) / 2 - 1
-            report <- paste0(report, blue("Neutral component: "), cyan(paste0("pi = ", round(vec_para_best_current[1], 3))), blue(", "), cyan(paste0("power = ", round(vec_para_best_current[2], 3))), "\n")
+            N_humps <- length(parameters_inference_best_current) / 2 - 1
+            report <- paste0(report, blue("Neutral component: "), cyan(paste0("pi = ", round(parameters_inference_best_current[1], 3))), blue(", "), cyan(paste0("power = ", round(parameters_inference_best_current[2], 3))), "\n")
             ii <- 0
         } else {
-            N_humps <- length(vec_para_best_current) / 2
+            N_humps <- length(parameters_inference_best_current) / 2
             ii <- -1
         }
         if (N_humps > 0) {
             for (i in 1:N_humps) {
-                report <- paste0(report, blue(paste0("Cluster ", i, "        : ")), cyan(paste0("pi = ", round(vec_para_best_current[2 * (i + ii) + 1], 3))), blue(", "), cyan(paste0("f = ", round(vec_para_best_current[2 * (i + ii) + 2], 3))), "\n")
-                cluster_pis <- c(cluster_pis, vec_para_best_current[2 * (i + ii) + 1])
+                report <- paste0(report, blue(paste0("Cluster ", i, "        : ")), cyan(paste0("pi = ", round(parameters_inference_best_current[2 * (i + ii) + 1], 3))), blue(", "), cyan(paste0("f = ", round(parameters_inference_best_current[2 * (i + ii) + 2], 3))), "\n")
+                cluster_pis <- c(cluster_pis, parameters_inference_best_current[2 * (i + ii) + 1])
             }
         }
         cat(report)
@@ -447,8 +590,10 @@ DECODE_given_tail_status_experiment <- function(vec_SFS_real_inference,
             fit_results_best_final <- fit_results
             criterion_best_final <- criterion_best_current
             criterion_all_final <- criterion_all_best_current
-            vec_para_best_final <- vec_para_best_current
-            component_distributions_best_final <- component_distributions_best_current
+            parameters_inference_best_final <- parameters_inference_best_current
+            parameters_validation_best_final <- parameters_validation_best_current
+            component_distributions_inference_best_final <- component_distributions_inference_best_current
+            component_distributions_validation_best_final <- component_distributions_validation_best_current
             N_humps <- N_humps + 1
             #   ... except if exceeding maximum number of clusters
             if (N_humps > max_N_humps) break
@@ -458,20 +603,27 @@ DECODE_given_tail_status_experiment <- function(vec_SFS_real_inference,
         }
     }
     #---Check if the neutral tail component is too tiny
-    if (with_tail == TRUE & vec_para_best_final[1] < pi_cutoff) {
+    if (with_tail == TRUE & parameters_inference_best_final[1] < pi_cutoff) {
         with_tail <- FALSE
-        vec_para_best_final[seq(3, length(vec_para_best_final), by = 2)] <- vec_para_best_final[seq(3, length(vec_para_best_final), by = 2)] / sum(vec_para_best_final[seq(3, length(vec_para_best_final), by = 2)])
-        vec_para_best_final <- vec_para_best_final[-c(1, 2)]
-        component_distributions_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_best_final$SFS_exact[1, ]))
-        component_distributions_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_best_final$SFS_expected[1, ]))
-        component_distributions_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_best_final$SFS_expected_normalized[1, ]))
+        parameters_inference_best_final[seq(3, length(parameters_inference_best_final), by = 2)] <- parameters_inference_best_final[seq(3, length(parameters_inference_best_final), by = 2)] / sum(parameters_inference_best_final[seq(3, length(parameters_inference_best_final), by = 2)])
+        parameters_inference_best_final <- parameters_inference_best_final[-c(1, 2)]
+        parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] <- parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] / sum(parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)])
+        parameters_validation_best_final <- parameters_validation_best_final[-c(1, 2)]
+        component_distributions_inference_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_best_final$SFS_exact[1, ]))
+        component_distributions_inference_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_best_final$SFS_expected[1, ]))
+        component_distributions_inference_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_best_final$SFS_expected_normalized[1, ]))
+        component_distributions_validation_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_exact[1, ]))
+        component_distributions_validation_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected[1, ]))
+        component_distributions_validation_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected_normalized[1, ]))
     }
     #---Report the best fit
     result <- list()
     result$all_fits <- all_fits
     result$best_fit <- list()
-    result$best_fit$parameters <- vec_para_best_final
-    result$best_fit$component_distributions <- component_distributions_best_final
+    result$best_fit$parameters_inference <- parameters_inference_best_final
+    result$best_fit$parameters_validation <- parameters_validation_best_final
+    result$best_fit$component_distributions_inference <- component_distributions_inference_best_final
+    result$best_fit$component_distributions_validation <- component_distributions_validation_best_final
     result$best_fit$selected_criterion <- criterion
     result$best_fit$all_criteria <- criterion_all_final
     result$best_fit$selected_criterion_value <- criterion_best_final
@@ -555,18 +707,37 @@ DECODE_given_tail_status_and_Ncluster_experiment <- function(vec_SFS_real_infere
             )
         }
         output <- list()
-        output$parameters <- results$parameters
+        output$parameters_inference <- results$parameters
+        output$parameters_validation <- results$parameters
+        if (with_tail) {
+            for (i in 1:nrow(component_distributions_validation$SFS_expected)) {
+                output$parameters_validation[2 * i - 1] <- output$parameters_validation[2 * i - 1] *
+                    sum(component_distributions_validation$SFS_expected[i, ]) /
+                    sum(component_distributions_inference$SFS_expected[i, ])
+            }
+        } else {
+            for (i in 2:nrow(component_distributions_validation$SFS_expected)) {
+                output$parameters_validation[2 * i - 3] <- output$parameters_validation[2 * i - 3] *
+                    sum(component_distributions_validation$SFS_expected[i, ]) /
+                    sum(component_distributions_inference$SFS_expected[i, ])
+            }
+        }
+        output$parameters_validation[seq(1, length(output$parameters_validation), by = 2)] <-
+            output$parameters_validation[seq(1, length(output$parameters_validation), by = 2)] /
+                sum(output$parameters_validation[seq(1, length(output$parameters_validation), by = 2)])
         output$logLikelihood <- results$log_L
-        output$component_distributions_inference <- results$component_distributions_inference
-        output$component_distributions_validation <- results$component_distributions_validation
+        output$component_distributions_inference <- component_distributions_inference
+        output$component_distributions_validation <- component_distributions_validation
         if (compute_criteria) output$criteria <- criteria
         return(output)
     }
     #---Find best variable parameters (A & K's) for each fixed parameter set from many trials
     if (compute_parallel == FALSE) {
         all_logLikelihood <- c()
-        all_para <- c()
-        all_component_distributions <- list()
+        all_parameters_inference <- c()
+        all_parameters_validation <- c()
+        all_component_distributions_inference <- list()
+        all_component_distributions_validation <- list()
         all_criteria <- data.frame()
         if (progress_bar) {
             pb <- txtProgressBar(
@@ -595,8 +766,10 @@ DECODE_given_tail_status_and_Ncluster_experiment <- function(vec_SFS_real_infere
                 SFS_convolution_matrix_validation = SFS_convolution_matrix_validation,
                 zero_cutoff = zero_cutoff
             )
-            all_para <- rbind(all_para, trial_result$parameters)
-            all_component_distributions[[i]] <- trial_result$component_distributions
+            all_parameters_inference <- rbind(all_para, trial_result$parameters_inference)
+            all_parameters_validation <- rbind(all_para, trial_result$parameters_validation)
+            all_component_distributions_inference[[i]] <- trial_result$component_distributions_inference
+            all_component_distributions_validation[[i]] <- trial_result$component_distributions_validation
             all_logLikelihood <- c(all_logLikelihood, trial_result$logLikelihood)
             if (compute_criteria) {
                 all_criteria <- rbind(all_criteria, trial_result$criteria)
@@ -661,8 +834,10 @@ DECODE_given_tail_status_and_Ncluster_experiment <- function(vec_SFS_real_infere
         }
         stopCluster(cl)
         #   Extract the results
-        all_para <- do.call(rbind, lapply(output, function(x) x$parameters))
-        all_component_distributions <- lapply(output, function(x) x$component_distributions)
+        all_parameters_inference <- do.call(rbind, lapply(output, function(x) x$parameters_inference))
+        all_parameters_validation <- do.call(rbind, lapply(output, function(x) x$parameters_validation))
+        all_component_distributions_inference <- lapply(output, function(x) x$component_distributions_inference)
+        all_component_distributions_validation <- lapply(output, function(x) x$component_distributions_validation)
         all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
         all_criteria <- do.call(rbind, lapply(output, function(x) x$criteria))
     }
@@ -670,13 +845,93 @@ DECODE_given_tail_status_and_Ncluster_experiment <- function(vec_SFS_real_infere
     best_index <- which.max(all_logLikelihood)
     fit_results <- list()
     fit_results$all <- list()
-    fit_results$all$parameters <- all_para
+    fit_results$all$parameters_inference <- all_parameters_inference
+    fit_results$all$parameters_validation <- all_parameters_validation
     fit_results$all$logLikelihood <- all_logLikelihood
     fit_results$all$criteria <- all_criteria
     fit_results$best <- list()
-    fit_results$best$parameters <- all_para[best_index, ]
+    fit_results$best$parameters_inference <- all_parameters_inference[best_index, ]
+    fit_results$best$parameters_validation <- all_parameters_validation[best_index, ]
     fit_results$best$logLikelihood <- all_logLikelihood[best_index]
     fit_results$best$criteria <- all_criteria[best_index, ]
-    fit_results$best$component_distributions <- all_component_distributions[[best_index]]
+    fit_results$best$component_distributions_inference <- all_component_distributions_inference[[best_index]]
+    fit_results$best$component_distributions_validation <- all_component_distributions_validation[[best_index]]
     return(fit_results)
+}
+
+parameter_conversion_experiment <- function(result,
+                                            output_parameters_df = TRUE,
+                                            mutation_count_for_fitting,
+                                            sample_size,
+                                            matrix_binomial_sample_size,
+                                            matrix_binomial_ploidy) {
+    tail_status <- result$best_fit$tail_status
+    parameters_inference <- result$best_fit$parameters_inference
+    parameters_validation <- result$best_fit$parameters_validation
+    component_distributions_inference <- result$best_fit$component_distributions_inference
+    component_distributions_validation <- result$best_fit$component_distributions_validation
+    func_get_parameters <- function(parameters, tail_status) {
+        if (tail_status) {
+            vec_A <- parameters[1:2]
+            N_humps <- length(parameters) / 2 - 1
+            ii <- 0
+        } else {
+            vec_A <- c(NA, NA)
+            N_humps <- length(parameters) / 2
+            ii <- -1
+        }
+        if (N_humps == 0) {
+            vec_p <- c()
+            vec_K <- c()
+        } else {
+            vec_p <- parameters[seq(4 + 2 * ii, length(parameters), by = 2)]
+            sorted_indices <- order(vec_p, decreasing = TRUE)
+            vec_p <- vec_p[sorted_indices]
+            vec_K <- parameters[seq(3 + 2 * ii, length(parameters), by = 2)]
+            vec_K <- vec_K[sorted_indices]
+        }
+        output <- list()
+        output$vec_A <- vec_A
+        output$vec_p <- vec_p
+        output$vec_K <- vec_K
+        output$N_humps <- N_humps
+        output$tail_status <- tail_status
+        return(output)
+    }
+    output <- list()
+    output$inference <- func_get_parameters(parameters_inference, tail_status)
+    output$validation <- func_get_parameters(parameters_validation, tail_status)
+    if (output_parameters_df) {
+        parameters_df <- data.frame()
+        parameters_df[1, "Mutation_count_for_fitting"] <- mutation_count_for_fitting
+        parameters_df[1, "Tail"] <- tail_status
+        if (tail_status) {
+            parameters_df[1, "Tail_power"] <- output$inference$vec_A[2]
+            parameters_df[1, "Tail_mutcount_observed"] <-
+                output$inference$vec_A[1] * mutation_count_for_fitting
+            parameters_df[1, "Tail_mutcount_predicted"] <-
+                output$inference$vec_A[1] * mutation_count_for_fitting *
+                    sum(component_distributions_inference$SFS_exact[1, ]) /
+                    sum(component_distributions_inference$SFS_expected[1, ]) *
+                    sample_size / matrix_binomial_sample_size
+        } else {
+            parameters_df[1, "Tail_power"] <- NA
+            parameters_df[1, "Tail_mutcount_observed"] <- NA
+            parameters_df[1, "Tail_mutcount_predicted"] <- NA
+        }
+        parameters_df[1, "Cluster_count"] <- output$inference$N_humps
+        if (output$inference$N_humps > 0) {
+            for (k in 1:output$inference$N_humps) {
+                parameters_df[1, paste0("Cluster_frequency_", k)] <- output$inference$vec_p[k] / matrix_binomial_ploidy
+                parameters_df[1, paste0("Cluster_mutcount_observed_", k)] <-
+                    output$inference$vec_K[k] * mutation_count_for_fitting
+                parameters_df[1, paste0("Cluster_mutcount_predicted_", k)] <-
+                    output$inference$vec_K[k] * mutation_count_for_fitting /
+                        sum(component_distributions_inference$SFS_expected[k + 1, ]) /
+                        sum(component_distributions_inference$SFS_exact[k + 1, ])
+            }
+        }
+        output$parameters_df <- parameters_df
+    }
+    return(output)
 }

@@ -4,7 +4,6 @@ R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@co
 R_libPaths <- ""
 R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
 R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/DECODE_binomial_matrices"
-# R_libPaths_binomial_table <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/MK-Cod.Analysis of the SFS/Core_function_for_SFS_fitting/Binomial_tables"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(data.table)
@@ -17,6 +16,7 @@ library(mobster)
 library(R.matlab)
 library(ggplot2)
 library(crayon)
+library(grid)
 
 setwd(R_libPaths_extra)
 files_sources <- list.files(pattern = "\\.[rR]$")
@@ -24,10 +24,10 @@ sapply(files_sources, source)
 setwd(R_workplace)
 
 folder_workplace <- "TEST/"
+dir.create(folder_workplace)
 n_simulations <- 100 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 n_sample <- 100000 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # ==========================================MAKE CINNER LITE SIMULATIONS
-dir.create(folder_workplace)
 load(file = paste0(R_PCAWG, "/ICGC_purity_coverage.rda"))
 # # #---------------------------------------------------Set model parameters
 n_selective_clones <- 0
@@ -292,7 +292,7 @@ cell_lifespan <- 10 # [in days]
 # ================================================================DECODE
 decode_df <- data.frame()
 decode_fits <- list()
-for (n_simulation in 8:8) {
+for (n_simulation in 1:100) {
     #---Input the SFS data
     filename_2 <- paste0(folder_workplace, "_", n_simulation, "/SFS_1.txt")
     mutation_table <- read.table(filename_2, sep = " ", header = FALSE)
@@ -300,14 +300,12 @@ for (n_simulation in 8:8) {
     ####################################################################
     ####################################################################
     ####################################################################
-    # png(paste0(folder_workplace, "DECODE_readcount_distribution_", n_simulation, ".png"), res = 150, width = 15, height = 15, units = "in")
-    # print(DECODE_plot_readcounts(mutation_table))
-    # dev.off()
     #---SFS deconvolution with DECODE
-    DECODE_result <- DECODE_experiment(
+    DECODE_result <- DECODE_experiment_1(
         sample_id = paste0("Simulation-", n_simulation),
         mutation_table = mutation_table,
-        criterion = "ICL", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        # max_N_humps = 1, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        criterion = "BIC", # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         sample_size = n_sample,
         sfs_bincount = 100,
         compute_parallel = TRUE,
@@ -315,19 +313,20 @@ for (n_simulation in 8:8) {
     )
     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
     #---Plot DECODE deconvolution
-    load(paste0(folder_workplace, "DECODE_", n_simulation, ".rda"))
-    png(paste0(folder_workplace, "DECODE_inference_", n_simulation, ".png"), res = 150, width = 15, height = 7.5, units = "in")
-    print(DECODE_plot_experiment(
-        DECODE_result = DECODE_result,
-        data_marker_colors = c(
-            "Data" = "black",
-            "Foreground 0" = rgb(0.2, 0.2, 0.2),
-            "Foreground 1" = rgb(0.5, 0.5, 0.5),
-            "Foreground 2" = rgb(0.7, 0.7, 0.7),
-            "Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
-            "Background 1" = rgb(0.6350, 0.0780, 0.1840),
-            "Background 2" = rgb(0.4660, 0.6740, 0.1880),
-            "Truncal" = rgb(0, 0.4470, 0.7410)
+    png(paste0(folder_workplace, "DECODE_", n_simulation, ".png"), res = 150, width = 30, height = 15, units = "in")
+    invisible(grid.draw(
+        DECODE_plot_experiment_1(
+            DECODE_result = DECODE_result,
+            data_marker_colors = c(
+                "Data" = "black",
+                "Foreground 0" = rgb(0.2, 0.2, 0.2),
+                "Foreground 1" = rgb(0.5, 0.5, 0.5),
+                "Foreground 2" = rgb(0.7, 0.7, 0.7),
+                "Background 1&2" = rgb(0.9290, 0.6940, 0.1250),
+                "Background 1" = rgb(0.6350, 0.0780, 0.1840),
+                "Background 2" = rgb(0.4660, 0.6740, 0.1880),
+                "Truncal" = rgb(0, 0.4470, 0.7410)
+            )
         )
     ))
     dev.off()
@@ -392,15 +391,15 @@ for (n_simulation in 8:8) {
 }
 # write.csv(decode_df, paste0("Parameters_DECODE.csv"), row.names = FALSE)
 # save(decode_fits, file = paste0("DECODE.rda"))
-# ==============================================================ANALYSIS
-groundtruth_df <- read.csv("Parameters_true.csv")
-# mobster_df <- read.csv("Parameters_MOBSTER.csv")
-decode_df <- read.csv("Parameters_DECODE.csv")
-analysis_CINner(
-    groundtruth_df = groundtruth_df,
-    # mobster_df = mobster_df,
-    decode_df = decode_df,
-    text_notation = TRUE,
-    cluster_count = n_selective_clones + 1,
-    tail = TRUE
-)
+# # ==============================================================ANALYSIS
+# groundtruth_df <- read.csv("Parameters_true.csv")
+# # mobster_df <- read.csv("Parameters_MOBSTER.csv")
+# decode_df <- read.csv("Parameters_DECODE.csv")
+# analysis_CINner(
+#     groundtruth_df = groundtruth_df,
+#     # mobster_df = mobster_df,
+#     decode_df = decode_df,
+#     text_notation = TRUE,
+#     cluster_count = n_selective_clones + 1,
+#     tail = TRUE
+# )
