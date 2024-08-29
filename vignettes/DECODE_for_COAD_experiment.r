@@ -28,7 +28,8 @@ sample_IDs <- read.table(paste0(R_data, "/sample_table.txt"), header = TRUE)$Pat
 # ================================================================DECODE
 decode_df <- data.frame()
 decode_fits <- list()
-for (sample in sample_IDs) {
+# for (sample in sample_IDs) {
+for (sample in c("TCGA-AA-3514")) {
     #---Input the SFS data
     filename_2 <- paste0(R_data, "/", sample, "_1_1.txt")
     mutation_table <- read.table(filename_2, sep = "\t", header = TRUE)

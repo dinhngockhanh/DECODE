@@ -1060,6 +1060,113 @@ parameter_conversion_experiment_2 <- function(result,
     return(output)
 }
 
+compute_loglikelihood <- function(A, vec_K, component_distributions, vec_SFS_real, zero_cutoff) {
+    #----------------Compute the SFS probability distribution from model
+    vec_SFS_model <- compute_SFS(
+        A = A,
+        vec_K = vec_K,
+        component_distributions = component_distributions
+    )
+    vec_SFS_model[which(vec_SFS_model <= zero_cutoff)] <- zero_cutoff
+    vec_SFS_model_normalized <- vec_SFS_model / sum(vec_SFS_model)
+    #-----------------------------Compute the log-likelihood(data|model)
+    loglikelihood <- sum(log(vec_SFS_model_normalized) * vec_SFS_real)
+    return(loglikelihood)
+}
+
+compute_SFS <- function(A, vec_K, component_distributions) {
+    # 	Add the neutral component
+    vec_SFS_model <- component_distributions$SFS_expected_normalized[1, ]
+    if (!is.na(A)) vec_SFS_model <- A * vec_SFS_model
+    # 	Add the binomial humps
+    for (i_hump in seq_along(vec_K)) {
+        vec_SFS_model <- vec_SFS_model + vec_K[i_hump] * component_distributions$SFS_expected_normalized[i_hump + 1, ]
+    }
+    # 	Return the full SFS
+    return(vec_SFS_model)
+}
+
+build_SFS_library <- function(neutral_power, cluster_frequencies, sfs_bincount, SFS_convolution_matrix, N_end) {
+    SFS_exact <- c()
+    SFS_expected <- c()
+    SFS_expected_normalized <- c()
+    #   Build the neutral component
+    if (is.na(neutral_power)) {
+        vec_SFS_GT <- numeric(N_end)
+        vec_SFS_expected <- rep(0, sfs_bincount)
+        vec_SFS_expected_normalized <- rep(0, sfs_bincount)
+    } else {
+        vec_para <- c(1, neutral_power)
+        vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para = vec_para, N_end = N_end)
+        vec_SFS_expected <- rep(0, sfs_bincount)
+        for (j in 1:sfs_bincount) {
+            vec_SFS_expected[j] <- sum(vec_SFS_GT * SFS_convolution_matrix[, j])
+        }
+        vec_SFS_expected_normalized <- vec_SFS_expected / sum(vec_SFS_expected)
+    }
+    SFS_exact <- rbind(SFS_exact, vec_SFS_GT)
+    SFS_expected <- rbind(SFS_expected, vec_SFS_expected)
+    SFS_expected_normalized <- rbind(SFS_expected_normalized, vec_SFS_expected_normalized)
+    #   Build the cluster components
+    if (length(cluster_frequencies) > 0) {
+        for (i in 1:length(cluster_frequencies)) {
+            vec_para <- c(0, 0, 1, cluster_frequencies[i])
+            vec_SFS_GT <- build_SFS_library_Griffiths_Tavare(vec_para = vec_para, N_end = N_end)
+            vec_SFS_expected <- rep(0, sfs_bincount)
+            for (j in 1:sfs_bincount) {
+                vec_SFS_expected[j] <- sum(vec_SFS_GT * SFS_convolution_matrix[, j])
+            }
+            SFS_exact <- rbind(SFS_exact, vec_SFS_GT)
+            SFS_expected <- rbind(SFS_expected, vec_SFS_expected)
+            SFS_expected_normalized <- rbind(SFS_expected_normalized, vec_SFS_expected / sum(vec_SFS_expected))
+        }
+    }
+    #   Ensure library is in matrix format, where each row = 1 component
+    if (is.vector(SFS_exact)) SFS_exact <- matrix(SFS_exact, nrow = 1)
+    if (is.vector(SFS_expected)) SFS_expected <- matrix(SFS_expected, nrow = 1)
+    if (is.vector(SFS_expected_normalized)) SFS_expected_normalized <- matrix(SFS_expected_normalized, nrow = 1)
+    #   Return SFS component library
+    component_distributions <- list()
+    component_distributions$SFS_exact <- SFS_exact
+    component_distributions$SFS_expected <- SFS_expected
+    component_distributions$SFS_expected_normalized <- SFS_expected_normalized
+    return(component_distributions)
+}
+
+build_SFS_library_Griffiths_Tavare <- function(vec_para, N_end) {
+    #---Get the parameters
+    no_hump <- (length(vec_para) - 2) / 2
+    para_A <- vec_para[1]
+    para_alpha <- vec_para[2]
+    if (no_hump > 0) {
+        para_K <- numeric(no_hump)
+        para_P <- numeric(no_hump)
+        for (i in 1:no_hump) {
+            para_K[i] <- vec_para[2 * i + 1]
+            para_P[i] <- vec_para[2 * i + 2]
+        }
+    } else {
+        para_K <- NULL
+        para_P <- NULL
+    }
+    #---Compute the Griffiths-Tavare SFS
+    vec_SFS_GT <- numeric(N_end)
+    # for (m in 2:N_end) {
+    for (m in 1:N_end) {
+        # if (para_alpha > 0) vec_SFS_GT[m] <- para_A * N_end / (m^para_alpha)
+        if (para_alpha > 0) vec_SFS_GT[m] <- para_A / (m^para_alpha)
+        # vec_SFS_GT[m] <- para_A * N_end / (m * (m - 1))
+        if (no_hump > 0) {
+            for (i in 1:no_hump) {
+                K <- para_K[i]
+                P <- para_P[i]
+                vec_SFS_GT[m] <- vec_SFS_GT[m] + K * dbinom(m, N_end, P)
+            }
+        }
+    }
+    return(vec_SFS_GT)
+}
+
 build_convolution_matrix_experiment_2 <- function(sfs_bincount,
                                                   mode = NULL,
                                                   sample_size,
