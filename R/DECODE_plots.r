@@ -1,51 +1,288 @@
-DECODE_plot <- function(DECODE_result,
-                        fit = "best",
-                        data_marker_colors = NULL) {
-    library(ggplot2)
-    if (is.null(data_marker_colors)) data_marker_colors <- c("Data" = "black")
-
-    vec_freq <- DECODE_result$SFS_frequencies
-    vec_SFS_real <- DECODE_result$SFS_for_fitting
-    mutation_table <- DECODE_result$mutational_table
-    mutation_refcounts <- mutation_table$Ref_count
-    mutation_altcounts <- mutation_table$Alt_count
-    mutation_totcounts <- mutation_refcounts + mutation_altcounts
-    min_variant_read <- DECODE_result$min_variant_read
-    min_total_read <- DECODE_result$min_total_read
-    SFS_totalsteps <- length(vec_freq)
-
-    if (fit == "best") {
-        vec_para_best_final <- DECODE_result$final_fit$best_fit$parameters
-        tail_status_final <- DECODE_result$final_fit$best_fit$tail_status
-        component_distributions_best_final <- DECODE_result$final_fit$best_fit$component_distributions
+DECODE_plot_model_selection <- function(DECODE_result,
+                                        fit = "best",
+                                        mode = "inference_A",
+                                        SFS_limit = TRUE,
+                                        data_marker_colors = NULL) {
+    suppressWarnings(library(gridExtra))
+    #---Get information about the best fit
+    if (DECODE_result$final_fit$best_fit$tail_status) {
+        text_best_fit <- paste0("T+", length(DECODE_result$final_fit$best_fit$parameters_validation) / 2 - 1)
+    } else {
+        text_best_fit <- paste0("NT+", length(DECODE_result$final_fit$best_fit$parameters_validation) / 2)
     }
+    #---Plot each SFS fit
+    func_one_fit <- function(p_right, fit, text) {
+        if (length(p_right) == 0) {
+            text_ylab_inference_A <- "Inference A"
+            text_ylab_inference_B <- "Inference B"
+            text_ylab_validation <- "Validation"
+        } else {
+            text_ylab_inference_A <- NULL
+            text_ylab_inference_B <- NULL
+            text_ylab_validation <- NULL
+            text_xlab_validation <- NULL
+        }
+        p_right_inference_A <- DECODE_plot_SFS(
+            DECODE_result = DECODE_result,
+            fit = fit,
+            mode = "inference_A",
+            text_xlab = NULL,
+            text_ylab = text_ylab_inference_A,
+            text_legend = NULL,
+            notation = FALSE,
+            SFS_limit = SFS_limit,
+            data_marker_colors = data_marker_colors
+        )
+        p_right_inference_B <- DECODE_plot_SFS(
+            DECODE_result = DECODE_result,
+            fit = fit,
+            mode = "inference_B",
+            text_xlab = NULL,
+            text_ylab = text_ylab_inference_B,
+            text_legend = NULL,
+            notation = FALSE,
+            SFS_limit = SFS_limit,
+            data_marker_colors = data_marker_colors
+        )
+        p_right_validation <- DECODE_plot_SFS(
+            DECODE_result = DECODE_result,
+            fit = fit,
+            mode = "validation",
+            text_xlab = text,
+            text_ylab = text_ylab_validation,
+            text_legend = NULL,
+            notation = FALSE,
+            SFS_limit = SFS_limit,
+            data_marker_colors = data_marker_colors
+        )
+        p_right[[length(p_right) + 1]] <-
+            arrangeGrob(
+                p_right_inference_A,
+                p_right_inference_B,
+                p_right_validation,
+                ncol = 1
+            )
+        return(p_right)
+    }
+    p_right <- list()
+    if ("fits_with_tail" %in% names(DECODE_result)) {
+        criteria_with_tail <- data.frame()
+        for (fit in names(DECODE_result$fits_with_tail$all_fits)) {
+            fit_ID <- paste0("T+", substr(fit, 1, 1))
+            criteria_new <- DECODE_result$fits_with_tail$all_fits[[fit]]$best$criteria
+            criteria_new$fit <- fit_ID
+            criteria_with_tail <- rbind(criteria_with_tail, criteria_new)
+            if (fit_ID == text_best_fit) fit_ID <- paste0(fit_ID, " [best]")
+            p_right <- func_one_fit(
+                p_right = p_right,
+                fit = paste0("fits_with_tail:", fit),
+                text = fit_ID
+            )
+        }
+    }
+    if ("fits_without_tail" %in% names(DECODE_result)) {
+        criteria_without_tail <- data.frame()
+        for (fit in names(DECODE_result$fits_without_tail$all_fits)) {
+            fit_ID <- paste0("WT+", substr(fit, 1, 1))
+            criteria_new <- DECODE_result$fits_without_tail$all_fits[[fit]]$best$criteria
+            criteria_new$fit <- fit_ID
+            criteria_without_tail <- rbind(criteria_without_tail, criteria_new)
+            if (fit_ID == text_best_fit) fit_ID <- paste0(fit_ID, " [best]")
+            p_right <- func_one_fit(
+                p_right = p_right,
+                fit = paste0("fits_without_tail:", fit),
+                text = fit_ID
+            )
+        }
+    }
+    p_right <- grid.arrange(grobs = p_right, nrow = 1)
+    #---Plot mutation threshold selection & fit selection
+    p_left_threshold_selection <- DECODE_plot_readcounts(
+        DECODE_result = DECODE_result
+    )
+    if (("fits_with_tail" %in% names(DECODE_result)) & ("fits_without_tail" %in% names(DECODE_result))) {
+        p_left_criteria_with_tail <- DECODE_plot_criteria(
+            criteria = criteria_with_tail,
+            criterion = DECODE_result$criterion,
+            criterion_ratio = DECODE_result$criterion_ratio
+        )
+        p_left_criteria_without_tail <- DECODE_plot_criteria(
+            criteria = criteria_without_tail,
+            criterion = DECODE_result$criterion,
+            criterion_ratio = DECODE_result$criterion_ratio,
+            legend = FALSE
+        )
+        p_left <- arrangeGrob(
+            p_left_threshold_selection,
+            p_left_criteria_with_tail,
+            p_left_criteria_without_tail,
+            ncol = 1,
+            heights = c(4, 1, 1)
+        )
+    } else if ("fits_with_tail" %in% names(DECODE_result)) {
+        p_left_criteria_with_tail <- DECODE_plot_criteria(
+            criteria = criteria_with_tail,
+            criterion = DECODE_result$criterion,
+            criterion_ratio = DECODE_result$criterion_ratio
+        )
+        p_left <- arrangeGrob(
+            p_left_threshold_selection,
+            p_left_criteria_with_tail,
+            ncol = 1,
+            heights = c(2, 1)
+        )
+    } else if ("fits_without_tail" %in% names(DECODE_result)) {
+        p_left_criteria_without_tail <- DECODE_plot_criteria(
+            criteria = criteria_without_tail,
+            criterion = DECODE_result$criterion,
+            criterion_ratio = DECODE_result$criterion_ratio
+        )
+        p_left <- arrangeGrob(
+            p_left_threshold_selection,
+            p_left_criteria_without_tail,
+            ncol = 1,
+            heights = c(2, 1)
+        )
+    }
+    #---Combine the plots
+    p <- grid.arrange(grobs = list(p_left, p_right), ncol = 2, widths = c(1, 2.5))
+    return(p)
+}
 
+DECODE_plot_criteria <- function(criteria,
+                                 criterion,
+                                 criterion_ratio,
+                                 legend = TRUE) {
+    #---Get ratio of each fit compared to previous fit
+    criteria[[paste0(criterion, "_target")]] <- NA
+    for (row in 1:nrow(criteria)) {
+        fit_current <- criteria[row, "fit"]
+        fit_previous <- paste0(sub("\\+\\d+$", "", fit_current), "+", as.numeric(sub(".*\\+(\\d+)$", "\\1", fit_current)) - 1)
+        if (fit_previous %in% criteria$fit) {
+            criteria[row, paste0(criterion, "_target")] <- criteria[criteria$fit == fit_previous, criterion] * criterion_ratio
+        }
+    }
+    #---Plot the criterion selection
+    y_min <- min(c(min(criteria[[criterion]], na.rm = TRUE), min(criteria[[paste0(criterion, "_target")]], na.rm = TRUE)))
+    y_max <- max(c(max(criteria[[criterion]], na.rm = TRUE), max(criteria[[paste0(criterion, "_target")]], na.rm = TRUE)))
+    p <- ggplot(criteria) +
+        geom_point(aes(x = fit, y = !!sym(criterion), shape = "Actual"), color = "#999999", size = 10) +
+        geom_point(aes(x = fit, y = !!sym(paste0(criterion, "_target")), shape = "Target"), color = "black", size = 6, stroke = 2, na.rm = TRUE) +
+        labs(x = NULL, y = NULL, shape = NULL) +
+        scale_shape_manual(values = c("Actual" = 16, "Target" = 6), labels = c(criterion, paste0(criterion, " acceptance threshold"))) +
+        expand_limits(y = c(y_min - 0.2 * (y_max - y_min), y_max + 0.2 * (y_max - y_min))) +
+        theme(
+            text = element_text(size = 30),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            legend.key.width = unit(1.5, "cm")
+        )
+    if (!legend) p <- p + theme(legend.position = "none")
+    return(p)
+}
+
+DECODE_plot_SFS <- function(DECODE_result,
+                            fit = "best",
+                            mode = "inference_A",
+                            text_xlab = "Variant Allele Frequency",
+                            text_ylab = "Mutation count",
+                            text_legend = NULL,
+                            notation = TRUE,
+                            SFS_limit = FALSE,
+                            data_marker_colors = NULL) {
+    suppressWarnings(library(ggplot2))
+    if (is.null(data_marker_colors)) data_marker_colors <- c("Data" = "black")
+    vec_freq <- DECODE_result$SFS_frequencies
+    SFS_totalsteps <- length(vec_freq)
+    mutation_table <- DECODE_result$mutational_table
+    max_total_read <- DECODE_result$max_total_read
+    if (mode == "inference_A") {
+        vec_SFS_real <- DECODE_result$SFS_data_inference_A
+        min_variant_read <- DECODE_result$min_variant_read_inference_A
+        min_total_read <- DECODE_result$min_total_read_inference_A
+        if (fit == "best") {
+            parameters <- DECODE_result$final_fit$best_fit$parameters_inference_A
+            tail_status <- DECODE_result$final_fit$best_fit$tail_status
+            component_distributions <- DECODE_result$final_fit$best_fit$component_distributions_inference_A
+        } else {
+            detail_tail <- sub(":.*", "", fit)
+            detail_Ncluster <- sub(".*:", "", fit)
+            parameters <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$parameters_inference_A
+            tail_status <- ifelse(detail_tail == "fits_with_tail", TRUE, FALSE)
+            component_distributions <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$component_distributions_inference_A
+        }
+    } else if (mode == "inference_B") {
+        vec_SFS_real <- DECODE_result$SFS_data_inference_B
+        min_variant_read <- DECODE_result$min_variant_read_inference_B
+        min_total_read <- DECODE_result$min_total_read_inference_B
+        if (fit == "best") {
+            parameters <- DECODE_result$final_fit$best_fit$parameters_inference_B
+            tail_status <- DECODE_result$final_fit$best_fit$tail_status
+            component_distributions <- DECODE_result$final_fit$best_fit$component_distributions_inference_B
+        } else {
+            detail_tail <- sub(":.*", "", fit)
+            detail_Ncluster <- sub(".*:", "", fit)
+            parameters <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$parameters_inference_B
+            tail_status <- ifelse(detail_tail == "fits_with_tail", TRUE, FALSE)
+            component_distributions <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$component_distributions_inference_B
+        }
+    } else if (mode == "validation") {
+        vec_SFS_real <- DECODE_result$SFS_data_validation
+        min_variant_read <- DECODE_result$min_variant_read_validation
+        min_total_read <- DECODE_result$min_total_read_validation
+        if (fit == "best") {
+            parameters <- DECODE_result$final_fit$best_fit$parameters_validation
+            tail_status <- DECODE_result$final_fit$best_fit$tail_status
+            component_distributions <- DECODE_result$final_fit$best_fit$component_distributions_validation
+            criteria_validation_index <- DECODE_result$final_fit$best_fit$criteria_validation_index
+        } else {
+            detail_tail <- sub(":.*", "", fit)
+            detail_Ncluster <- sub(".*:", "", fit)
+            parameters <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$parameters_validation
+            tail_status <- ifelse(detail_tail == "fits_with_tail", TRUE, FALSE)
+            component_distributions <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$component_distributions_validation
+            criteria_validation_index <- DECODE_result[[detail_tail]]$all_fits[[detail_Ncluster]]$best$criteria_validation_index
+        }
+        vec_SFS_real <- vec_SFS_real[criteria_validation_index, ]
+    }
+    if (tail_status) {
+        vec_A <- parameters[1:2]
+        N_humps <- length(parameters) / 2 - 1
+        ii <- 0
+    } else {
+        vec_A <- c(NA, NA)
+        N_humps <- length(parameters) / 2
+        ii <- -1
+    }
+    if (N_humps == 0) {
+        vec_p <- c()
+        vec_K <- c()
+    } else {
+        vec_p <- parameters[seq(4 + 2 * ii, length(parameters), by = 2)]
+        sorted_indices <- order(vec_p, decreasing = TRUE)
+        vec_p <- vec_p[sorted_indices]
+        vec_K <- parameters[seq(3 + 2 * ii, length(parameters), by = 2)]
+        vec_K <- vec_K[sorted_indices]
+    }
     if ("Marker" %in% colnames(mutation_table)) {
         mutation_markers <- mutation_table$Marker
     } else {
         mutation_markers <- c()
     }
-
-    tmp <- parameter_conversion(
-        result = DECODE_result$final_fit,
-        output_parameters_df = FALSE
-    )
-    vec_A <- tmp$vec_A
-    vec_K <- tmp$vec_K
-    vec_p <- tmp$vec_p
-    N_humps <- tmp$N_humps
-    tail_status <- tmp$tail_status
     #---Plot the SFS deconvolution
     color_scheme <- c(
         data_marker_colors,
-        "Neutral tail" = "black",
-        "Cluster 1" = "firebrick2",
-        "Cluster 2" = "springgreen3",
-        "Cluster 3" = "royalblue2",
-        "Cluster 4" = "darkturquoise",
-        "Cluster 5" = "darkorange",
-        "Cluster 6" = "magenta3",
-        "Cluster 7" = "salmon4"
+        "Neutral tail" = "#999999",
+        "Cluster 1" = "#D55E00",
+        "Cluster 2" = "#0072B2",
+        "Cluster 3" = "#E69F00",
+        "Cluster 4" = "#CC79A7",
+        "Cluster 5" = "#56B4E9",
+        "Cluster 6" = "#009E73",
+        "Cluster 7" = "#F0E442"
     )
     mutation_count <- sum(vec_SFS_real)
     #   Prepare the data for plotting
@@ -59,10 +296,10 @@ DECODE_plot <- function(DECODE_result,
             count = rep(0, SFS_totalsteps * length(unique_markers)),
             fill = rep(unique_markers, each = SFS_totalsteps)
         )
-        for (j in 1:length(mutation_altcounts)) {
-            no_variant <- mutation_altcounts[j]
-            no_total <- mutation_refcounts[j] + mutation_altcounts[j]
-            if (no_variant >= min_variant_read && no_total >= min_total_read) {
+        for (j in 1:length(mutation_table$Alt_count)) {
+            no_variant <- mutation_table$Alt_count[j]
+            no_total <- mutation_table$Ref_count[j] + mutation_table$Alt_count[j]
+            if (no_variant >= min_variant_read & no_total >= min_total_read & no_total <= max_total_read) {
                 VAF <- no_variant / no_total
                 pos <- which(vec_freq >= VAF)[1]
                 df_data$count[which(df_data$ID == pos & df_data$fill == mutation_markers[j])] <- df_data$count[which(df_data$ID == pos & df_data$fill == mutation_markers[j])] + 1
@@ -73,11 +310,11 @@ DECODE_plot <- function(DECODE_result,
     #   Prepare the deconvolution inference for plotting
     df_fit <- data.frame()
     df_fit_order <- c()
-    if (tail_status_final) {
+    if (tail_status) {
         SFS_neutral <- compute_SFS(
             A = vec_A[1],
             vec_K = c(),
-            component_distributions = component_distributions_best_final
+            component_distributions = component_distributions
         )
         SFS_neutral <- vec_A[1] * mutation_count * SFS_neutral / sum(SFS_neutral)
         df_fit <- rbind(df_fit, data.frame(frequency = vec_freq, count = SFS_neutral, fill = "Neutral tail"))
@@ -90,7 +327,7 @@ DECODE_plot <- function(DECODE_result,
             SFS_hump <- compute_SFS(
                 A = 0,
                 vec_K = vec_K_tmp,
-                component_distributions = component_distributions_best_final
+                component_distributions = component_distributions
             )
             SFS_hump <- vec_K[i] * mutation_count * SFS_hump / sum(SFS_hump)
             df_fit <- rbind(df_fit, data.frame(frequency = vec_freq, count = SFS_hump, fill = paste0("Cluster ", i)))
@@ -100,12 +337,13 @@ DECODE_plot <- function(DECODE_result,
     df_fit$fill <- factor(df_fit$fill, levels = rev(df_fit_order))
     df_data$fill <- factor(df_data$fill, levels = rev(names(data_marker_colors)))
     p <- ggplot() +
-        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.5) +
+        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.8) +
         geom_bar(data = df_data, aes(x = frequency, y = count, fill = fill), stat = "identity", width = 0.5 / SFS_totalsteps) +
         scale_fill_manual(values = color_scheme, name = "") +
         guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
-        xlab("Variant Allele Frequency") +
-        ylab("Mutation count") +
+        xlab(text_xlab) +
+        ylab(text_ylab) +
+        labs(title = text_legend) +
         theme(
             text = element_text(size = 30),
             panel.background = element_rect(fill = "white", colour = "white"),
@@ -113,6 +351,138 @@ DECODE_plot <- function(DECODE_result,
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
             legend.justification = c(0, 0.5)
+        )
+    if (!notation) {
+        p <- p +
+            theme(
+                legend.position = "none",
+                axis.ticks.x = element_blank(),
+                axis.text.x = element_blank()
+            )
+    }
+    if (is.null(text_ylab)) {
+        p <- p +
+            theme(
+                axis.ticks.y = element_blank(),
+                axis.text.y = element_blank()
+            )
+    }
+    if (SFS_limit) {
+        x_min <- min(df_data$frequency[which(df_data$count > 0)])
+        x_max <- max(df_data$frequency[which(df_data$count > 0)])
+        p <- p + scale_x_continuous(limits = c(x_min, x_max))
+    }
+    return(p)
+}
+
+DECODE_plot_readcounts <- function(DECODE_result,
+                                   freq_cutoff = 10) {
+    suppressWarnings(library(ggplot2))
+    suppressWarnings(library(shadowtext))
+    suppressWarnings(library(reshape2))
+    mutation_table <- DECODE_result$mutational_table
+    vec_min_variant_read <- min(mutation_table$Alt_count):max(mutation_table$Alt_count)
+    vec_min_total_read <- min(mutation_table$Tot_count):max(mutation_table$Tot_count)
+    readcount_distribution <- DECODE_result$readcount_distribution
+    min_variant_read_inference_A <- max(DECODE_result$min_variant_read_inference_A, min(mutation_table$Alt_count))
+    min_total_read_inference_A <- max(DECODE_result$min_total_read_inference_A, min(mutation_table$Tot_count))
+    min_variant_read_inference_B <- max(DECODE_result$min_variant_read_inference_B, min(mutation_table$Alt_count))
+    min_total_read_inference_B <- max(DECODE_result$min_total_read_inference_B, min(mutation_table$Tot_count))
+    min_variant_read_validation <- max(DECODE_result$min_variant_read_validation, min(mutation_table$Alt_count))
+    min_total_read_validation <- max(DECODE_result$min_total_read_validation, min(mutation_table$Tot_count))
+    #---Reduce the distribution to region satisfying the frequency cutoff
+    max_total_read <- vec_min_total_read[which(readcount_distribution$freq[which(readcount_distribution$min_variant_read == vec_min_variant_read[1])] < freq_cutoff)[1]]
+    max_variant_read <- vec_min_variant_read[which(readcount_distribution$freq[which(readcount_distribution$min_total_read == vec_min_total_read[1])] < freq_cutoff)[1]]
+    readcount_distribution <- readcount_distribution[which(readcount_distribution$min_total_read <= max_total_read & readcount_distribution$min_variant_read <= max_variant_read), ]
+    #---Plot the readcount distribution
+    freq_inference_A <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_A & readcount_distribution$min_variant_read == min_variant_read_inference_A], 2)
+    freq_inference_B <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_B & readcount_distribution$min_variant_read == min_variant_read_inference_B], 2)
+    freq_validation <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_validation & readcount_distribution$min_variant_read == min_variant_read_validation], 2)
+    text_inference_A <- paste0("Inference A (", freq_inference_A, "%)")
+    text_inference_B <- paste0("Inference B (", freq_inference_B, "%)")
+    text_validation <- paste0("Validation (", freq_validation, "%)")
+    color_inference_A <- "#DF536B"
+    color_inference_B <- "#DF536B"
+    color_validation <- "#2297E6"
+    p <- ggplot(readcount_distribution, aes(x = min_total_read, y = min_variant_read, fill = freq)) +
+        geom_tile() +
+        geom_rect(
+            aes(
+                xmin = min_total_read_inference_A - 0.5, xmax = min_total_read_inference_A + 0.5,
+                ymin = min_variant_read_inference_A - 0.5, ymax = min_variant_read_inference_A + 0.5
+            ),
+            fill = NA, color = "white", linewidth = 1
+        ) +
+        geom_shadowtext(
+            aes(
+                x = min_total_read_inference_A + 2,
+                y = min_variant_read_inference_A,
+                label = text_inference_A
+            ),
+            angle = 45,
+            hjust = 0,
+            vjust = 0,
+            size = 6,
+            color = color_inference_A,
+            bg.color = "white",
+            fontface = "bold"
+        ) +
+        geom_rect(
+            aes(
+                xmin = min_total_read_inference_B - 0.5, xmax = min_total_read_inference_B + 0.5,
+                ymin = min_variant_read_inference_B - 0.5, ymax = min_variant_read_inference_B + 0.5
+            ),
+            fill = NA, color = "white", linewidth = 1
+        ) +
+        geom_shadowtext(
+            aes(
+                x = min_total_read_inference_B + 2,
+                y = min_variant_read_inference_B,
+                label = text_inference_B
+            ),
+            angle = 45,
+            hjust = 0,
+            vjust = 0,
+            size = 6,
+            color = color_inference_B,
+            bg.color = "white",
+            fontface = "bold"
+        ) +
+        geom_rect(
+            aes(
+                xmin = min_total_read_validation - 0.5, xmax = min_total_read_validation + 0.5,
+                ymin = min_variant_read_validation - 0.5, ymax = min_variant_read_validation + 0.5
+            ),
+            fill = NA, color = "white", linewidth = 1
+        ) +
+        geom_shadowtext(
+            aes(
+                x = min_total_read_validation + 2,
+                y = min_variant_read_validation,
+                label = text_validation
+            ),
+            angle = 45,
+            hjust = 0,
+            vjust = 0,
+            size = 6,
+            color = color_validation,
+            bg.color = "white",
+            fontface = "bold"
+        ) +
+        scale_fill_gradientn(
+            colors = c("#0072B2", "#56B4E9", "#009E73", "#E69F00", "#D55E00"),
+            name = "% mutations retained"
+        ) +
+        theme_minimal() +
+        labs(title = "", x = "Minimum total read count", y = "Minimum variant read count") +
+        theme(
+            text = element_text(size = 30),
+            panel.background = element_rect(fill = "white", colour = "white"),
+            panel.grid.major = element_line(colour = "white"),
+            panel.grid.minor = element_line(colour = "white"),
+            legend.position = "top",
+            legend.justification = c(0, 0.5),
+            legend.key.width = unit(1.5, "cm"),
         )
     return(p)
 }
