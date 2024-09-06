@@ -26,6 +26,7 @@ DECODE_plot_model_selection <- function(DECODE_result,
             DECODE_result = DECODE_result,
             fit = fit,
             mode = "inference_A",
+            DECODE_linewidth = 1,
             text_xlab = NULL,
             text_ylab = text_ylab_inference_A,
             text_legend = NULL,
@@ -37,6 +38,7 @@ DECODE_plot_model_selection <- function(DECODE_result,
             DECODE_result = DECODE_result,
             fit = fit,
             mode = "inference_B",
+            DECODE_linewidth = 1,
             text_xlab = NULL,
             text_ylab = text_ylab_inference_B,
             text_legend = NULL,
@@ -48,6 +50,7 @@ DECODE_plot_model_selection <- function(DECODE_result,
             DECODE_result = DECODE_result,
             fit = fit,
             mode = "validation",
+            DECODE_linewidth = 1,
             text_xlab = text,
             text_ylab = text_ylab_validation,
             text_legend = NULL,
@@ -187,6 +190,7 @@ DECODE_plot_criteria <- function(criteria,
 DECODE_plot_SFS <- function(DECODE_result,
                             fit = "best",
                             mode = "inference_A",
+                            DECODE_linewidth = 5,
                             text_xlab = "Variant Allele Frequency",
                             text_ylab = "Mutation count",
                             text_legend = NULL,
@@ -337,9 +341,11 @@ DECODE_plot_SFS <- function(DECODE_result,
     df_fit$fill <- factor(df_fit$fill, levels = rev(df_fit_order))
     df_data$fill <- factor(df_data$fill, levels = rev(names(data_marker_colors)))
     p <- ggplot() +
-        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.8) +
+        geom_area(data = df_fit, aes(x = frequency, y = count, fill = fill), position = "stack", alpha = 0.5) +
+        geom_line(data = df_fit, aes(x = frequency, y = count, group = fill, color = fill), position = "stack", size = DECODE_linewidth, show.legend = FALSE) +
         geom_bar(data = df_data, aes(x = frequency, y = count, fill = fill), stat = "identity", width = 0.5 / SFS_totalsteps) +
         scale_fill_manual(values = color_scheme, name = "") +
+        scale_color_manual(values = color_scheme, name = "") +
         guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
         xlab(text_xlab) +
         ylab(text_ylab) +
@@ -395,9 +401,9 @@ DECODE_plot_readcounts <- function(DECODE_result,
     max_variant_read <- vec_min_variant_read[which(readcount_distribution$freq[which(readcount_distribution$min_total_read == vec_min_total_read[1])] < freq_cutoff)[1]]
     readcount_distribution <- readcount_distribution[which(readcount_distribution$min_total_read <= max_total_read & readcount_distribution$min_variant_read <= max_variant_read), ]
     #---Plot the readcount distribution
-    freq_inference_A <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_A & readcount_distribution$min_variant_read == min_variant_read_inference_A], 2)
-    freq_inference_B <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_B & readcount_distribution$min_variant_read == min_variant_read_inference_B], 2)
-    freq_validation <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_validation & readcount_distribution$min_variant_read == min_variant_read_validation], 2)
+    freq_inference_A <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_A & readcount_distribution$min_variant_read == min_variant_read_inference_A])
+    freq_inference_B <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_B & readcount_distribution$min_variant_read == min_variant_read_inference_B])
+    freq_validation <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_validation & readcount_distribution$min_variant_read == min_variant_read_validation])
     text_inference_A <- paste0("Inference A (", freq_inference_A, "%)")
     text_inference_B <- paste0("Inference B (", freq_inference_B, "%)")
     text_validation <- paste0("Validation (", freq_validation, "%)")
