@@ -1,19 +1,25 @@
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/TCGA_COAD"
-R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
-R_libPaths <- ""
-R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
+# R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/TCGA_COAD"
+# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
+# R_libPaths <- ""
+# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Ginsburg
+R_data <- "/burg/iicd/users/knd2127/DECODE_TCGA_COAD/TCGA_COAD"
+R_workplace <- "/burg/iicd/users/knd2127/DECODE_TCGA_COAD"
+R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
+R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(grid)
 library(parallel)
 library(pbapply)
+library(mobster)
 setwd(R_libPaths_extra)
 files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 # ===============================================SET UP WORKPLACE FOLDER
-folder_workplace <- "TCGA-COAD/"
+folder_workplace <- "Results_TCGA-COAD/"
 if (!dir.exists(folder_workplace)) dir.create(folder_workplace)
 # ======================================GET TCGA-COAD SAMPLE INFORMATION
 sample_IDs <- read.table(paste0(R_data, "/sample_table.txt"), header = TRUE)$Patient
