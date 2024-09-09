@@ -1,11 +1,11 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/DREAM"
+R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/POG570"
 R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
 R_libPaths <- ""
 R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Ginsburg
-# R_data <- "/burg/iicd/users/knd2127/DECODE_DREAM/DREAM"
-# R_workplace <- "/burg/iicd/users/knd2127/DECODE_DREAM"
+# R_data <- "/burg/iicd/users/knd2127/DECODE_POG570/POG570"
+# R_workplace <- "/burg/iicd/users/knd2127/DECODE_POG570"
 # R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
 # R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
@@ -15,19 +15,19 @@ files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 # ===============================================SET UP WORKPLACE FOLDER
-folder_workplace <- "Results_DREAM/"
+folder_workplace <- "Results_POG/"
 if (!dir.exists(folder_workplace)) dir.create(folder_workplace)
-# ==========================================GET DREAM SAMPLE INFORMATION
-sample_info <- read.csv(paste0(R_data, "/DREAM_sample_information.csv"))
-sample_IDs <- sample_info$Sample
+# ============================================GET POG SAMPLE INFORMATION
+sample_info <- read.csv(paste0(R_data, "/POG570_sample_information.csv"))
+sample_IDs <- sample_info$Patient_ID
 # ===============================================================MOBSTER
 library(mobster)
 for (sample in sample_IDs) {
     #---Input the SFS data
-    filename <- paste0(R_data, "/", sample, "_1_1.csv")
-    mutation_table <- read.table(filename, sep = ",", header = TRUE)
-    mutation_table$Ref_count <- mutation_table$ref_tumor
-    mutation_table$Alt_count <- mutation_table$alt_tumor
+    filename <- paste0(R_data, "/", sample, "_2.csv")
+    mutation_table <- read.table(filename, sep = "\t", header = TRUE)
+    mutation_table$Ref_count <- mutation_table$t_depth - mutation_table$t_alt_count
+    mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
     mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
@@ -50,10 +50,10 @@ for (sample in sample_IDs) {
 library(grid)
 for (sample in sample_IDs) {
     #---Input the SFS data
-    filename <- paste0(R_data, "/", sample, "_1_1.csv")
-    mutation_table <- read.table(filename, sep = ",", header = TRUE)
-    mutation_table$Ref_count <- mutation_table$ref_tumor
-    mutation_table$Alt_count <- mutation_table$alt_tumor
+    filename <- paste0(R_data, "/", sample, "_2.csv")
+    mutation_table <- read.table(filename, sep = "\t", header = TRUE)
+    mutation_table$Ref_count <- mutation_table$t_depth - mutation_table$t_alt_count
+    mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
     #---SFS deconvolution with DECODE
