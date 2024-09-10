@@ -4,14 +4,24 @@ DECODE_plot_model_selection <- function(DECODE_result,
                                         SFS_limit = TRUE,
                                         data_marker_colors = NULL) {
     suppressWarnings(library(gridExtra))
-    #---Get information about the best fit
-    if (DECODE_result$final_fit$best_fit$tail_status) {
-        text_best_fit <- paste0("T+", length(DECODE_result$final_fit$best_fit$parameters_validation) / 2 - 1)
-    } else {
-        text_best_fit <- paste0("NT+", length(DECODE_result$final_fit$best_fit$parameters_validation) / 2)
-    }
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    fit_colors <- c(
+        "none" = "#999999",
+        "best (T)" = "#009E73",
+        "best (WT)" = "#009E73",
+        "best" = "#CC79A7"
+    )
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
+    ####################################################################
     #---Plot each SFS fit
-    func_one_fit <- function(p_right, fit, text) {
+    func_one_fit <- function(p_right, fit, text, text_color) {
         if (length(p_right) == 0) {
             text_ylab_inference_A <- "Inference A"
             text_ylab_inference_B <- "Inference B"
@@ -29,7 +39,6 @@ DECODE_plot_model_selection <- function(DECODE_result,
             DECODE_linewidth = 1,
             text_xlab = NULL,
             text_ylab = text_ylab_inference_A,
-            text_legend = NULL,
             notation = FALSE,
             SFS_limit = SFS_limit,
             data_marker_colors = data_marker_colors
@@ -41,7 +50,6 @@ DECODE_plot_model_selection <- function(DECODE_result,
             DECODE_linewidth = 1,
             text_xlab = NULL,
             text_ylab = text_ylab_inference_B,
-            text_legend = NULL,
             notation = FALSE,
             SFS_limit = SFS_limit,
             data_marker_colors = data_marker_colors
@@ -52,8 +60,8 @@ DECODE_plot_model_selection <- function(DECODE_result,
             mode = "validation",
             DECODE_linewidth = 1,
             text_xlab = text,
+            color_xlab = text_color,
             text_ylab = text_ylab_validation,
-            text_legend = NULL,
             notation = FALSE,
             SFS_limit = SFS_limit,
             data_marker_colors = data_marker_colors
@@ -74,12 +82,14 @@ DECODE_plot_model_selection <- function(DECODE_result,
             fit_ID <- paste0("T+", substr(fit, 1, 1))
             criteria_new <- DECODE_result$fits_with_tail$all_fits[[fit]]$best$criteria
             criteria_new$fit <- fit_ID
+            criteria_new$note <- DECODE_result$fits_with_tail$all_fits[[fit]]$note
+            if (criteria_new$note == "best given tail status") criteria_new$note <- "best (T)"
             criteria_with_tail <- rbind(criteria_with_tail, criteria_new)
-            if (fit_ID == text_best_fit) fit_ID <- paste0(fit_ID, " [best]")
             p_right <- func_one_fit(
                 p_right = p_right,
                 fit = paste0("fits_with_tail:", fit),
-                text = fit_ID
+                text = fit_ID,
+                text_color = fit_colors[criteria_new$note]
             )
         }
     }
@@ -89,12 +99,14 @@ DECODE_plot_model_selection <- function(DECODE_result,
             fit_ID <- paste0("WT+", substr(fit, 1, 1))
             criteria_new <- DECODE_result$fits_without_tail$all_fits[[fit]]$best$criteria
             criteria_new$fit <- fit_ID
+            criteria_new$note <- DECODE_result$fits_without_tail$all_fits[[fit]]$note
+            if (criteria_new$note == "best given tail status") criteria_new$note <- "best (WT)"
             criteria_without_tail <- rbind(criteria_without_tail, criteria_new)
-            if (fit_ID == text_best_fit) fit_ID <- paste0(fit_ID, " [best]")
             p_right <- func_one_fit(
                 p_right = p_right,
                 fit = paste0("fits_without_tail:", fit),
-                text = fit_ID
+                text = fit_ID,
+                text_color = fit_colors[criteria_new$note]
             )
         }
     }
@@ -107,13 +119,14 @@ DECODE_plot_model_selection <- function(DECODE_result,
         p_left_criteria_with_tail <- DECODE_plot_criteria(
             criteria = criteria_with_tail,
             criterion = DECODE_result$criterion,
-            criterion_ratio = DECODE_result$criterion_ratio
+            criterion_ratio = DECODE_result$criterion_ratio,
+            fit_colors = fit_colors
         )
         p_left_criteria_without_tail <- DECODE_plot_criteria(
             criteria = criteria_without_tail,
             criterion = DECODE_result$criterion,
             criterion_ratio = DECODE_result$criterion_ratio,
-            legend = FALSE
+            fit_colors = fit_colors
         )
         p_left <- arrangeGrob(
             p_left_threshold_selection,
@@ -126,7 +139,8 @@ DECODE_plot_model_selection <- function(DECODE_result,
         p_left_criteria_with_tail <- DECODE_plot_criteria(
             criteria = criteria_with_tail,
             criterion = DECODE_result$criterion,
-            criterion_ratio = DECODE_result$criterion_ratio
+            criterion_ratio = DECODE_result$criterion_ratio,
+            fit_colors = fit_colors
         )
         p_left <- arrangeGrob(
             p_left_threshold_selection,
@@ -138,7 +152,8 @@ DECODE_plot_model_selection <- function(DECODE_result,
         p_left_criteria_without_tail <- DECODE_plot_criteria(
             criteria = criteria_without_tail,
             criterion = DECODE_result$criterion,
-            criterion_ratio = DECODE_result$criterion_ratio
+            criterion_ratio = DECODE_result$criterion_ratio,
+            fit_colors = fit_colors
         )
         p_left <- arrangeGrob(
             p_left_threshold_selection,
@@ -155,6 +170,7 @@ DECODE_plot_model_selection <- function(DECODE_result,
 DECODE_plot_criteria <- function(criteria,
                                  criterion,
                                  criterion_ratio,
+                                 fit_colors,
                                  legend = TRUE) {
     #---Get ratio of each fit compared to previous fit
     criteria[[paste0(criterion, "_target")]] <- NA
@@ -169,10 +185,11 @@ DECODE_plot_criteria <- function(criteria,
     y_min <- min(c(min(criteria[[criterion]], na.rm = TRUE), min(criteria[[paste0(criterion, "_target")]], na.rm = TRUE)))
     y_max <- max(c(max(criteria[[criterion]], na.rm = TRUE), max(criteria[[paste0(criterion, "_target")]], na.rm = TRUE)))
     p <- ggplot(criteria) +
-        geom_point(aes(x = fit, y = !!sym(criterion), shape = "Actual"), color = "#999999", size = 10) +
+        geom_point(aes(x = fit, y = !!sym(criterion), shape = "Actual", color = note), size = 10) +
         geom_point(aes(x = fit, y = !!sym(paste0(criterion, "_target")), shape = "Target"), color = "black", size = 6, stroke = 2, na.rm = TRUE) +
         labs(x = NULL, y = NULL, shape = NULL) +
-        scale_shape_manual(values = c("Actual" = 16, "Target" = 6), labels = c(criterion, paste0(criterion, " acceptance threshold"))) +
+        scale_shape_manual(values = c("Actual" = 16, "Target" = 6), labels = c(criterion, paste0(criterion, " threshold"))) +
+        scale_color_manual(values = fit_colors, name = "", breaks = setdiff(names(fit_colors), "none")) +
         expand_limits(y = c(y_min - 0.2 * (y_max - y_min), y_max + 0.2 * (y_max - y_min))) +
         theme(
             text = element_text(size = 30),
@@ -192,8 +209,8 @@ DECODE_plot_SFS <- function(DECODE_result,
                             mode = "inference_A",
                             DECODE_linewidth = 5,
                             text_xlab = "Variant Allele Frequency",
+                            color_xlab = "black",
                             text_ylab = "Mutation count",
-                            text_legend = NULL,
                             notation = TRUE,
                             SFS_limit = FALSE,
                             data_marker_colors = NULL) {
@@ -349,17 +366,19 @@ DECODE_plot_SFS <- function(DECODE_result,
         guides(fill = guide_legend(nrow = 1, keywidth = 2, keyheight = 1)) +
         xlab(text_xlab) +
         ylab(text_ylab) +
-        labs(title = text_legend) +
+        labs(title = DECODE_result$sample_id) +
         theme(
             text = element_text(size = 30),
             panel.background = element_rect(fill = "white", colour = "white"),
             panel.grid.major = element_line(colour = "white"),
             panel.grid.minor = element_line(colour = "white"),
             legend.position = "top",
-            legend.justification = c(0, 0.5)
+            legend.justification = c(0, 0.5),
+            axis.title.x = element_text(color = color_xlab)
         )
     if (!notation) {
         p <- p +
+            labs(title = NULL) +
             theme(
                 legend.position = "none",
                 axis.ticks.x = element_blank(),
@@ -480,7 +499,7 @@ DECODE_plot_readcounts <- function(DECODE_result,
             name = "% mutations retained"
         ) +
         theme_minimal() +
-        labs(title = "", x = "Minimum total read count", y = "Minimum variant read count") +
+        labs(title = DECODE_result$sample_id, x = "Minimum total read count", y = "Minimum variant read count") +
         theme(
             text = element_text(size = 30),
             panel.background = element_rect(fill = "white", colour = "white"),

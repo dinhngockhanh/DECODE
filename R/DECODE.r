@@ -145,8 +145,22 @@ DECODE <- function(sample_id = "",
         )
         DECODE_result$fits_without_tail <- result_without_tail
         if (result_with_tail$best_fit$selected_criterion_value < result_without_tail$best_fit$selected_criterion_value) {
+            N_humps <- min_N_humps
+            while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+                if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+                    DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+                }
+                N_humps <- N_humps + 1
+            }
             final_result <- result_with_tail
         } else {
+            N_humps <- min_N_humps
+            while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+                if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+                    DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+                }
+                N_humps <- N_humps + 1
+            }
             final_result <- result_without_tail
         }
     } else if (neutral_tail == TRUE) {
@@ -174,6 +188,13 @@ DECODE <- function(sample_id = "",
             n_cores = n_cores
         )
         DECODE_result$fits_with_tail <- final_result
+        N_humps <- min_N_humps
+        while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+            if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+                DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+            }
+            N_humps <- N_humps + 1
+        }
     } else if (neutral_tail == FALSE) {
         final_result <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
@@ -199,6 +220,13 @@ DECODE <- function(sample_id = "",
             n_cores = n_cores
         )
         DECODE_result$fits_without_tail <- final_result
+        N_humps <- min_N_humps
+        while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+            if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+                DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+            }
+            N_humps <- N_humps + 1
+        }
     }
     DECODE_result$final_fit <- final_result
     #---Report the best fit
@@ -285,6 +313,7 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
+        fit_results$note <- "none"
         all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
         parameters_inference_A_best_current <- fit_results$best$parameters_inference_A
         parameters_inference_B_best_current <- fit_results$best$parameters_inference_B
@@ -320,6 +349,7 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
         #   Check if the increased hump count leads to lower criterion score without tiny selective components...
         if ((N_humps == min_N_humps) | ((criterion_best_current < criterion_ratio * criterion_best_final) & (min(pmax(cluster_pis_inference_A, cluster_pis_inference_B)) >= pi_cutoff))) {
             #   ... if yes, then update the best fit and continue with 1 more hump
+            N_humps_best_final <- N_humps
             fit_results_best_final <- fit_results
             criterion_best_final <- criterion_best_current
             criteria_validation_index_best_final <- criteria_validation_index_best_current
@@ -332,32 +362,35 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
             component_distributions_validation_best_final <- component_distributions_validation_best_current
             N_humps <- N_humps + 1
             #   ... except if exceeding maximum number of clusters
-            if (N_humps > max_N_humps) break
+            if (N_humps > max_N_humps) {
+                break
+            }
         } else {
             #   ... if no, then stop
             break
         }
     }
-    #---Check if the neutral tail component is too tiny
-    if (with_tail == TRUE & (max(parameters_inference_A_best_final[1], parameters_inference_B_best_final[1]) < pi_cutoff)) {
-        with_tail <- FALSE
-        parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)] <- parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)] / sum(parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)])
-        parameters_inference_A_best_final <- parameters_inference_A_best_final[-c(1, 2)]
-        parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)] <- parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)] / sum(parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)])
-        parameters_inference_B_best_final <- parameters_inference_B_best_final[-c(1, 2)]
-        parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] <- parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] / sum(parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)])
-        parameters_validation_best_final <- parameters_validation_best_final[-c(1, 2)]
-        component_distributions_inference_A_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_exact[1, ]))
-        component_distributions_inference_A_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_expected[1, ]))
-        component_distributions_inference_A_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_expected_normalized[1, ]))
-        component_distributions_inference_B_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_exact[1, ]))
-        component_distributions_inference_B_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_expected[1, ]))
-        component_distributions_inference_B_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_expected_normalized[1, ]))
-        component_distributions_validation_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_exact[1, ]))
-        component_distributions_validation_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected[1, ]))
-        component_distributions_validation_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected_normalized[1, ]))
-    }
+    # #---Check if the neutral tail component is too tiny
+    # if (with_tail == TRUE & (max(parameters_inference_A_best_final[1], parameters_inference_B_best_final[1]) < pi_cutoff)) {
+    #     with_tail <- FALSE
+    #     parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)] <- parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)] / sum(parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)])
+    #     parameters_inference_A_best_final <- parameters_inference_A_best_final[-c(1, 2)]
+    #     parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)] <- parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)] / sum(parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)])
+    #     parameters_inference_B_best_final <- parameters_inference_B_best_final[-c(1, 2)]
+    #     parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] <- parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] / sum(parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)])
+    #     parameters_validation_best_final <- parameters_validation_best_final[-c(1, 2)]
+    #     component_distributions_inference_A_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_exact[1, ]))
+    #     component_distributions_inference_A_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_expected[1, ]))
+    #     component_distributions_inference_A_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_expected_normalized[1, ]))
+    #     component_distributions_inference_B_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_exact[1, ]))
+    #     component_distributions_inference_B_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_expected[1, ]))
+    #     component_distributions_inference_B_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_expected_normalized[1, ]))
+    #     component_distributions_validation_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_exact[1, ]))
+    #     component_distributions_validation_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected[1, ]))
+    #     component_distributions_validation_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected_normalized[1, ]))
+    # }
     #---Report the best fit
+    all_fits[[paste0(N_humps_best_final, "_clusters")]]$note <- "best given tail status"
     result <- list()
     result$all_fits <- all_fits
     result$best_fit <- list()
