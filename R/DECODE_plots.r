@@ -3,7 +3,7 @@ DECODE_plot_model_selection <- function(DECODE_result,
                                         mode = "inference_A",
                                         SFS_limit = TRUE,
                                         data_marker_colors = NULL) {
-    suppressWarnings(library(gridExtra))
+    suppressPackageStartupMessages(library(gridExtra))
     fit_colors <- c(
         "none" = "#999999",
         "best (T)" = "#009E73",
@@ -204,7 +204,7 @@ DECODE_plot_SFS <- function(DECODE_result,
                             notation = TRUE,
                             SFS_limit = FALSE,
                             data_marker_colors = NULL) {
-    suppressWarnings(library(ggplot2))
+    suppressPackageStartupMessages(library(ggplot2))
     if (is.null(data_marker_colors)) data_marker_colors <- c("Data" = "black")
     vec_freq <- DECODE_result$SFS_frequencies
     SFS_totalsteps <- length(vec_freq)
@@ -392,9 +392,9 @@ DECODE_plot_SFS <- function(DECODE_result,
 
 DECODE_plot_readcounts <- function(DECODE_result,
                                    freq_cutoff = 10) {
-    suppressWarnings(library(ggplot2))
-    suppressWarnings(library(shadowtext))
-    suppressWarnings(library(reshape2))
+    suppressPackageStartupMessages(library(ggplot2))
+    suppressPackageStartupMessages(library(shadowtext))
+    suppressPackageStartupMessages(library(reshape2))
     mutation_table <- DECODE_result$mutational_table
     vec_min_variant_read <- min(mutation_table$Alt_count):max(mutation_table$Alt_count)
     vec_min_total_read <- min(mutation_table$Tot_count):max(mutation_table$Tot_count)

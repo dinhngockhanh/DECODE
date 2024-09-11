@@ -24,7 +24,7 @@ DECODE <- function(sample_id = "",
                    zero_cutoff = 1e-50,
                    compute_parallel = TRUE,
                    n_cores = NULL) {
-    suppressWarnings(library(crayon))
+    suppressPackageStartupMessages(library(crayon))
     cat(paste0("\n\n\n", bold(red("PERFORMING DECODE FOR SAMPLE ")), bold(yellow(sample_id)), bold(red("...")), "\n"))
     mutation_table$Tot_count <- mutation_table$Ref_count + mutation_table$Alt_count
     mutation_table$VAF <- mutation_table$Alt_count / mutation_table$Tot_count
@@ -540,8 +540,8 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         }
         if (progress_bar) cat("\n")
     } else {
-        suppressWarnings(library(parallel))
-        suppressWarnings(library(pbapply))
+        suppressPackageStartupMessages(library(parallel))
+        suppressPackageStartupMessages(library(pbapply))
         #   Start parallel cluster
         numCores <- ifelse(is.null(n_cores), detectCores(), n_cores)
         cl <- makePSOCKcluster(numCores - 1)
@@ -1171,7 +1171,7 @@ build_convolution_matrix <- function(sfs_bincount,
                                      sample_coverage,
                                      compute_parallel = FALSE,
                                      n_cores = NULL) {
-    suppressWarnings(library(progress))
+    suppressPackageStartupMessages(library(progress))
     report <- "Prepare the SFS convolution matrix"
     if (!is.null(mode)) report <- paste0(report, " for ", mode)
     cat(bold(blue(paste0(report, "...\n"))))
@@ -1234,8 +1234,8 @@ build_convolution_matrix <- function(sfs_bincount,
         }
         cat("\n")
     } else {
-        suppressWarnings(library(parallel))
-        suppressWarnings(library(pbapply))
+        suppressPackageStartupMessages(library(parallel))
+        suppressPackageStartupMessages(library(pbapply))
         #   Start parallel cluster
         numCores <- ifelse(is.null(n_cores), detectCores(), n_cores)
         cl <- makePSOCKcluster(numCores - 1)
