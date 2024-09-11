@@ -780,8 +780,8 @@ choose_mutation_thresholds <- function(mutation_table,
                                        inference_retained_freq,
                                        validation_mutation_count,
                                        validation_N_trials) {
-    library(dplyr)
-    library(data.table)
+    suppressPackageStartupMessages(library(dplyr))
+    suppressPackageStartupMessages(library(data.table))
     cat(bold(blue("Choose mutation thresholds for inference and validation...\n")))
     #---Find joint distribution of variant and total readcounts
     mutation_table_tmp <- mutation_table %>%
