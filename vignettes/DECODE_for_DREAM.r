@@ -51,11 +51,13 @@ library(grid)
 for (sample in sample_IDs) {
     #---Input the SFS data
     filename <- paste0(R_data, "/", sample, "_1_1.csv")
+    if (!file.exists(filename)) next
     mutation_table <- read.table(filename, sep = ",", header = TRUE)
     mutation_table$Ref_count <- mutation_table$ref_tumor
     mutation_table$Alt_count <- mutation_table$alt_tumor
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+    if (nrow(mutation_table) < 100) next
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
         sample_id = sample,
