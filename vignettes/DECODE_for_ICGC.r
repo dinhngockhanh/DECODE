@@ -8,16 +8,16 @@
 # R_workplace <- "/burg/iicd/users/knd2127/DECODE_PCAWG"
 # R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
 # R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptio
-R_data <- "D:/RESEARCH/DATA/data/PCAWG"
-R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/vignettes"
-R_libPaths <- ""
-R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/R"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
+# R_data <- "D:/RESEARCH/DATA/data/PCAWG"
+# R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/vignettes"
+# R_libPaths <- ""
+# R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/R"
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
-# R_data <- "/burg/iicd/users/knd2127/DECODE_PCAWG/PCAWG"
-# R_workplace <- "/burg/iicd/users/knd2127/DECODE_PCAWG"
-# R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
-# R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
+R_data <- "/burg/iicd/users/ym2998/data/PCAWG"
+R_workplace <- "/burg/iicd/users/ym2998/DECODE_PCAWG[0915]"
+R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
+R_libPaths_extra <- "/burg/iicd/users/ym2998/DECODE_PCAWG[0915]/DECODE/R"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 setwd(R_libPaths_extra)
@@ -51,7 +51,8 @@ for (sample in sample_IDs) {
     #---SFS deconvolution with MOBSTER
     MOBSTER_result <- mobster_fit(
         MOBSTER_data,
-        description = sample
+        description = sample,
+        parallel = FALSE # To run on the Ginsburg, parallel should be set to FALSE
     )
     save(MOBSTER_result, file = paste0(folder_workplace, "MOBSTER_", sample, ".rda"))
     #---Plot MOBSTER deconvolution
