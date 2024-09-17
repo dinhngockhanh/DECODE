@@ -35,6 +35,7 @@ for (sample in sample_IDs) {
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+    if (nrow(mutation_table) < 100) next
     mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
     MOBSTER_data <- data.frame(VAF = mutation_table$VAF)
     #---SFS deconvolution with MOBSTER
@@ -61,6 +62,7 @@ for (sample in sample_IDs) {
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+    if (nrow(mutation_table) < 100) next
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
         sample_id = sample,
