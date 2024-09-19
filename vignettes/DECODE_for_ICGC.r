@@ -3,21 +3,21 @@
 # R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
 # R_libPaths <- ""
 # R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Ginsburg
-R_data <- "/burg/iicd/users/knd2127/DECODE_DATA/PCAWG"
-R_workplace <- "/burg/iicd/users/knd2127/DECODE_TCGA_COAD"
-R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
-R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Laptop
-# R_data <- "D:/RESEARCH/DATA/data/PCAWG"
-# R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/vignettes"
-# R_libPaths <- ""
-# R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/R"
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Ginsburg
+# R_data <- "/burg/iicd/users/knd2127/DECODE_DATA/PCAWG"
+# R_workplace <- "/burg/iicd/users/knd2127/DECODE_TCGA_COAD"
+# R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
+# R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Yining - Laptop
+R_data <- "D:/RESEARCH/DATA/data/PCAWG"
+R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/vignettes"
+R_libPaths <- ""
+R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/R"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
 # R_data <- "/burg/iicd/users/ym2998/data/PCAWG"
-# R_workplace <- "/burg/iicd/users/ym2998/DECODE_PCAWG[0915]"
-# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-# R_libPaths_extra <- "/burg/iicd/users/ym2998/DECODE_PCAWG[0915]/DECODE/R"
+# R_workplace <- "/burg/iicd/users/ym2998/PCAWG/PCAWG[0918]_page1"
+# R_libPaths <- "/burg/iicd/users/ym2998/R_Package"
+# R_libPaths_extra <- "/burg/iicd/users/ym2998/DECODE/R"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 setwd(R_libPaths_extra)
@@ -35,10 +35,19 @@ sample_info <- sample_info[
             sample_info$wgd_uncertain == FALSE
     ),
 ]
+
+# page
 sample_IDs <- sample_info$aliquot_id
+
+page <- 1
+page_size <- 150
+sample_range_min <- max(1, (page-1)*page_size+1)
+sample_range_max <- min(page*page_size, length(sample_IDs))
+sample_IDs_page <- sample_IDs[sample_range_min:sample_range_max]
+
 # ===============================================================MOBSTER
 library(mobster)
-for (sample in sample_IDs) {
+for (sample in sample_IDs_page) {
     #---Input the SFS data
     filename <- paste0(R_data, "/", sample, "_1_1.csv")
     mutation_table <- read.table(filename, sep = "\t", header = TRUE)
@@ -66,7 +75,7 @@ for (sample in sample_IDs) {
 }
 # ================================================================DECODE
 library(grid)
-for (sample in sample_IDs) {
+for (sample in sample_IDs_page) {
     #---Input the SFS data
     filename <- paste0(R_data, "/", sample, "_1_1.csv")
     mutation_table <- read.table(filename, sep = "\t", header = TRUE)
