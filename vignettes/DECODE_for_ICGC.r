@@ -1,18 +1,18 @@
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/PCAWG"
-# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
+R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/PCAWG"
+R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
+R_libPaths <- ""
+R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Ginsburg
 # R_data <- "/burg/iicd/users/knd2127/DECODE_DATA/PCAWG"
 # R_workplace <- "/burg/iicd/users/knd2127/DECODE_TCGA_COAD"
 # R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
 # R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Yining - Laptop
-R_data <- "D:/RESEARCH/DATA/data/PCAWG"
-R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/vignettes"
-R_libPaths <- ""
-R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/R"
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Yining - Laptop
+# R_data <- "D:/RESEARCH/DATA/data/PCAWG"
+# R_workplace <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/vignettes"
+# R_libPaths <- ""
+# R_libPaths_extra <- "C:/Users/Mayin/Documents/1GRADUATE/1. Study/41. Dinh_Lab/DECODE/R"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
 # R_data <- "/burg/iicd/users/ym2998/data/PCAWG"
 # R_workplace <- "/burg/iicd/users/ym2998/PCAWG/PCAWG[0918]_page1"
@@ -36,13 +36,12 @@ sample_info <- sample_info[
     ),
 ]
 
-# page
 sample_IDs <- sample_info$aliquot_id
 
 page <- 1
 page_size <- 150
-sample_range_min <- max(1, (page-1)*page_size+1)
-sample_range_max <- min(page*page_size, length(sample_IDs))
+sample_range_min <- max(1, (page - 1) * page_size + 1)
+sample_range_max <- min(page * page_size, length(sample_IDs))
 sample_IDs_page <- sample_IDs[sample_range_min:sample_range_max]
 
 # ===============================================================MOBSTER
@@ -102,3 +101,24 @@ for (sample in sample_IDs_page) {
     )
     dev.off()
 }
+# ======================================EXTRACT DECONVOLUTION PARAMETERS
+mobster_df <- data.frame()
+decode_df <- data.frame()
+for (sample in sample_IDs) {
+    #---Extract MOBSTER parameters
+    load(paste0(folder_workplace, "MOBSTER_", sample, ".rda"))
+    mobster_df <- MOBSTER_summary_statistics(mobster_df, MOBSTER_result)
+    # #---Extract DECODE parameters
+    load(paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    decode_df <- DECODE_summary_statistics(decode_df, DECODE_result)
+}
+mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "purity")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "purity"] <- "Purity"
+mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "histology_abbreviation")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "histology_abbreviation"] <- "Cancer_type"
+decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "purity")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(decode_df)[names(decode_df) == "purity"] <- "Purity"
+decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "histology_abbreviation")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(decode_df)[names(decode_df) == "histology_abbreviation"] <- "Cancer_type"
+write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_ICGC.csv"), row.names = FALSE)
+write.csv(decode_df, paste0(folder_workplace, "DECODE_ICGC.csv"), row.names = FALSE)

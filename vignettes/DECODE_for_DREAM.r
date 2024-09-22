@@ -77,3 +77,18 @@ for (sample in sample_IDs) {
     )
     dev.off()
 }
+# ======================================EXTRACT DECONVOLUTION PARAMETERS
+mobster_df <- data.frame()
+decode_df <- data.frame()
+for (sample in sample_IDs) {
+    #---Extract MOBSTER parameters
+    load(paste0(folder_workplace, "MOBSTER_", sample, ".rda"))
+    mobster_df <- MOBSTER_summary_statistics(mobster_df, MOBSTER_result)
+    # #---Extract DECODE parameters
+    load(paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    decode_df <- DECODE_summary_statistics(decode_df, DECODE_result)
+}
+mobster_df <- merge(mobster_df, sample_info[, c("Sample", "Purity")], all.x = TRUE)
+decode_df <- merge(decode_df, sample_info[, c("Sample", "Purity")], all.x = TRUE)
+write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_DREAM.csv"), row.names = FALSE)
+write.csv(decode_df, paste0(folder_workplace, "DECODE_DREAM.csv"), row.names = FALSE)

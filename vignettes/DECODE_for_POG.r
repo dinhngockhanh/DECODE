@@ -1,18 +1,18 @@
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-# R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/POG570"
-# R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
-# R_libPaths <- ""
-# R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
+R_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/POG570"
+R_workplace <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/vignettes"
+R_libPaths <- ""
+R_libPaths_extra <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Ginsburg
 # R_data <- "/burg/iicd/users/knd2127/DECODE_POG570/POG570"
 # R_workplace <- "/burg/iicd/users/knd2127/DECODE_POG570"
 # R_libPaths <- "/burg/iicd/users/knd2127/rpackages"
 # R_libPaths_extra <- "/burg/iicd/users/knd2127/R_DECODE"
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
-R_data <- "/burg/iicd/users/ym2998/data/POG570"
-R_workplace <- "/burg/iicd/users/ym2998/POG[0916]/POG_SHORT"
-R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
-R_libPaths_extra <- "/burg/iicd/users/ym2998/DECODE_PCAWG[0915]/DECODE/R"
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Yining - Ginsburg
+# R_data <- "/burg/iicd/users/ym2998/data/POG570"
+# R_workplace <- "/burg/iicd/users/ym2998/POG[0916]/POG_SHORT"
+# R_libPaths <- "/burg/iicd/users/ym2998/R_Packages"
+# R_libPaths_extra <- "/burg/iicd/users/ym2998/DECODE_PCAWG[0915]/DECODE/R"
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 setwd(R_libPaths_extra)
@@ -81,3 +81,24 @@ for (sample in sample_IDs) {
     )
     dev.off()
 }
+# ======================================EXTRACT DECONVOLUTION PARAMETERS
+mobster_df <- data.frame()
+decode_df <- data.frame()
+for (sample in sample_IDs) {
+    #---Extract MOBSTER parameters
+    load(paste0(folder_workplace, "MOBSTER_", sample, ".rda"))
+    mobster_df <- MOBSTER_summary_statistics(mobster_df, MOBSTER_result)
+    # #---Extract DECODE parameters
+    load(paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    decode_df <- DECODE_summary_statistics(decode_df, DECODE_result)
+}
+mobster_df <- merge(mobster_df, sample_info[, c("Patient_ID", "Tumour_content")], by.x = "Sample", by.y = "Patient_ID", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "Tumour_content"] <- "Purity"
+mobster_df <- merge(mobster_df, sample_info[, c("Patient_ID", "Histological_type")], by.x = "Sample", by.y = "Patient_ID", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "Histological_type"] <- "Cancer_type"
+decode_df <- merge(decode_df, sample_info[, c("Patient_ID", "Tumour_content")], by.x = "Sample", by.y = "Patient_ID", all.x = TRUE)
+names(decode_df)[names(decode_df) == "Tumour_content"] <- "Purity"
+decode_df <- merge(decode_df, sample_info[, c("Patient_ID", "Histological_type")], by.x = "Sample", by.y = "Patient_ID", all.x = TRUE)
+names(decode_df)[names(decode_df) == "Histological_type"] <- "Cancer_type"
+write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_POG.csv"), row.names = FALSE)
+write.csv(decode_df, paste0(folder_workplace, "DECODE_POG.csv"), row.names = FALSE)
