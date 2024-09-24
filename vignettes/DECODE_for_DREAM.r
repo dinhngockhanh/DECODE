@@ -92,3 +92,30 @@ mobster_df <- merge(mobster_df, sample_info[, c("Sample", "Purity")], all.x = TR
 decode_df <- merge(decode_df, sample_info[, c("Sample", "Purity")], all.x = TRUE)
 write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_DREAM.csv"), row.names = FALSE)
 write.csv(decode_df, paste0(folder_workplace, "DECODE_DREAM.csv"), row.names = FALSE)
+# =========================================ANALYZE DECONVOLUTION RESULTS
+#---Input plot settings
+source("plot_settings.r")
+#---Make plots for analysis of MOBSTER results
+mobster_df <- read.csv(paste0(folder_workplace, "MOBSTER_DREAM.csv"))
+plot_analysis(
+    results = mobster_df,
+    algorithm = "MOBSTER",
+    cohort = "DREAM",
+    algorithm_colors = algorithm_colors,
+    cluster_shapes = cluster_shapes,
+    cluster_labels = cluster_labels,
+    cluster_colors = cluster_colors,
+    folder_workplace = folder_workplace
+)
+#---Make plots for analysis of DECODE results
+decode_df <- read.csv(paste0(folder_workplace, "DECODE_DREAM.csv"))
+plot_analysis(
+    results = decode_df,
+    algorithm = "DECODE",
+    cohort = "DREAM",
+    algorithm_colors = algorithm_colors,
+    cluster_shapes = cluster_shapes,
+    cluster_labels = cluster_labels,
+    cluster_colors = cluster_colors,
+    folder_workplace = folder_workplace
+)

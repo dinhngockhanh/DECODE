@@ -1,6 +1,6 @@
 MOBSTER_summary_statistics <- function(mobster_df, MOBSTER_result) {
     mobster_df[nrow(mobster_df) + 1, "Sample"] <- MOBSTER_result$best$description
-    mobster_df[nrow(mobster_df), "Nmut_inference"] <- MOBSTER_result$best$N
+    mobster_df[nrow(mobster_df), "Nmut"] <- MOBSTER_result$best$N
     mobster_df[nrow(mobster_df), "Tail"] <- MOBSTER_result$best$fit.tail
     mobster_df[nrow(mobster_df), "Tail_Nmut"] <- MOBSTER_result$best$N.k[[1]]
     mobster_df[nrow(mobster_df), "Tail_power"] <- MOBSTER_result$best$shape + 1
@@ -35,6 +35,7 @@ DECODE_summary_statistics <- function(decode_df, DECODE_result) {
         Cluster_VAF <- parameters_inference_A[seq(2, length(parameters_inference_A), 2)]
     }
     decode_df[nrow(decode_df) + 1, "Sample"] <- sample
+    decode_df[nrow(decode_df), "Nmut"] <- nrow(DECODE_result$mutational_table)
     decode_df[nrow(decode_df), "Nmut_inference_A"] <- sum(DECODE_result$SFS_data_inference_A)
     decode_df[nrow(decode_df), "Nmut_inference_B"] <- sum(DECODE_result$SFS_data_inference_B)
     decode_df[nrow(decode_df), "Tail"] <- DECODE_result$final_fit$best_fit$tail_status

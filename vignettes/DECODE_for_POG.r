@@ -102,3 +102,32 @@ decode_df <- merge(decode_df, sample_info[, c("Patient_ID", "Histological_type")
 names(decode_df)[names(decode_df) == "Histological_type"] <- "Cancer_type"
 write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_POG.csv"), row.names = FALSE)
 write.csv(decode_df, paste0(folder_workplace, "DECODE_POG.csv"), row.names = FALSE)
+# =========================================ANALYZE DECONVOLUTION RESULTS
+#---Input plot settings
+source("plot_settings.r")
+#---Make plots for analysis of MOBSTER results
+mobster_df <- read.csv(paste0(folder_workplace, "MOBSTER_POG.csv"))
+plot_analysis(
+    results = mobster_df,
+    algorithm = "MOBSTER",
+    cohort = "POG",
+    algorithm_colors = algorithm_colors,
+    cluster_shapes = cluster_shapes,
+    cluster_labels = cluster_labels,
+    cluster_colors = cluster_colors,
+    cohort_colors = POG_cohort_colors,
+    folder_workplace = folder_workplace
+)
+#---Make plots for analysis of DECODE results
+decode_df <- read.csv(paste0(folder_workplace, "DECODE_POG.csv"))
+plot_analysis(
+    results = decode_df,
+    algorithm = "DECODE",
+    cohort = "POG",
+    algorithm_colors = algorithm_colors,
+    cluster_shapes = cluster_shapes,
+    cluster_labels = cluster_labels,
+    cluster_colors = cluster_colors,
+    cohort_colors = POG_cohort_colors,
+    folder_workplace = folder_workplace
+)
