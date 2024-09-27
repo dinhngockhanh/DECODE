@@ -29,13 +29,22 @@ folder_workplace <- "Results_ICGC/"
 if (!dir.exists(folder_workplace)) dir.create(folder_workplace)
 # ===========================================GET ICGC SAMPLE INFORMATION
 sample_info <- read.csv(paste0(R_data, "/ICGC_sample_information.csv"))
-sample_info <- sample_info[
-    which(
-        sample_info$wgd_status == "no_wgd" &
-            sample_info$wgd_uncertain == FALSE
-    ),
-]
-
+samples_to_delete <- c()
+for (sample_index in 1:nrow(sample_info)) {
+    if (sample_info$wgd_status[sample_index] == "wgd" | sample_info$wgd_uncertain[sample_index] == TRUE) {
+        samples_to_delete <- c(samples_to_delete, sample)
+        next
+    }
+    sample <- sample_info$aliquot_id[sample_index]
+    filename <- paste0(R_data, "/", sample, "_1_1.csv")
+    mutation_table <- read.table(filename, sep = "\t", header = TRUE)
+    mutation_table$Ref_count <- mutation_table$t_ref_count
+    mutation_table$Alt_count <- mutation_table$t_alt_count
+    if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
+    if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+    if (nrow(mutation_table) < 100) samples_to_delete <- c(samples_to_delete, sample)
+}
+if (length(samples_to_delete) > 0) sample_info <- sample_info[!sample_info$aliquot_id %in% samples_to_delete, ]
 sample_IDs <- sample_info$aliquot_id
 
 page <- 1
@@ -54,7 +63,6 @@ for (sample in sample_IDs_page) {
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-    if (nrow(mutation_table) < 100) next
     mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
     MOBSTER_data <- data.frame(VAF = mutation_table$VAF)
     #---SFS deconvolution with MOBSTER
@@ -82,7 +90,6 @@ for (sample in sample_IDs_page) {
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-    if (nrow(mutation_table) < 100) next
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
         sample_id = sample,

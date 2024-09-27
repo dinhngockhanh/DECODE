@@ -24,6 +24,18 @@ folder_workplace <- "Results_POG/"
 if (!dir.exists(folder_workplace)) dir.create(folder_workplace)
 # ============================================GET POG SAMPLE INFORMATION
 sample_info <- read.csv(paste0(R_data, "/POG570_sample_information.csv"))
+samples_to_delete <- c()
+for (sample_index in 1:nrow(sample_info)) {
+    sample <- sample_info$Patient_ID[sample_index]
+    filename <- paste0(R_data, "/", sample, "_2.csv")
+    mutation_table <- read.table(filename, sep = "\t", header = TRUE)
+    mutation_table$Ref_count <- mutation_table$t_depth - mutation_table$t_alt_count
+    mutation_table$Alt_count <- mutation_table$t_alt_count
+    if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
+    if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+    if (nrow(mutation_table) < 100) samples_to_delete <- c(samples_to_delete, sample)
+}
+if (length(samples_to_delete) > 0) sample_info <- sample_info[!sample_info$Patient_ID %in% samples_to_delete, ]
 sample_IDs <- sample_info$Patient_ID
 # ===============================================================MOBSTER
 library(mobster)
@@ -35,7 +47,6 @@ for (sample in sample_IDs) {
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-    if (nrow(mutation_table) < 100) next
     mutation_table$VAF <- mutation_table$Alt_count / (mutation_table$Alt_count + mutation_table$Ref_count)
     MOBSTER_data <- data.frame(VAF = mutation_table$VAF)
     #---SFS deconvolution with MOBSTER
@@ -62,7 +73,6 @@ for (sample in sample_IDs) {
     mutation_table$Alt_count <- mutation_table$t_alt_count
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-    if (nrow(mutation_table) < 100) next
     #---SFS deconvolution with DECODE
     DECODE_result <- DECODE(
         sample_id = sample,
