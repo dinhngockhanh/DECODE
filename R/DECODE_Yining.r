@@ -70,11 +70,11 @@ DECODE_Yining <- function(sample_id = "",
     png(filename = "observed_SFS_plot.png")
     plot(1:sfs_bincount, observed_SFS)
     dev.off()
-    #---Test the SFS function...
-    pis <- c(0.7, 0.3)
-    alpha <- 3.5
-    ps <- c(0.4)
-    compute_SFS_Yining(
+    # ============================================ TEST THE SFS FUNCTION
+    alpha <- 2.5 # ~ Uniform(neutral_power_min, neutral_power_max)
+    ps <- c(0.5) # ~ Uniform(cluster_frequency_min, cluster_frequency_max) then sort in decreasing order
+    pis <- c(0.3, 0.7) # ~ Uniform(0, 1) then renormalize
+    expected_SFS <- compute_SFS_Yining(
         pis = pis,
         alpha = alpha,
         ps = ps,
@@ -82,8 +82,15 @@ DECODE_Yining <- function(sample_id = "",
         matrix_binomial_sample_size = matrix_binomial_sample_size,
         SFS_convolution_matrix = SFS_convolution_matrix
     )
+    logLikelihood <- sum(observed_SFS * log(expected_SFS))
+    print(logLikelihood)
+    # ============================================================== ABC
+    #   sample from priors...
+    #   compute SFS...
+    #   compute logLikelihood...
+    #   keep top percentile...
 }
-compute_SFS_Yining <- function(pis, alpha, ps, sfs_bincount, matrix_binomial_sample_size, SFS_convolution_matrix) {
+compute_SFS_Yining <- function(pis, alpha, ps, sfs_bincount, matrix_binomial_sample_size, SFS_convolution_matrix, zero_cutoff = 1e-50) {
     SFS_data_frequencies <- seq(1, sfs_bincount) / sfs_bincount
 
     matrix_GT_SFS <- c()
@@ -108,6 +115,9 @@ compute_SFS_Yining <- function(pis, alpha, ps, sfs_bincount, matrix_binomial_sam
     for (i in 1:nrow(matrix_expected_SFS)) {
         expected_SFS <- expected_SFS + pis[i] * matrix_expected_SFS[i, ] / sum(matrix_expected_SFS[i, ])
     }
+
+    expected_SFS <- expected_SFS + zero_cutoff
+    expected_SFS <- expected_SFS / sum(expected_SFS)
 
     png(filename = "expected_SFS_plot.png")
     plot(1:sfs_bincount, expected_SFS)
