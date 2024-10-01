@@ -55,7 +55,7 @@ DECODE_Yining <- function(sample_id = "",
     #---Example unobserved true SFS
     true_SFS <- rep(0, matrix_binomial_sample_size)
     true_alpha <- 2.5
-    true_A <- 2000000
+    true_A <- 200000 #2000000
     true_Ks <- c(5000)
     true_ps <- c(0.5)
     true_SFS <- true_SFS + true_A / (1:matrix_binomial_sample_size)^true_alpha
@@ -84,20 +84,19 @@ DECODE_Yining <- function(sample_id = "",
     # )
     # ============================================================== ABC
     
-    library(MCMCpack)
-    N <- 5000 # iteration number
+    N <- 1000 # iteration number
     H <- 1 # number of clusters
     T  <- 1 # if tail
-    dirichlet_alpha <- rep(1, H + T) 
+
     logLikelihoods_vec <- c() # initialize logLikelihoods
     params_list <- list() # initialize parameters list
     for (l in 1:N) {
         #   sample from priors...
         alpha_prior <- runif(1, neutral_power_min, neutral_power_max)
         ps_prior <- sort(runif(H, cluster_frequency_min, cluster_frequency_max), decreasing = FALSE)
-        # pis_prior_unnorm <- runif(H+T, 0, 1)
-        # pis_prior <- pis_prior_unnorm / sum(pis_prior_unnorm)
-        pis_prior <- rdirichlet(1, dirichlet_alpha)
+        pis_prior_unnorm <- runif(H+T, 0, 1)
+        pis_prior <- pis_prior_unnorm / sum(pis_prior_unnorm)
+
         #   compute SFS...
         expected_SFS_iteration <- compute_SFS_Yining(
             pis = pis_prior,
@@ -113,7 +112,7 @@ DECODE_Yining <- function(sample_id = "",
         params_list[[l]] <- list(alpha = alpha_prior, ps = ps_prior, pis = pis_prior)
         
         # monitor progress...
-        if (l %% 500 == 0) {
+        if (l %% 100 == 0) {
             print(paste("Iteration:", l))
         }}
     #   keep top percentile...
@@ -153,8 +152,8 @@ DECODE_Yining <- function(sample_id = "",
 
     # print the posterior mean of each parameter
     mean_alpha <- mean(sapply(selected_params_list, function(x) x$alpha))
-    mean_ps <- colMeans(ps_matrix)
-    mean_pis <- colMeans(pis_matrix)
+    mean_ps <- apply(ps_matrix, 2, mean)
+    mean_pis <- apply(pis_matrix, 2, mean)
 
     # print posterior mean
     print(paste("Mean Alpha:", mean_alpha))
