@@ -55,9 +55,9 @@ DECODE_Yining <- function(sample_id = "",
     #---Example unobserved true SFS
     true_SFS <- rep(0, matrix_binomial_sample_size)
     true_alpha <- 2.5
-    true_A <- 200000 #2000000
+    true_A <- 10000000
     true_Ks <- c(5000)
-    true_ps <- c(0.5)
+    true_ps <- c(0.2)
     true_SFS <- true_SFS + true_A / (1:matrix_binomial_sample_size)^true_alpha
     for (cluster in 1:length(true_Ks)) {
         true_SFS <- true_SFS + true_Ks[cluster] * dbinom(1:matrix_binomial_sample_size, matrix_binomial_sample_size, true_ps[cluster])
@@ -83,92 +83,130 @@ DECODE_Yining <- function(sample_id = "",
     #     SFS_convolution_matrix = SFS_convolution_matrix
     # )
     # ============================================================== ABC
-    
-    N <- 1000 # iteration number
-    H <- 1 # number of clusters
-    T  <- 1 # if tail
+    progress_bar <- TRUE
+    compute_parallel <- TRUE
+    n_cores <- NULL
+    N_trials <- 100000
+    ABC_percentile <- 0.001
+    N_humps <- 1
+    with_tail <- TRUE
 
-    logLikelihoods_vec <- c() # initialize logLikelihoods
-    params_list <- list() # initialize parameters list
-    for (l in 1:N) {
-        #   sample from priors...
-        alpha_prior <- runif(1, neutral_power_min, neutral_power_max)
-        ps_prior <- sort(runif(H, cluster_frequency_min, cluster_frequency_max), decreasing = FALSE)
-        pis_prior_unnorm <- runif(H+T, 0, 1)
-        pis_prior <- pis_prior_unnorm / sum(pis_prior_unnorm)
 
+
+    func_ABC <- function() {
+        alpha_new <- runif(1, neutral_power_min, neutral_power_max)
+        ps_new <- sort(runif(N_humps, cluster_frequency_min, cluster_frequency_max), decreasing = FALSE)
+        pis_new <- runif(N_humps + with_tail, 0, 1)
+        pis_new <- pis_new / sum(pis_new)
         #   compute SFS...
         expected_SFS_iteration <- compute_SFS_Yining(
-            pis = pis_prior,
-            alpha = alpha_prior,
-            ps = ps_prior,
+            pis = pis_new,
+            alpha = alpha_new,
+            ps = ps_new,
             sfs_bincount = sfs_bincount,
             matrix_binomial_sample_size = matrix_binomial_sample_size,
             SFS_convolution_matrix = SFS_convolution_matrix
         )
         #   compute logLikelihood...
-        logLikelihood_itertaion <- sum(observed_SFS * log(expected_SFS_iteration))
-        logLikelihoods_vec <- c(logLikelihoods_vec, logLikelihood_itertaion)
-        params_list[[l]] <- list(alpha = alpha_prior, ps = ps_prior, pis = pis_prior)
-        
-        # monitor progress...
-        if (l %% 100 == 0) {
-            print(paste("Iteration:", l))
-        }}
+        logLikelihood <- sum(observed_SFS * log(expected_SFS_iteration))
+        parameters <- data.frame(matrix(c(alpha_new, ps_new, pis_new), nrow = 1))
+        colnames(parameters) <- colnames
+        output <- list()
+        output$logLikelihood <- logLikelihood
+        output$parameters <- parameters
+        return(output)
+    }
+
+
+    colnames <- ifelse(with_tail, c("Tail_power"), c())
+    colnames <- c(colnames, paste0("Cluster_frequency_", 1:N_humps))
+    colnames <- c(colnames, paste0("Pi_", 0:(N_humps + with_tail - 1)))
+    if (compute_parallel == FALSE) {
+        all_logLikelihood <- c()
+        all_parameters <- c()
+        if (progress_bar) {
+            pb <- txtProgressBar(
+                min = 0,
+                max = N_trials,
+                style = 3,
+                width = 50,
+                char = "+"
+            )
+        }
+        for (i in 1:N_trials) {
+            if (progress_bar) setTxtProgressBar(pb, i)
+            result <- func_ABC()
+            all_logLikelihood <- c(all_logLikelihood, result$logLikelihood)
+            if (i == 1) {
+                all_parameters <- result$parameters
+            } else {
+                all_parameters <- rbind(all_parameters, result$parameters)
+            }
+        }
+        if (progress_bar) cat("\n")
+    } else {
+        suppressPackageStartupMessages(library(parallel))
+        suppressPackageStartupMessages(library(pbapply))
+        #   Start parallel cluster
+        numCores <- ifelse(is.null(n_cores), detectCores(), n_cores)
+        cl <- makePSOCKcluster(numCores - 1)
+        #   Prepare input parameters
+        clusterExport(cl, varlist = c(
+            "compute_SFS_Yining", "build_SFS_library_Griffiths_Tavare"
+        ), envir = environment())
+        #   ...
+        if (progress_bar) {
+            output <- pblapply(cl = cl, X = 1:N_trials, FUN = function(i) func_ABC())
+        } else {
+            output <- parLapply(cl = cl, X = 1:N_trials, fun = function(i) func_ABC())
+        }
+        stopCluster(cl)
+        #   Extract the results
+        all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
+        all_parameters <- do.call(rbind, lapply(output, function(x) x$parameters))
+    }
     #   keep top percentile...
-    upper_quantile_threshold <- quantile(logLikelihoods_vec, probs = 0.75)
+    selected_indices <- which(all_logLikelihood >= quantile(all_logLikelihood, probs = 1 - ABC_percentile))
+    posterior_logLikelihoods <- all_logLikelihood[selected_indices]
+    posterior_parameters <- all_parameters[selected_indices, ]
 
-    selected_indices <- which(logLikelihoods_vec >= upper_quantile_threshold)
-    selected_logLikelihoods <- logLikelihoods_vec[selected_indices]
-    selected_params_list <- params_list[selected_indices]
 
-    # print(selected_logLikelihoods)
-    # print(selected_params_list)
 
-    ## PLOT POSTEROR DISTRIBUTION
     # plot for alpha
-    alphas <- sapply(selected_params_list, function(x) x$alpha)
+    alphas <- posterior_parameters$Tail_power
     png(filename = "alpha_posterior.png")
     hist(alphas, main = "Histogram of Selected Alphas", xlab = "Alpha")
     dev.off()
-
     # plot for each p
-    ps_matrix <- do.call(rbind, lapply(selected_params_list, function(x) x$ps))
-    png(filename = "p_posterior.png")
-    par(mfrow = c(H, 1))
-    for (i in 1:ncol(ps_matrix)) {
-        hist(ps_matrix[, i], main = paste("Histogram of Selected Ps[", i, "]", sep = ""), xlab = paste("Ps[", i, "]", sep = ""))
+    for (i in 1:N_humps) {
+        ps_matrix <- posterior_parameters[[paste0("Cluster_frequency_", i)]]
+        png(filename = paste0("p_posterior_", i, ".png"))
+        hist(ps_matrix, main = paste("Histogram of Selected Ps[", i, "]", sep = ""), xlab = paste("Ps[", i, "]", sep = ""))
+        dev.off()
     }
-    dev.off()
-
     # plot for each pi
-    pis_matrix <- do.call(rbind, lapply(selected_params_list, function(x) x$pis))
-    png(filename = "pi_posterior.png")
-    par(mfrow = c(H+T, 1))
-    for (i in 1:ncol(pis_matrix)) {
-        hist(pis_matrix[, i], main = paste("Histogram of Selected Pis[", i, "]", sep = ""), xlab = paste("Pis[", i, "]", sep = ""))
+    for (i in 0:N_humps) {
+        pis_matrix <- posterior_parameters[[paste0("Pi_", i)]]
+        png(filename = paste0("pi_posterior_", i, ".png"))
+        hist(pis_matrix, main = paste("Histogram of Selected Pis[", i, "]", sep = ""), xlab = paste("Pis[", i, "]", sep = ""))
+        dev.off()
     }
-    dev.off()
-
-    # print the posterior mean of each parameter
-    mean_alpha <- mean(sapply(selected_params_list, function(x) x$alpha))
-    mean_ps <- apply(ps_matrix, 2, mean)
-    mean_pis <- apply(pis_matrix, 2, mean)
-
-    # print posterior mean
-    print(paste("Mean Alpha:", mean_alpha))
-    print(paste("Mean Ps:", paste(mean_ps, collapse = ", ")))
-    print(paste("Mean Pis:", paste(mean_pis, collapse = ", ")))
-
-    final_SFS  <- compute_SFS_Yining(
-        pis = mean_pis,
-        alpha = mean_alpha,
-        ps = mean_ps,
-        sfs_bincount = sfs_bincount,
-        matrix_binomial_sample_size = matrix_binomial_sample_size,
-        SFS_convolution_matrix = SFS_convolution_matrix
-    )
-
+    # # print the posterior mean of each parameter
+    # mean_alpha <- mean(sapply(posterior_parameters, function(x) x$alpha))
+    # mean_ps <- apply(ps_matrix, 2, mean)
+    # mean_pis <- apply(pis_matrix, 2, mean)
+    # # print posterior mean
+    # print(paste("Mean Alpha:", mean_alpha))
+    # print(paste("Mean Ps:", paste(mean_ps, collapse = ", ")))
+    # print(paste("Mean Pis:", paste(mean_pis, collapse = ", ")))
+    # final_SFS <- compute_SFS_Yining(
+    #     pis = mean_pis,
+    #     alpha = mean_alpha,
+    #     ps = mean_ps,
+    #     sfs_bincount = sfs_bincount,
+    #     matrix_binomial_sample_size = matrix_binomial_sample_size,
+    #     SFS_convolution_matrix = SFS_convolution_matrix
+    # )
 }
 compute_SFS_Yining <- function(pis, alpha, ps, sfs_bincount, matrix_binomial_sample_size, SFS_convolution_matrix, zero_cutoff = 1e-50) {
     SFS_data_frequencies <- seq(1, sfs_bincount) / sfs_bincount
@@ -199,9 +237,9 @@ compute_SFS_Yining <- function(pis, alpha, ps, sfs_bincount, matrix_binomial_sam
     expected_SFS <- expected_SFS + zero_cutoff
     expected_SFS <- expected_SFS / sum(expected_SFS)
 
-    png(filename = "expected_SFS_plot.png")
-    plot(1:sfs_bincount, expected_SFS)
-    dev.off()
+    # png(filename = "expected_SFS_plot.png")
+    # plot(1:sfs_bincount, expected_SFS)
+    # dev.off()
 
     return(expected_SFS)
 }
