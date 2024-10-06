@@ -557,6 +557,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         ), envir = environment())
         #   Find best variable parameters in parallel mode
         if (progress_bar) {
+            pboptions(type = "timer", nout = 2)
             output <- pblapply(cl = cl, X = 1:N_trials, FUN = function(i) {
                 func_one_trial(
                     with_tail = with_tail,
