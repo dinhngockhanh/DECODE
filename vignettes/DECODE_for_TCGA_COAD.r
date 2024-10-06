@@ -46,74 +46,89 @@ sample_IDs <- sample_info$Patient
 #     print(plot_model_selection(MOBSTER_result))
 #     dev.off()
 # }
-# # ================================================================DECODE
-# library(grid)
-# for (sample in sample_IDs) {
-#     #---Input the SFS data
-#     filename <- paste0(R_data, "/", sample, "_1_1.txt")
-#     mutation_table <- read.table(filename, sep = "\t", header = TRUE)
-#     mutation_table$Ref_count <- mutation_table$ref_counts
-#     mutation_table$Alt_count <- mutation_table$alt_counts
-#     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
-#     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-#     #---SFS deconvolution with DECODE
-#     DECODE_result <- DECODE(
-#         sample_id = sample,
-#         mutation_table = mutation_table
-#     )
-#     save(DECODE_result, file = paste0(folder_workplace, "DECODE_", sample, ".rda"))
-#     #---Plot DECODE deconvolution
-#     png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
-#     print(DECODE_plot_SFS(DECODE_result = DECODE_result))
-#     dev.off()
-#     png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
-#     grid.draw(
-#         DECODE_plot_model_selection(
-#             DECODE_result = DECODE_result
-#         )
-#     )
-#     dev.off()
-# ======================================EXTRACT DECONVOLUTION PARAMETERS
-mobster_df <- data.frame()
-decode_df <- data.frame()
+# ================================================================DECODE
+library(grid)
 for (sample in sample_IDs) {
-    #---Extract MOBSTER parameters
-    load(paste0(folder_workplace, "MOBSTER_", sample, ".rda"))
-    mobster_df <- MOBSTER_summary_statistics(mobster_df, MOBSTER_result)
-    # #---Extract DECODE parameters
-    load(paste0(folder_workplace, "DECODE_", sample, ".rda"))
-    decode_df <- DECODE_summary_statistics(decode_df, DECODE_result)
+    #---Input the SFS data
+    filename <- paste0(R_data, "/", sample, "_1_1.txt")
+    mutation_table <- read.table(filename, sep = "\t", header = TRUE)
+    mutation_table$Ref_count <- mutation_table$ref_counts
+    mutation_table$Alt_count <- mutation_table$alt_counts
+    if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
+    if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
+    #---SFS deconvolution with DECODE
+    DECODE_result <- DECODE_ABC(
+        sample_id = sample,
+        mutation_table = mutation_table,
+    )
+    # DECODE_result <- DECODE(
+    #     sample_id = sample,
+    #     mutation_table = mutation_table
+    # )
+    save(DECODE_result, file = paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    #---Plot DECODE deconvolution
+    png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    print(DECODE_plot_SFS_ABC(DECODE_result = DECODE_result))
+    dev.off()
+    png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    grid.draw(
+        DECODE_plot_model_selection_ABC(
+            DECODE_result = DECODE_result
+        )
+    )
+    dev.off()
+    # png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    # print(DECODE_plot_SFS(DECODE_result = DECODE_result))
+    # dev.off()
+    # png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    # grid.draw(
+    #     DECODE_plot_model_selection(
+    #         DECODE_result = DECODE_result
+    #     )
+    # )
+    # dev.off()
 }
-mobster_df <- merge(mobster_df, sample_info[, c("Patient", "purity")], by.x = "Sample", by.y = "Patient", all.x = TRUE)
-names(mobster_df)[names(mobster_df) == "purity"] <- "Purity"
-decode_df <- merge(decode_df, sample_info[, c("Patient", "purity")], by.x = "Sample", by.y = "Patient", all.x = TRUE)
-names(decode_df)[names(decode_df) == "purity"] <- "Purity"
-write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_TCGA_COAD.csv"), row.names = FALSE)
-write.csv(decode_df, paste0(folder_workplace, "DECODE_TCGA_COAD.csv"), row.names = FALSE)
-# =========================================ANALYZE DECONVOLUTION RESULTS
-#---Input plot settings
-source("plot_settings.r")
-#---Make plots for analysis of MOBSTER results
-mobster_df <- read.csv(paste0(folder_workplace, "MOBSTER_TCGA_COAD.csv"))
-plot_analysis(
-    results = mobster_df,
-    algorithm = "MOBSTER",
-    cohort = "TCGA-COAD",
-    algorithm_colors = algorithm_colors,
-    cluster_shapes = cluster_shapes,
-    cluster_labels = cluster_labels,
-    cluster_colors = cluster_colors,
-    folder_workplace = folder_workplace
-)
-#---Make plots for analysis of DECODE results
-decode_df <- read.csv(paste0(folder_workplace, "DECODE_TCGA_COAD.csv"))
-plot_analysis(
-    results = decode_df,
-    algorithm = "DECODE",
-    cohort = "TCGA-COAD",
-    algorithm_colors = algorithm_colors,
-    cluster_shapes = cluster_shapes,
-    cluster_labels = cluster_labels,
-    cluster_colors = cluster_colors,
-    folder_workplace = folder_workplace
-)
+# # ======================================EXTRACT DECONVOLUTION PARAMETERS
+# mobster_df <- data.frame()
+# decode_df <- data.frame()
+# for (sample in sample_IDs) {
+#     #---Extract MOBSTER parameters
+#     load(paste0(folder_workplace, "MOBSTER_", sample, ".rda"))
+#     mobster_df <- MOBSTER_summary_statistics(mobster_df, MOBSTER_result)
+#     # #---Extract DECODE parameters
+#     load(paste0(folder_workplace, "DECODE_", sample, ".rda"))
+#     decode_df <- DECODE_summary_statistics(decode_df, DECODE_result)
+# }
+# mobster_df <- merge(mobster_df, sample_info[, c("Patient", "purity")], by.x = "Sample", by.y = "Patient", all.x = TRUE)
+# names(mobster_df)[names(mobster_df) == "purity"] <- "Purity"
+# decode_df <- merge(decode_df, sample_info[, c("Patient", "purity")], by.x = "Sample", by.y = "Patient", all.x = TRUE)
+# names(decode_df)[names(decode_df) == "purity"] <- "Purity"
+# write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_TCGA_COAD.csv"), row.names = FALSE)
+# write.csv(decode_df, paste0(folder_workplace, "DECODE_TCGA_COAD.csv"), row.names = FALSE)
+# # =========================================ANALYZE DECONVOLUTION RESULTS
+# #---Input plot settings
+# source("plot_settings.r")
+# #---Make plots for analysis of MOBSTER results
+# mobster_df <- read.csv(paste0(folder_workplace, "MOBSTER_TCGA_COAD.csv"))
+# plot_analysis(
+#     results = mobster_df,
+#     algorithm = "MOBSTER",
+#     cohort = "TCGA-COAD",
+#     algorithm_colors = algorithm_colors,
+#     cluster_shapes = cluster_shapes,
+#     cluster_labels = cluster_labels,
+#     cluster_colors = cluster_colors,
+#     folder_workplace = folder_workplace
+# )
+# #---Make plots for analysis of DECODE results
+# decode_df <- read.csv(paste0(folder_workplace, "DECODE_TCGA_COAD.csv"))
+# plot_analysis(
+#     results = decode_df,
+#     algorithm = "DECODE",
+#     cohort = "TCGA-COAD",
+#     algorithm_colors = algorithm_colors,
+#     cluster_shapes = cluster_shapes,
+#     cluster_labels = cluster_labels,
+#     cluster_colors = cluster_colors,
+#     folder_workplace = folder_workplace
+# )
