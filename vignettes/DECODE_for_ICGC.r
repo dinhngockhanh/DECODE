@@ -123,10 +123,22 @@ mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "purity")], by.x =
 names(mobster_df)[names(mobster_df) == "purity"] <- "Purity"
 mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "histology_abbreviation")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
 names(mobster_df)[names(mobster_df) == "histology_abbreviation"] <- "Cancer_type"
+mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "dcc_specimen_type")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "dcc_specimen_type"] <- "Specimen_type"
+mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "tumour_grade")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "tumour_grade"] <- "Tumor_grade"
+mobster_df <- merge(mobster_df, sample_info[, c("aliquot_id", "specimen_donor_treatment_type")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(mobster_df)[names(mobster_df) == "specimen_donor_treatment_type"] <- "Treatment_type"
 decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "purity")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
 names(decode_df)[names(decode_df) == "purity"] <- "Purity"
 decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "histology_abbreviation")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
 names(decode_df)[names(decode_df) == "histology_abbreviation"] <- "Cancer_type"
+decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "dcc_specimen_type")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(decode_df)[names(decode_df) == "dcc_specimen_type"] <- "Specimen_type"
+decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "tumour_grade")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(decode_df)[names(decode_df) == "tumour_grade"] <- "Tumor_grade"
+decode_df <- merge(decode_df, sample_info[, c("aliquot_id", "specimen_donor_treatment_type")], by.x = "Sample", by.y = "aliquot_id", all.x = TRUE)
+names(decode_df)[names(decode_df) == "specimen_donor_treatment_type"] <- "Treatment_type"
 write.csv(mobster_df, paste0(folder_workplace, "MOBSTER_ICGC.csv"), row.names = FALSE)
 write.csv(decode_df, paste0(folder_workplace, "DECODE_ICGC.csv"), row.names = FALSE)
 # =========================================ANALYZE DECONVOLUTION RESULTS
