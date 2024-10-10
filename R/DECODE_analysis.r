@@ -71,7 +71,7 @@ plot_analysis <- function(results,
             arrange(desc(median_Nmut))
         plot_df$Cancer_type <- factor(plot_df$Cancer_type, levels = unique(plot_df$Cancer_type))
         p <- ggplot(plot_df, aes(x = Cancer_type, y = Nmut, fill = Cancer_type)) +
-            geom_boxplot(color = "black") +
+            geom_boxplot(color = "black", size = 2) +
             scale_y_log10() +
             scale_fill_manual(values = ICGC_cohort_colors) +
             xlab(NULL) +
@@ -79,12 +79,15 @@ plot_analysis <- function(results,
             labs(NULL) +
             theme_bw() +
             theme(
-                axis.text.x = element_text(angle = 45, hjust = 1),
+                axis.text.x = element_text(angle = 45, hjust = 1, size = 50, margin = margin(t = -30)),
+                axis.ticks.length = unit(0, "cm"),
                 legend.position = "none",
-                text = element_text(size = 30),
+                text = element_text(size = 50),
                 panel.background = element_rect(fill = "white", colour = "white"),
                 panel.grid.major = element_line(colour = "white"),
-                panel.grid.minor = element_line(colour = "white")
+                panel.grid.minor = element_line(colour = "white"),
+                panel.border = element_blank(),
+                plot.margin = margin(t = 10, r = 10, b = 10, l = 80)
             )
         filename <- paste0(folder_workplace, cohort, "_", algorithm, "_mutation_count.png")
         png(filename, res = 150, width = 30, height = 15, units = "in", pointsize = 12)
@@ -99,19 +102,22 @@ plot_analysis <- function(results,
             arrange(desc(sample_count))
         plot_df$Cancer_type <- factor(plot_df$Cancer_type, levels = unique(plot_df$Cancer_type))
         p <- ggplot(plot_df, aes(x = Cancer_type, y = sample_count, fill = Cancer_type)) +
-            geom_bar(stat = "identity", color = "black") +
+            geom_bar(stat = "identity", color = "black", size = 2) +
             scale_fill_manual(values = ICGC_cohort_colors) +
             xlab(NULL) +
             ylab("Sample count") +
             labs(NULL) +
             theme_bw() +
             theme(
-                axis.text.x = element_text(angle = 45, hjust = 1),
+                axis.text.x = element_text(angle = 45, hjust = 1, size = 50, margin = margin(t = -30)),
+                axis.ticks.length = unit(0, "cm"),
                 legend.position = "none",
-                text = element_text(size = 30),
+                text = element_text(size = 50),
                 panel.background = element_rect(fill = "white", colour = "white"),
                 panel.grid.major = element_line(colour = "white"),
-                panel.grid.minor = element_line(colour = "white")
+                panel.grid.minor = element_line(colour = "white"),
+                panel.border = element_blank(),
+                plot.margin = margin(t = 10, r = 10, b = 10, l = 80)
             )
         filename <- paste0(folder_workplace, cohort, "_", algorithm, "_sample_size.png")
         png(filename, res = 150, width = 30, height = 15, units = "in", pointsize = 12)
@@ -128,21 +134,24 @@ plot_analysis <- function(results,
             ) %>%
             mutate(proportion = tail_count / total_count)
         p <- ggplot(plot_df, aes(x = Cancer_type, y = proportion, fill = Cancer_type)) +
-            geom_bar(stat = "identity", color = "black") +
-            geom_text(aes(label = paste0("n=", total_count)), vjust = -0.5, size = 8) +
+            geom_bar(stat = "identity", color = "black", size = 2) +
+            geom_text(aes(label = paste0("n=", total_count)), vjust = -0.5, size = 10) +
             scale_y_continuous(labels = scales::percent) +
             scale_fill_manual(values = ICGC_cohort_colors) +
             xlab(NULL) +
-            ylab("% samples with detected neutral component") +
+            ylab("% detected neutral component") +
             labs(NULL) +
             theme_bw() +
             theme(
-                axis.text.x = element_text(angle = 45, hjust = 1),
+                axis.text.x = element_text(angle = 45, hjust = 1, size = 50, margin = margin(t = -30)),
+                axis.ticks.length = unit(0, "cm"),
                 legend.position = "none",
-                text = element_text(size = 30),
+                text = element_text(size = 50),
                 panel.background = element_rect(fill = "white", colour = "white"),
                 panel.grid.major = element_line(colour = "white"),
-                panel.grid.minor = element_line(colour = "white")
+                panel.grid.minor = element_line(colour = "white"),
+                panel.border = element_blank(),
+                plot.margin = margin(t = 10, r = 10, b = 10, l = 80)
             )
         filename <- paste0(folder_workplace, cohort, "_", algorithm, "_tail_detection.png")
         png(filename, res = 150, width = 30, height = 15, units = "in", pointsize = 12)
@@ -153,7 +162,8 @@ plot_analysis <- function(results,
     if ("Purity" %in% colnames(results)) {
         plot_df <- results %>%
             rowwise() %>%
-            mutate(max_vaf = max(c_across(starts_with("Cluster_VAF_"))[c_across(starts_with("Cluster_VAF_")) < 0.5], na.rm = TRUE)) %>%
+            mutate(max_vaf = max(c_across(starts_with("Cluster_VAF_")), na.rm = TRUE)) %>%
+            # mutate(max_vaf = max(c_across(starts_with("Cluster_VAF_"))[c_across(starts_with("Cluster_VAF_")) < 0.5], na.rm = TRUE)) %>%
             ungroup() %>%
             mutate(max_vaf_scaled = max_vaf * 2) %>%
             mutate(within_bounds = ifelse(max_vaf_scaled >= Purity - 0.1 & max_vaf_scaled <= Purity + 0.1, "Correct", "Wrong"))
@@ -162,7 +172,7 @@ plot_analysis <- function(results,
         p <- ggplot() +
             geom_abline(intercept = 0.1, slope = 1, color = "grey", linewidth = 2) +
             geom_abline(intercept = -0.1, slope = 1, color = "grey", linewidth = 2) +
-            geom_point(data = plot_df, aes(x = Purity, y = max_vaf_scaled, color = within_bounds), size = 10, alpha = 0.5) +
+            geom_point(data = plot_df, aes(x = Purity, y = max_vaf_scaled, color = within_bounds), size = 10, alpha = 0.5, stroke = 2) +
             scale_color_manual(
                 values = c("Correct" = "#D55E00", "Wrong" = "#56B4E9"),
                 labels = c(
@@ -179,10 +189,11 @@ plot_analysis <- function(results,
                 legend.title = element_blank(),
                 plot.title = element_blank(),
                 aspect.ratio = 1,
-                text = element_text(size = 30),
+                text = element_text(size = 50),
                 panel.background = element_rect(fill = "white", colour = "white"),
                 panel.grid.major = element_line(colour = "white"),
-                panel.grid.minor = element_line(colour = "white")
+                panel.grid.minor = element_line(colour = "white"),
+                panel.border = element_blank()
             )
         filename <- paste0(folder_workplace, cohort, "_", algorithm, "_predicted_vs_true_purity.png")
         png(filename, res = 150, width = 15, height = 15, units = "in", pointsize = 12)
