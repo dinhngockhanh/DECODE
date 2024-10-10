@@ -176,7 +176,6 @@ DECODE_plot_criteria <- function(criteria,
     y_max <- max(c(max(criteria[[criterion]], na.rm = TRUE), max(criteria[[paste0(criterion, "_target")]], na.rm = TRUE)))
     p <- ggplot(criteria) +
         geom_point(aes(x = fit, y = !!sym(criterion), shape = "Actual", color = note), size = 10) +
-        geom_point(aes(x = fit, y = !!sym(paste0(criterion, "_target")), shape = "Target"), color = "black", size = 6, stroke = 2, na.rm = TRUE) +
         labs(x = NULL, y = NULL, shape = NULL) +
         scale_shape_manual(values = c("Actual" = 16, "Target" = 6), labels = c(criterion, paste0(criterion, " threshold"))) +
         scale_color_manual(values = fit_colors, name = "", breaks = setdiff(names(fit_colors), "none")) +
@@ -190,6 +189,10 @@ DECODE_plot_criteria <- function(criteria,
             legend.justification = c(0, 0.5),
             legend.key.width = unit(1.5, "cm")
         )
+    if (!all(is.na(criteria[[paste0(criterion, "_target")]]))) {
+        p <- p +
+            geom_point(aes(x = fit, y = !!sym(paste0(criterion, "_target")), shape = "Target"), color = "black", size = 6, stroke = 2, na.rm = TRUE)
+    }
     if (!legend) p <- p + theme(legend.position = "none")
     return(p)
 }
