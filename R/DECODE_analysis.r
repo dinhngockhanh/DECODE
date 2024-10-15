@@ -93,6 +93,7 @@ plot_analysis <- function(results,
         png(filename, res = 150, width = 30, height = 15, units = "in", pointsize = 12)
         print(p)
         dev.off()
+        cancer_type_levels <- levels(plot_df$Cancer_type)
     }
     #------------------Plot distribution of cancer-specific sample sizes
     if ("Cancer_type" %in% colnames(results)) {
@@ -100,7 +101,7 @@ plot_analysis <- function(results,
             group_by(Cancer_type) %>%
             summarise(sample_count = n()) %>%
             arrange(desc(sample_count))
-        plot_df$Cancer_type <- factor(plot_df$Cancer_type, levels = unique(plot_df$Cancer_type))
+        plot_df$Cancer_type <- factor(plot_df$Cancer_type, levels = cancer_type_levels)
         p <- ggplot(plot_df, aes(x = Cancer_type, y = sample_count, fill = Cancer_type)) +
             geom_bar(stat = "identity", color = "black", size = 2) +
             scale_fill_manual(values = ICGC_cohort_colors) +
@@ -133,6 +134,7 @@ plot_analysis <- function(results,
                 tail_count = sum(Tail == TRUE)
             ) %>%
             mutate(proportion = tail_count / total_count)
+        plot_df$Cancer_type <- factor(plot_df$Cancer_type, levels = cancer_type_levels)
         p <- ggplot(plot_df, aes(x = Cancer_type, y = proportion, fill = Cancer_type)) +
             geom_bar(stat = "identity", color = "black", size = 2) +
             geom_text(aes(label = paste0("n=", total_count)), vjust = -0.5, size = 10) +
@@ -198,6 +200,37 @@ plot_analysis <- function(results,
         filename <- paste0(folder_workplace, cohort, "_", algorithm, "_predicted_vs_true_purity.png")
         png(filename, res = 150, width = 15, height = 15, units = "in", pointsize = 12)
         print(p)
-        dev.off()
+        dev.off()   
     }
+    #----------------Plot cluster count distribution by cancer type
+    if ("Cancer_type" %in% colnames(results)) {
+        cluster_distribution_df <- results %>%
+            group_by(Cancer_type, Cluster_count) %>%
+            summarise(count = n(), .groups = "drop") %>%
+            ungroup()
+        
+        total_counts_df <- cluster_distribution_df %>%
+            group_by(Cancer_type) %>%
+            summarise(total_count = sum(count), .groups = "drop")
+        cluster_distribution_df <- merge(cluster_distribution_df, total_counts_df, by = "Cancer_type")
+        cluster_distribution_df <- cluster_distribution_df %>%
+            mutate(percentage = (count / total_count) * 100)
+
+        p <- ggplot(cluster_distribution_df, aes(x = Cancer_type, y = percentage, fill = as.factor(Cluster_count))) +
+            geom_bar(stat = "identity", position = position_dodge(preserve = "single"), width = 0.7, color = "black") +  
+            labs(title = "Cluster Count Distribution by Cancer Type",
+                x = "Cancer Type",
+                y = "Percentage",
+                fill = "Cluster Count") +  
+            theme_bw() +
+            theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.margin = unit(c(1, 1, 1, 1), "cm")) +  
+            scale_y_continuous(labels = scales::percent_format(scale = 1)) +  
+            scale_x_discrete(expand = expansion(mult = c(0.05, 0.05))) 
+            filename <- paste0(folder_workplace, cohort, "_", algorithm, " _cluster_count_distribution_by_cancer_type.png")
+        png(filename, res = 150, width = 15, height = 15, units = "in", pointsize = 12)
+        print(p)
+        dev.off()   
+    
+}
+
 }
