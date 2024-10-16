@@ -160,6 +160,49 @@ plot_analysis <- function(results,
         print(p)
         dev.off()
     }
+    #---------------------Plot cluster count distribution by cancer type
+    if ("Cancer_type" %in% colnames(results)) {
+        cluster_distribution_df <- results %>%
+            group_by(Cancer_type, Cluster_count) %>%
+            summarise(count = n(), .groups = "drop") %>%
+            ungroup()
+
+        total_counts_df <- cluster_distribution_df %>%
+            group_by(Cancer_type) %>%
+            summarise(total_count = sum(count), .groups = "drop")
+        cluster_distribution_df <- merge(cluster_distribution_df, total_counts_df, by = "Cancer_type")
+        cluster_distribution_df <- cluster_distribution_df %>%
+            mutate(percentage = (count / total_count) * 100)
+        cluster_distribution_df$Cancer_type <- factor(cluster_distribution_df$Cancer_type, levels = cancer_type_levels)
+        cluster_distribution_df$Cluster_count <- factor(cluster_distribution_df$Cluster_count, levels = rev(sort(unique(cluster_distribution_df$Cluster_count))))
+
+        p <- ggplot(cluster_distribution_df, aes(x = Cancer_type, y = percentage, fill = as.factor(Cluster_count))) +
+            geom_bar(stat = "identity", position = "stack", width = 1, color = "black", size = 2) +
+            xlab(NULL) +
+            ylab(NULL) +
+            labs(fill = "Cluster count") +
+            scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+            scale_x_discrete(expand = expansion(mult = c(0.05, 0.05))) +
+            scale_fill_manual(values = cluster_colors) +
+            guides(fill = guide_legend(keywidth = 2.5, keyheight = 2, reverse = TRUE)) +
+            theme_bw() +
+            theme(
+                axis.text.x = element_text(angle = 45, hjust = 1, size = 50, margin = margin(t = -30)),
+                axis.ticks.length = unit(0, "cm"),
+                legend.position = "top",
+                legend.justification = "left",
+                text = element_text(size = 50),
+                panel.background = element_rect(fill = "white", colour = "white"),
+                panel.grid.major = element_line(colour = "white"),
+                panel.grid.minor = element_line(colour = "white"),
+                panel.border = element_blank(),
+                plot.margin = margin(t = 0, r = -30, b = 10, l = 95)
+            )
+        filename <- paste0(folder_workplace, cohort, "_", algorithm, " _cluster_count_distribution_by_cancer_type.png")
+        png(filename, res = 150, width = 30, height = 15, units = "in", pointsize = 12)
+        print(p)
+        dev.off()
+    }
     #-------------Plot joint distribution of truncal VAF & sample purity
     if ("Purity" %in% colnames(results)) {
         plot_df <- results %>%
@@ -200,37 +243,6 @@ plot_analysis <- function(results,
         filename <- paste0(folder_workplace, cohort, "_", algorithm, "_predicted_vs_true_purity.png")
         png(filename, res = 150, width = 15, height = 15, units = "in", pointsize = 12)
         print(p)
-        dev.off()   
+        dev.off()
     }
-    #----------------Plot cluster count distribution by cancer type
-    if ("Cancer_type" %in% colnames(results)) {
-        cluster_distribution_df <- results %>%
-            group_by(Cancer_type, Cluster_count) %>%
-            summarise(count = n(), .groups = "drop") %>%
-            ungroup()
-        
-        total_counts_df <- cluster_distribution_df %>%
-            group_by(Cancer_type) %>%
-            summarise(total_count = sum(count), .groups = "drop")
-        cluster_distribution_df <- merge(cluster_distribution_df, total_counts_df, by = "Cancer_type")
-        cluster_distribution_df <- cluster_distribution_df %>%
-            mutate(percentage = (count / total_count) * 100)
-
-        p <- ggplot(cluster_distribution_df, aes(x = Cancer_type, y = percentage, fill = as.factor(Cluster_count))) +
-            geom_bar(stat = "identity", position = position_dodge(preserve = "single"), width = 0.7, color = "black") +  
-            labs(title = "Cluster Count Distribution by Cancer Type",
-                x = "Cancer Type",
-                y = "Percentage",
-                fill = "Cluster Count") +  
-            theme_bw() +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.margin = unit(c(1, 1, 1, 1), "cm")) +  
-            scale_y_continuous(labels = scales::percent_format(scale = 1)) +  
-            scale_x_discrete(expand = expansion(mult = c(0.05, 0.05))) 
-            filename <- paste0(folder_workplace, cohort, "_", algorithm, " _cluster_count_distribution_by_cancer_type.png")
-        png(filename, res = 150, width = 15, height = 15, units = "in", pointsize = 12)
-        print(p)
-        dev.off()   
-    
-}
-
 }
