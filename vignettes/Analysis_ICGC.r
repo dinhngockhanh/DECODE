@@ -5,6 +5,7 @@ R_libPaths <- ""
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(R.utils)
+library(readxl)
 # ====================================EXTRACT MUTATIONAL DATA FROM PCAWG
 #--------------------------------------------------Unzip mutational data
 directory <- paste0(R_ICGC_raw_data, "/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/indel")
@@ -21,6 +22,7 @@ for (file in snv_mnv_files) {
 consensus_20170218_purity_ploidy <- read.table(paste0(R_ICGC_raw_data, "/consensus_cnv/consensus.20170218.purity.ploidy.txt"), header = TRUE, sep = "\t")
 pcawg_sample_sheet <- read.table(paste0(R_ICGC_raw_data, "/pcawg_sample_sheet.tsv"), header = TRUE, sep = "\t")
 pcawg_specimen_histology_August2016_v9 <- as.data.frame(read_excel(paste0(R_ICGC_raw_data, "/pcawg_specimen_histology_August2016_v9.xlsx")))
+pcawg_donor_clinical_August2016_v9 <- as.data.frame(read_excel(paste0(R_ICGC_raw_data, "/pcawg_donor_clinical_August2016_v9.xlsx")))
 sample_df <- data.frame(
     aliquot_id = unique(
         c(
@@ -32,6 +34,7 @@ sample_df <- data.frame(
 sample_df <- merge(sample_df, pcawg_sample_sheet, by = "aliquot_id")
 sample_df <- merge(sample_df, pcawg_specimen_histology_August2016_v9[which(pcawg_specimen_histology_August2016_v9$specimen_library_strategy == "WGS"), ], by = "icgc_specimen_id")
 sample_df <- merge(sample_df, consensus_20170218_purity_ploidy, by.x = "aliquot_id", by.y = "samplename")
+sample_df <- merge(sample_df, pcawg_donor_clinical_August2016_v9, by.x = "icgc_donor_id.x", by.y = "icgc_donor_id")
 write.csv(sample_df, file = paste0(R_ICGC_processed_data, "/ICGC_sample_information.csv"), row.names = FALSE)
 #--------------------------------Extract mutational data for each sample
 pb <- txtProgressBar(
