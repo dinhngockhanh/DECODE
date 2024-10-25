@@ -11,6 +11,9 @@ DECODE <- function(sample_id = "",
                    matrix_binomial_sample_size = 1000, # <<<<<<<<<<<<<<<
                    matrix_binomial_ploidy = 1, # <<<<<<<<<<<<<<<<<<<<<<<
                    sfs_bincount = 100, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                   min_variant_read_inference_A = NULL,
+                   min_variant_read_inference_B = NULL,
+                   min_variant_read_validation = NULL,
                    inference_retained_freq = 75,
                    validation_mutation_count = 5000,
                    validation_N_trials = 1000,
@@ -34,6 +37,9 @@ DECODE <- function(sample_id = "",
     threshold_results <- choose_mutation_thresholds(
         mutation_table = mutation_table,
         max_total_read = max_total_read,
+        min_variant_read_inference_A = min_variant_read_inference_A,
+        min_variant_read_inference_B = min_variant_read_inference_B,
+        min_variant_read_validation = min_variant_read_validation,
         SFS_data_frequencies = SFS_data_frequencies,
         inference_retained_freq = inference_retained_freq,
         validation_mutation_count = validation_mutation_count,
@@ -777,6 +783,9 @@ DECODE_for_pis <- function(SFS_data_inference_A,
 
 choose_mutation_thresholds <- function(mutation_table,
                                        max_total_read,
+                                       min_variant_read_inference_A,
+                                       min_variant_read_inference_B,
+                                       min_variant_read_validation,
                                        SFS_data_frequencies,
                                        inference_retained_freq,
                                        validation_mutation_count,
@@ -812,19 +821,19 @@ choose_mutation_thresholds <- function(mutation_table,
     filtered_df <- readcount_distribution[readcount_distribution$min_total_read == min(readcount_distribution$min_total_read), ]
     min_variant_read_tmp <- min(filtered_df$min_variant_read[filtered_df$freq < 100])
     #   Choose mutation thresholds for inference A set
-    min_variant_read_inference_A <- min_variant_read_tmp + 2
+    if (is.null(min_variant_read_inference_A)) min_variant_read_inference_A <- min_variant_read_tmp + 2
     filtered_df <- readcount_distribution[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$freq >= inference_retained_freq, ]
     min_total_read_inference_A <- ifelse(nrow(filtered_df) > 0, max(filtered_df$min_total_read), min(readcount_distribution$min_total_read))
     Nmut_inference_A <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$min_total_read == min_total_read_inference_A]
     freq_inference_A <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$min_total_read == min_total_read_inference_A]
     #   Choose mutation thresholds for inference B set
-    min_variant_read_inference_B <- min_variant_read_tmp + 6
+    if (is.null(min_variant_read_inference_B)) min_variant_read_inference_B <- min_variant_read_tmp + 6
     filtered_df <- readcount_distribution[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$freq >= inference_retained_freq, ]
     min_total_read_inference_B <- ifelse(nrow(filtered_df) > 0, max(filtered_df$min_total_read), min(readcount_distribution$min_total_read))
     Nmut_inference_B <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$min_total_read == min_total_read_inference_B]
     freq_inference_B <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$min_total_read == min_total_read_inference_B]
     #   Choose mutation thresholds for validation set
-    min_variant_read_validation <- min_variant_read_tmp + 4
+    if (is.null(min_variant_read_validation)) min_variant_read_validation <- min_variant_read_tmp + 4
     min_total_read_validation <- min(readcount_distribution$min_total_read)
     Nmut_validation <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_validation & readcount_distribution$min_total_read == min_total_read_validation]
     freq_validation <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_validation & readcount_distribution$min_total_read == min_total_read_validation]
