@@ -111,6 +111,22 @@ smcrf_multi_param <- function(statistics_target = NULL,
         ################################################################
         ################################################################
         ################################################################
+        if (iteration == 1) {
+            cat(red("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"))
+            cat(red(paste0("++++++++++++++++++++++++++++++++++++ Prior distribution\n")))
+            cat(red("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"))
+            cat(paste0(red("Neutral component power:        "), yellow(paste0(format(round(mean(parameters_unperturbed[, "neutral_power"]), 3), nsmall = 3), " \u00B1 ", format(round(sd(parameters_unperturbed[, "neutral_power"]), 3), nsmall = 3))), "\n"))
+            cat("\n")
+            N_humps <- length(grep("cluster_frequency_", colnames(reference)))
+            for (i in 1:N_humps) {
+                cat(paste0(red(paste0("Cluster ", i, " frequency:            ")), yellow(paste0(format(round(mean(parameters_unperturbed[, paste0("cluster_frequency_", i)]), 3), nsmall = 3), " \u00B1 ", format(round(sd(parameters_unperturbed[, paste0("cluster_frequency_", i)]), 3), nsmall = 3))), "\n"))
+            }
+            cat("\n")
+            cat(paste0(red("Neutral component proportion:   "), yellow(paste0(format(round(mean(parameters_unperturbed[, "cluster_proportion_inference_A_1"]), 3), nsmall = 3), " \u00B1 ", format(round(sd(parameters_unperturbed[, "cluster_proportion_inference_A_1"]), 3), nsmall = 3))), "\n"))
+            for (i in 1:N_humps) {
+                cat(paste0(red(paste0("Cluster ", i, " proportion:           ")), yellow(paste0(format(round(mean(parameters_unperturbed[, paste0("cluster_proportion_inference_A_", i + 1)]), 3), nsmall = 3), " \u00B1 ", format(round(sd(parameters_unperturbed[, paste0("cluster_proportion_inference_A_", i + 1)]), 3), nsmall = 3))), "\n"))
+            }
+        }
         cat(red("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"))
         cat(red(paste0("+++++++++++++++++++++++++++++++++++++++++++ Iteration ", iteration, "\n")))
         cat(red("+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"))

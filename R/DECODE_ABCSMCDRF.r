@@ -574,7 +574,7 @@ DECODE_given_tail_status_and_Ncluster_ABCSMCDRF <- function(SFS_data_inference_A
         model = model,
         bounds = bounds,
         parameters_initial = parameters_initial,
-        nParticles = rep(1000, 10),
+        nParticles = rep(1000, 1),
         parallel = TRUE
     )
     ####################################################################

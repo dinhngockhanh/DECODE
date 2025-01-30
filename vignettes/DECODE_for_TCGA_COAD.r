@@ -48,7 +48,7 @@ sample_IDs <- sample_info$Patient
 # }
 # ================================================================DECODE
 library(grid)
-sample_IDs <- c("TCGA-AA-3977") # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+sample_IDs <- c("TCGA-CA-6717") # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 for (sample in sample_IDs) {
     #---Input the SFS data
     filename <- paste0(R_data, "/", sample, "_1_1.txt")
