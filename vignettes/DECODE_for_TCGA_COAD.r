@@ -15,7 +15,7 @@ files_sources <- list.files(pattern = "\\.[rR]$")
 sapply(files_sources, source)
 setwd(R_workplace)
 # ===============================================SET UP WORKPLACE FOLDER
-folder_workplace <- "Results_TCGA-COAD/"
+folder_workplace <- "Results_TCGA-COAD_ABCSMCDRF/"
 if (!dir.exists(folder_workplace)) dir.create(folder_workplace)
 # ======================================GET TCGA-COAD SAMPLE INFORMATION
 sample_info <- read.table(paste0(R_data, "/sample_table.txt"), header = TRUE)
@@ -48,6 +48,7 @@ sample_IDs <- sample_info$Patient
 # }
 # ================================================================DECODE
 library(grid)
+sample_IDs <- c("TCGA-AA-3977") # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 for (sample in sample_IDs) {
     #---Input the SFS data
     filename <- paste0(R_data, "/", sample, "_1_1.txt")
@@ -56,33 +57,60 @@ for (sample in sample_IDs) {
     mutation_table$Alt_count <- mutation_table$alt_counts
     if (any(is.na(mutation_table$Ref_count)) | any(is.na(mutation_table$Alt_count))) mutation_table <- mutation_table[-which(is.na(mutation_table$Ref_count) | is.na(mutation_table$Alt_count)), ]
     if (any(mutation_table$Ref_count == 0) | any(mutation_table$Alt_count == 0)) mutation_table <- mutation_table[-which(mutation_table$Ref_count == 0 | mutation_table$Alt_count == 0), ]
-    #---SFS deconvolution with DECODE
-    DECODE_result <- DECODE_ABC(
-        sample_id = sample,
-        mutation_table = mutation_table,
-    )
+    # #----------------------------------------------------DECODE-ORIGINAL
+    # #---SFS deconvolution with DECODE
     # DECODE_result <- DECODE(
     #     sample_id = sample,
+    #     neutral_tail = TRUE, min_N_humps = 2, max_N_humps = 2, # <<<<<<<
     #     mutation_table = mutation_table
     # )
-    save(DECODE_result, file = paste0(folder_workplace, "DECODE_", sample, ".rda"))
-    #---Plot DECODE deconvolution
-    png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
-    print(DECODE_plot_SFS_ABC(DECODE_result = DECODE_result))
-    dev.off()
-    png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
-    grid.draw(
-        DECODE_plot_model_selection_ABC(
-            DECODE_result = DECODE_result
-        )
-    )
-    dev.off()
+    # save(DECODE_result, file = paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    # #---Plot DECODE deconvolution
     # png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
     # print(DECODE_plot_SFS(DECODE_result = DECODE_result))
     # dev.off()
     # png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
     # grid.draw(
     #     DECODE_plot_model_selection(
+    #         DECODE_result = DECODE_result
+    #     )
+    # )
+    # dev.off()
+    #---------------------------------------------------DECODE-ABCSMCDRF
+    #---SFS deconvolution with DECODE
+    DECODE_result <- DECODE_ABCSMCDRF(
+        sample_id = sample,
+        mutation_table = mutation_table,
+        N_trials = 1000, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        neutral_tail = TRUE, min_N_humps = 2, max_N_humps = 2, # <<<<<<<
+        compute_parallel = TRUE, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    )
+    save(DECODE_result, file = paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    # #---Plot DECODE deconvolution
+    # png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    # print(DECODE_plot_SFS_ABCSMCDRF(DECODE_result = DECODE_result))
+    # dev.off()
+    # png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    # grid.draw(
+    #     DECODE_plot_model_selection_ABCSMCDRF(
+    #         DECODE_result = DECODE_result
+    #     )
+    # )
+    # dev.off()
+    # #---------------------------------------------------------DECODE-ABC
+    # #---SFS deconvolution with DECODE
+    # DECODE_result <- DECODE_ABC(
+    #     sample_id = sample,
+    #     mutation_table = mutation_table,
+    # )
+    # save(DECODE_result, file = paste0(folder_workplace, "DECODE_", sample, ".rda"))
+    # #---Plot DECODE deconvolution
+    # png(paste0(folder_workplace, "DECODE_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    # print(DECODE_plot_SFS_ABC(DECODE_result = DECODE_result))
+    # dev.off()
+    # png(paste0(folder_workplace, "DECODE_model_selection_", sample, ".png"), res = 150, width = 30, height = 15, units = "in")
+    # grid.draw(
+    #     DECODE_plot_model_selection_ABC(
     #         DECODE_result = DECODE_result
     #     )
     # )

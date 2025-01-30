@@ -1,5 +1,7 @@
 data/
+DECODE & MOBSTER results/
 vignettes/Results_TCGA-COAD/
+vignettes/Results_TCGA-COAD_ABCSMCDRF/
 vignettes/Results_ICGC/
 vignettes/Results_POG/
 vignettes/Results_DREAM/

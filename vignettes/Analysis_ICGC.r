@@ -1,11 +1,13 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Khanh - Macbook
-R_ICGC_raw_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG"
-R_ICGC_processed_data <- "/Users/dinhngockhanh/Library/CloudStorage/GoogleDrive-knd2127@columbia.edu/My Drive/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/PCAWG"
+R_ICGC_raw_data <- "/Users/dinhngockhanh/My Drive (knd2127@columbia.edu)/RESEARCH AND EVERYTHING/Projects/DATASETS/PCAWG"
+R_ICGC_processed_data <- "/Users/dinhngockhanh/My Drive (knd2127@columbia.edu)/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/data/PCAWG"
 R_libPaths <- ""
 # =======================================SET UP FOLDER PATHS & LIBRARIES
 .libPaths(R_libPaths)
 library(R.utils)
 library(readxl)
+library(VariantAnnotation)
+library(dplyr)
 # ====================================EXTRACT MUTATIONAL DATA FROM PCAWG
 #--------------------------------------------------Unzip mutational data
 directory <- paste0(R_ICGC_raw_data, "/consensus_snv_indel/final_consensus_snv_indel_passonly_icgc.public/indel")
