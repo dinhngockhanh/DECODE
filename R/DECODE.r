@@ -1,30 +1,29 @@
 DECODE <- function(sample_id = "",
                    mutation_table,
                    criterion = "BIC",
-                   criterion_ratio = 0.999, # <<<<<<<<<<<<<<<<<<<<<<<<<<
+                   criterion_penalty_scale = 1.0, # <<<<<<<<<<<<<<<<<<<<
+                   criterion_pvalue_threshold = 0.1, # <<<<<<<<<<<<<<<<<
                    neutral_power_min = 0.5,
                    neutral_power_max = 5,
                    cluster_frequency_min = 0.01,
                    cluster_frequency_max = 1,
+                   cluster_frequency_mindiff = 0.01,
                    max_total_read = NULL,
-                   sample_size = 1000,
-                   matrix_binomial_sample_size = 1000, # <<<<<<<<<<<<<<<
+                   allele_count = 1000,
+                   matrix_binomial_allele_count = 1000, # <<<<<<<<<<<<<<
                    matrix_binomial_ploidy = 1, # <<<<<<<<<<<<<<<<<<<<<<<
                    sfs_bincount = 100, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                   n_SMCRF_particles = rep(1000, 2), # <<<<<<<<<<<<<<<<
                    min_variant_read_inference_A = NULL,
                    min_variant_read_inference_B = NULL,
                    min_variant_read_validation = NULL,
                    inference_retained_freq = 75,
-                   validation_mutation_count = 5000,
-                   validation_N_trials = 1000,
                    coverage_distribution = "sample-specific",
                    coverage_variables = NULL,
-                   N_trials = 10000,
                    neutral_tail = NA,
                    min_N_humps = 1,
                    max_N_humps = Inf,
-                   pi_cutoff = 0.02,
-                   zero_cutoff = 1e-50,
+                   make_readcount_distribution = TRUE,
                    compute_parallel = TRUE,
                    n_cores = NULL) {
     suppressPackageStartupMessages(library(crayon))
@@ -36,20 +35,19 @@ DECODE <- function(sample_id = "",
     SFS_data_frequencies <- seq(1, sfs_bincount) / sfs_bincount
     threshold_results <- choose_mutation_thresholds(
         mutation_table = mutation_table,
+        make_readcount_distribution = make_readcount_distribution,
         max_total_read = max_total_read,
         min_variant_read_inference_A = min_variant_read_inference_A,
         min_variant_read_inference_B = min_variant_read_inference_B,
         min_variant_read_validation = min_variant_read_validation,
         SFS_data_frequencies = SFS_data_frequencies,
-        inference_retained_freq = inference_retained_freq,
-        validation_mutation_count = validation_mutation_count,
-        validation_N_trials = validation_N_trials
+        inference_retained_freq = inference_retained_freq
     )
     #---Prepare the SFS convolution matrix
     SFS_convolution_inference_A <- build_convolution_matrix(
         sfs_bincount = sfs_bincount,
         mode = "inference A",
-        sample_size = matrix_binomial_sample_size,
+        allele_count = matrix_binomial_allele_count,
         min_variant_read = threshold_results$min_variant_read_inference_A,
         min_total_read = threshold_results$min_total_read_inference_A,
         max_total_read = max_total_read,
@@ -61,7 +59,7 @@ DECODE <- function(sample_id = "",
     SFS_convolution_inference_B <- build_convolution_matrix(
         sfs_bincount = sfs_bincount,
         mode = "inference B",
-        sample_size = matrix_binomial_sample_size,
+        allele_count = matrix_binomial_allele_count,
         min_variant_read = threshold_results$min_variant_read_inference_B,
         min_total_read = threshold_results$min_total_read_inference_B,
         max_total_read = max_total_read,
@@ -73,7 +71,7 @@ DECODE <- function(sample_id = "",
     SFS_convolution_validation <- build_convolution_matrix(
         sfs_bincount = sfs_bincount,
         mode = "validation",
-        sample_size = matrix_binomial_sample_size,
+        allele_count = matrix_binomial_allele_count,
         min_variant_read = threshold_results$min_variant_read_validation,
         min_total_read = threshold_results$min_total_read_validation,
         max_total_read = max_total_read,
@@ -86,7 +84,7 @@ DECODE <- function(sample_id = "",
     DECODE_result <- list()
     DECODE_result$sample_id <- sample_id
     DECODE_result$criterion <- criterion
-    DECODE_result$criterion_ratio <- criterion_ratio
+    DECODE_result$criterion_pvalue_threshold <- criterion_pvalue_threshold
     DECODE_result$sfs_bincount <- sfs_bincount
     DECODE_result$mutational_table <- mutation_table
     DECODE_result$readcount_distribution <- threshold_results$readcount_distribution
@@ -101,27 +99,31 @@ DECODE <- function(sample_id = "",
     DECODE_result$SFS_data_inference_A <- threshold_results$SFS_data_inference_A
     DECODE_result$SFS_data_inference_B <- threshold_results$SFS_data_inference_B
     DECODE_result$SFS_data_validation <- threshold_results$SFS_data_validation
+    # DECODE_result$SFS_convolution_inference_A <- SFS_convolution_inference_A
+    # DECODE_result$SFS_convolution_inference_B <- SFS_convolution_inference_B
+    # DECODE_result$SFS_convolution_validation <- SFS_convolution_validation
     if (is.na(neutral_tail)) {
         result_with_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            sfs_bincount = sfs_bincount,
-            with_tail = TRUE,
             criterion = criterion,
-            criterion_ratio = criterion_ratio,
+            criterion_penalty_scale = criterion_penalty_scale,
+            criterion_pvalue_threshold = criterion_pvalue_threshold,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            N_trials = N_trials,
+            with_tail = TRUE,
+            n_SMCRF_particles = n_SMCRF_particles,
+            allele_count = allele_count,
+            sfs_bincount = sfs_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
+            cluster_frequency_mindiff = cluster_frequency_mindiff,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
             cluster_frequency_min = cluster_frequency_min,
             cluster_frequency_max = cluster_frequency_max,
-            pi_cutoff = pi_cutoff,
-            zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
@@ -130,145 +132,162 @@ DECODE <- function(sample_id = "",
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            sfs_bincount = sfs_bincount,
-            with_tail = FALSE,
             criterion = criterion,
-            criterion_ratio = criterion_ratio,
+            criterion_penalty_scale = criterion_penalty_scale,
+            criterion_pvalue_threshold = criterion_pvalue_threshold,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            N_trials = N_trials,
+            with_tail = FALSE,
+            n_SMCRF_particles = n_SMCRF_particles,
+            allele_count = allele_count,
+            sfs_bincount = sfs_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
+            cluster_frequency_mindiff = cluster_frequency_mindiff,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
             cluster_frequency_min = cluster_frequency_min,
             cluster_frequency_max = cluster_frequency_max,
-            pi_cutoff = pi_cutoff,
-            zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
         DECODE_result$fits_without_tail <- result_without_tail
-        if (result_with_tail$best_fit$selected_criterion_value < result_without_tail$best_fit$selected_criterion_value) {
-            N_humps <- min_N_humps
-            while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-                if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-                    DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-                }
-                N_humps <- N_humps + 1
-            }
-            final_result <- result_with_tail
+
+        criterion_values_with_tail <- result_with_tail$best_fit$criterion_values
+        criterion_values_without_tail <- result_without_tail$best_fit$criterion_values
+
+        tt <- wilcox.test(criterion_values_with_tail, criterion_values_without_tail, alternative = "greater")
+        cat("p-value =", signif(tt$p.value, 3), "\n")
+        if (tt$p.value > criterion_pvalue_threshold) {
+            final_result <- criterion_values_with_tail
         } else {
-            N_humps <- min_N_humps
-            while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-                if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-                    DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-                }
-                N_humps <- N_humps + 1
-            }
-            final_result <- result_without_tail
+            final_result <- criterion_values_without_tail
         }
+
+
+
+        # if (result_with_tail$best_fit$selected_criterion_value < result_without_tail$best_fit$selected_criterion_value) {
+        #     N_humps <- min_N_humps
+        #     while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+        #         if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+        #             DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+        #         }
+        #         N_humps <- N_humps + 1
+        #     }
+        #     final_result <- result_with_tail
+        # } else {
+        #     N_humps <- min_N_humps
+        #     while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+        #         if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+        #             DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+        #         }
+        #         N_humps <- N_humps + 1
+        #     }
+        #     final_result <- result_without_tail
+        # }
     } else if (neutral_tail == TRUE) {
         final_result <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            sfs_bincount = sfs_bincount,
-            with_tail = TRUE,
             criterion = criterion,
-            criterion_ratio = criterion_ratio,
+            criterion_penalty_scale = criterion_penalty_scale,
+            criterion_pvalue_threshold = criterion_pvalue_threshold,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            N_trials = N_trials,
+            with_tail = TRUE,
+            n_SMCRF_particles = n_SMCRF_particles,
+            allele_count = allele_count,
+            sfs_bincount = sfs_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
+            cluster_frequency_mindiff = cluster_frequency_mindiff,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
             cluster_frequency_min = cluster_frequency_min,
             cluster_frequency_max = cluster_frequency_max,
-            pi_cutoff = pi_cutoff,
-            zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
         DECODE_result$fits_with_tail <- final_result
         N_humps <- min_N_humps
-        while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-            if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-                DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-            }
-            N_humps <- N_humps + 1
-        }
+        # while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+        #     if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+        #         DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+        #     }
+        #     N_humps <- N_humps + 1
+        # }
     } else if (neutral_tail == FALSE) {
         final_result <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            sfs_bincount = sfs_bincount,
-            with_tail = FALSE,
             criterion = criterion,
-            criterion_ratio = criterion_ratio,
+            criterion_penalty_scale = criterion_penalty_scale,
+            criterion_pvalue_threshold = criterion_pvalue_threshold,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
-            N_trials = N_trials,
+            with_tail = FALSE,
+            n_SMCRF_particles = n_SMCRF_particles,
+            allele_count = allele_count,
+            sfs_bincount = sfs_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
+            cluster_frequency_mindiff = cluster_frequency_mindiff,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
             cluster_frequency_min = cluster_frequency_min,
             cluster_frequency_max = cluster_frequency_max,
-            pi_cutoff = pi_cutoff,
-            zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
         DECODE_result$fits_without_tail <- final_result
-        N_humps <- min_N_humps
-        while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-            if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-                DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-            }
-            N_humps <- N_humps + 1
-        }
+        # N_humps <- min_N_humps
+        # while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
+        #     if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
+        #         DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
+        #     }
+        #     N_humps <- N_humps + 1
+        # }
     }
     DECODE_result$final_fit <- final_result
-    #---Report the best fit
-    tail_status_final_result <- final_result$best_fit$tail_status
-    parameters_inference_A_final_result <- final_result$best_fit$parameters_inference_A
-    parameters_inference_B_final_result <- final_result$best_fit$parameters_inference_B
-    criterion_final_result <- final_result$best_fit$selected_criterion_value
-    if (tail_status_final_result) {
-        N_humps_final_result <- length(parameters_inference_A_final_result) / 2 - 1
-        report <- bold(underline(red(paste0("Best fit = neutral tail + ", N_humps_final_result, " clusters:\n"))))
-        report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", format(round(criterion_final_result, 3), nsmall = 3))), "\n")
-        report <- paste0(report, red("Neutral component: "), yellow(paste0("power     = ", format(round(parameters_inference_A_final_result[2], 3), nsmall = 3))), red(", "))
-        report <- paste0(report, yellow(paste0("\u03C0 = ", format(round(parameters_inference_A_final_result[1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_final_result[1], 3), nsmall = 3), " [B]")), "\n")
-        ii <- 0
-    } else {
-        N_humps_final_result <- length(parameters_inference_A_final_result) / 2
-        report <- bold(underline(red(paste0("Best fit = no neutral tail + ", N_humps_final_result, " clusters:\n"))))
-        report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", format(round(criterion_final_result, 3), nsmall = 3))), "\n")
-        ii <- -1
-    }
-    if (N_humps_final_result > 0) {
-        for (i in 1:N_humps_final_result) {
-            report <- paste0(report, red(paste0("Cluster ", i, "        : ")), yellow(paste0("frequency = ", format(round(parameters_inference_A_final_result[2 * (i + ii) + 2], 3), nsmall = 3))), red(", "))
-            report <- paste0(report, yellow(paste0("\u03C0 = ", format(round(parameters_inference_A_final_result[2 * (i + ii) + 1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_final_result[2 * (i + ii) + 1], 3), nsmall = 3), " [B]")), "\n")
-        }
-    }
-    cat(report)
-    #---Translation to parameters of cancer evolution in the sample
-    tmp <- parameter_conversion(
-        result = final_result,
-        mutation_count_for_fitting = sum(threshold_results$SFS_data_inference_A),
-        sample_size = sample_size,
-        matrix_binomial_sample_size = matrix_binomial_sample_size,
-        matrix_binomial_ploidy = matrix_binomial_ploidy
-    )
-    DECODE_result$final_fit$parameters_df <- tmp$parameters_df
+    # #---Report the best fit
+    # tail_status_final_result <- final_result$best_fit$tail_status
+    # parameters_inference_A_final_result <- final_result$best_fit$parameters_inference_A
+    # parameters_inference_B_final_result <- final_result$best_fit$parameters_inference_B
+    # criterion_final_result <- final_result$best_fit$selected_criterion_value
+    # if (tail_status_final_result) {
+    #     N_humps_final_result <- length(parameters_inference_A_final_result) / 2 - 1
+    #     report <- bold(underline(red(paste0("Best fit = neutral tail + ", N_humps_final_result, " clusters:\n"))))
+    #     report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", format(round(criterion_final_result, 3), nsmall = 3))), "\n")
+    #     report <- paste0(report, red("Neutral component: "), yellow(paste0("power     = ", format(round(parameters_inference_A_final_result[2], 3), nsmall = 3))), red(", "))
+    #     report <- paste0(report, yellow(paste0("\u03C0 = ", format(round(parameters_inference_A_final_result[1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_final_result[1], 3), nsmall = 3), " [B]")), "\n")
+    #     ii <- 0
+    # } else {
+    #     N_humps_final_result <- length(parameters_inference_A_final_result) / 2
+    #     report <- bold(underline(red(paste0("Best fit = no neutral tail + ", N_humps_final_result, " clusters:\n"))))
+    #     report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", format(round(criterion_final_result, 3), nsmall = 3))), "\n")
+    #     ii <- -1
+    # }
+    # if (N_humps_final_result > 0) {
+    #     for (i in 1:N_humps_final_result) {
+    #         report <- paste0(report, red(paste0("Cluster ", i, "        : ")), yellow(paste0("frequency = ", format(round(parameters_inference_A_final_result[2 * (i + ii) + 2], 3), nsmall = 3))), red(", "))
+    #         report <- paste0(report, yellow(paste0("\u03C0 = ", format(round(parameters_inference_A_final_result[2 * (i + ii) + 1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_final_result[2 * (i + ii) + 1], 3), nsmall = 3), " [B]")), "\n")
+    #     }
+    # }
+    # cat(report)
+    # #---Translation to parameters of cancer evolution in the sample
+    # tmp <- parameter_conversion(
+    #     result = final_result,
+    #     mutation_count_for_fitting = sum(threshold_results$SFS_data_inference_A),
+    #     allele_count = allele_count,
+    #     matrix_binomial_allele_count = matrix_binomial_allele_count,
+    #     matrix_binomial_ploidy = matrix_binomial_ploidy
+    # )
+    # DECODE_result$final_fit$parameters_df <- tmp$parameters_df
     #---Return the SFS deconvolution results
     return(DECODE_result)
 }
@@ -277,104 +296,137 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
                                      SFS_data_inference_B,
                                      SFS_data_validation,
                                      criterion,
-                                     criterion_ratio,
+                                     criterion_penalty_scale,
+                                     criterion_pvalue_threshold,
                                      min_N_humps,
                                      max_N_humps,
                                      with_tail,
-                                     N_trials,
+                                     n_SMCRF_particles,
+                                     allele_count,
                                      sfs_bincount,
                                      SFS_convolution_inference_A,
                                      SFS_convolution_inference_B,
                                      SFS_convolution_validation,
+                                     cluster_frequency_mindiff,
                                      neutral_power_min,
                                      neutral_power_max,
                                      cluster_frequency_min,
                                      cluster_frequency_max,
-                                     pi_cutoff,
-                                     zero_cutoff,
                                      compute_parallel,
                                      n_cores) {
-    N_humps <- min_N_humps
-    criterion_best_final <- Inf
     all_fits <- list()
-    while (TRUE) {
+    criterion_values_list <- list()
+    best_criterion_values <- NULL
+    best_N_humps <- min_N_humps
+    for (N_humps in min_N_humps:max_N_humps) {
         #---Find best parameter set, given the number of humps
         cat(bold(blue(paste0("Inference for ", N_humps, " clusters ", ifelse(with_tail, "with", "without"), " neutral tail component...\n"))))
         fit_results <- DECODE_given_tail_status_and_Ncluster(
             SFS_data_inference_A = SFS_data_inference_A,
             SFS_data_inference_B = SFS_data_inference_B,
             SFS_data_validation = SFS_data_validation,
+            criterion = criterion,
+            criterion_penalty_scale = criterion_penalty_scale,
             N_humps = N_humps,
             with_tail = with_tail,
-            N_trials = N_trials,
+            n_SMCRF_particles = n_SMCRF_particles,
+            allele_count = allele_count,
             sfs_bincount = sfs_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
+            cluster_frequency_mindiff = cluster_frequency_mindiff,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
             cluster_frequency_min = cluster_frequency_min,
             cluster_frequency_max = cluster_frequency_max,
-            zero_cutoff = zero_cutoff,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
-        fit_results$note <- "none"
+        ################################################################
+        ################################################################
+        ################################################################
+        ################################################################
+        ################################################################
+        ################################################################
+        ################################################################
         all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
-        parameters_inference_A_best_current <- fit_results$best$parameters_inference_A
-        parameters_inference_B_best_current <- fit_results$best$parameters_inference_B
-        parameters_validation_best_current <- fit_results$best$parameters_validation
-        component_distributions_inference_A_best_current <- fit_results$best$component_distributions_inference_A
-        component_distributions_inference_B_best_current <- fit_results$best$component_distributions_inference_B
-        component_distributions_validation_best_current <- fit_results$best$component_distributions_validation
-        criterion_all_best_current <- fit_results$best$criteria
-        criterion_best_current <- criterion_all_best_current[[criterion]]
-        criteria_validation_index_best_current <- fit_results$best$criteria_validation_index
-        #   Report the best fit for the current hump count
-        cluster_pis_inference_A <- Inf
-        cluster_pis_inference_B <- Inf
-        report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", format(round(criterion_best_current, 3), nsmall = 3))), "\n")
-        if (with_tail) {
-            N_humps <- length(parameters_inference_A_best_current) / 2 - 1
-            report <- paste0(report, blue("Neutral component: "), cyan(paste0("power     = ", format(round(parameters_inference_A_best_current[2], 3), nsmall = 3))), blue(", "))
-            report <- paste0(report, cyan(paste0("\u03C0 = ", format(round(parameters_inference_A_best_current[1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_best_current[1], 3), nsmall = 3), " [B]")), "\n")
-            ii <- 0
-        } else {
-            N_humps <- length(parameters_inference_A_best_current) / 2
-            ii <- -1
-        }
-        if (N_humps > 0) {
-            for (i in 1:N_humps) {
-                report <- paste0(report, blue(paste0("Cluster ", i, "        : ")), cyan(paste0("frequency = ", format(round(parameters_inference_A_best_current[2 * (i + ii) + 2], 3), nsmall = 3))), blue(", "))
-                report <- paste0(report, cyan(paste0("\u03C0 = ", format(round(parameters_inference_A_best_current[2 * (i + ii) + 1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_best_current[2 * (i + ii) + 1], 3), nsmall = 3), " [B]")), "\n")
-                cluster_pis_inference_A <- c(cluster_pis_inference_A, parameters_inference_A_best_current[2 * (i + ii) + 1])
-                cluster_pis_inference_B <- c(cluster_pis_inference_B, parameters_inference_B_best_current[2 * (i + ii) + 1])
-            }
-        }
-        cat(report)
-        #   Check if the increased hump count leads to lower criterion score without tiny selective components...
-        if ((N_humps == min_N_humps) | ((criterion_best_current < criterion_ratio * criterion_best_final) & (min(pmax(cluster_pis_inference_A, cluster_pis_inference_B)) >= pi_cutoff))) {
-            #   ... if yes, then update the best fit and continue with 1 more hump
-            N_humps_best_final <- N_humps
-            fit_results_best_final <- fit_results
-            criterion_best_final <- criterion_best_current
-            criteria_validation_index_best_final <- criteria_validation_index_best_current
-            criterion_all_final <- criterion_all_best_current
-            parameters_inference_A_best_final <- parameters_inference_A_best_current
-            parameters_inference_B_best_final <- parameters_inference_B_best_current
-            parameters_validation_best_final <- parameters_validation_best_current
-            component_distributions_inference_A_best_final <- component_distributions_inference_A_best_current
-            component_distributions_inference_B_best_final <- component_distributions_inference_B_best_current
-            component_distributions_validation_best_final <- component_distributions_validation_best_current
-            N_humps <- N_humps + 1
-            #   ... except if exceeding maximum number of clusters
-            if (N_humps > max_N_humps) {
+
+        current_criterion_values <- fit_results$criterion_values
+        criterion_values_list[[paste0(N_humps, "_clusters")]] <- current_criterion_values
+
+        if (!is.null(best_criterion_values)) {
+            tt <- wilcox.test(best_criterion_values, current_criterion_values, alternative = "greater")
+            cat("p-value =", signif(tt$p.value, 3), "\n")
+            if (tt$p.value > criterion_pvalue_threshold) {
+                cat(sprintf(
+                    "→ No significant improvement for %d clusters; best = %d\n",
+                    N_humps, N_humps - 1
+                ))
+                best_N_humps <- N_humps - 1
                 break
             }
-        } else {
-            #   ... if no, then stop
-            break
         }
+        best_criterion_values <- current_criterion_values
+
+
+
+        # fit_results$note <- "none"
+        # all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
+        # parameters_inference_A_best_current <- fit_results$best$parameters_inference_A
+        # parameters_inference_B_best_current <- fit_results$best$parameters_inference_B
+        # parameters_validation_best_current <- fit_results$best$parameters_validation
+        # component_distributions_inference_A_best_current <- fit_results$best$component_distributions_inference_A
+        # component_distributions_inference_B_best_current <- fit_results$best$component_distributions_inference_B
+        # component_distributions_validation_best_current <- fit_results$best$component_distributions_validation
+        # criterion_all_best_current <- fit_results$best$criteria
+        # criterion_best_current <- criterion_all_best_current[[criterion]]
+        # criteria_validation_index_best_current <- fit_results$best$criteria_validation_index
+        # #   Report the best fit for the current hump count
+        # cluster_pis_inference_A <- Inf
+        # cluster_pis_inference_B <- Inf
+        # report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", format(round(criterion_best_current, 3), nsmall = 3))), "\n")
+        # if (with_tail) {
+        #     N_humps <- length(parameters_inference_A_best_current) / 2 - 1
+        #     report <- paste0(report, blue("Neutral component: "), cyan(paste0("power     = ", format(round(parameters_inference_A_best_current[2], 3), nsmall = 3))), blue(", "))
+        #     report <- paste0(report, cyan(paste0("\u03C0 = ", format(round(parameters_inference_A_best_current[1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_best_current[1], 3), nsmall = 3), " [B]")), "\n")
+        #     ii <- 0
+        # } else {
+        #     N_humps <- length(parameters_inference_A_best_current) / 2
+        #     ii <- -1
+        # }
+        # if (N_humps > 0) {
+        #     for (i in 1:N_humps) {
+        #         report <- paste0(report, blue(paste0("Cluster ", i, "        : ")), cyan(paste0("frequency = ", format(round(parameters_inference_A_best_current[2 * (i + ii) + 2], 3), nsmall = 3))), blue(", "))
+        #         report <- paste0(report, cyan(paste0("\u03C0 = ", format(round(parameters_inference_A_best_current[2 * (i + ii) + 1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_best_current[2 * (i + ii) + 1], 3), nsmall = 3), " [B]")), "\n")
+        #         cluster_pis_inference_A <- c(cluster_pis_inference_A, parameters_inference_A_best_current[2 * (i + ii) + 1])
+        #         cluster_pis_inference_B <- c(cluster_pis_inference_B, parameters_inference_B_best_current[2 * (i + ii) + 1])
+        #     }
+        # }
+        # cat(report)
+        # #   Check if the increased hump count leads to lower criterion score without tiny selective components...
+        # if ((N_humps == min_N_humps) | ((criterion_best_current < criterion_pvalue_threshold * criterion_best_final) & (min(pmax(cluster_pis_inference_A, cluster_pis_inference_B)) >= pi_cutoff))) {
+        #     #   ... if yes, then update the best fit and continue with 1 more hump
+        #     N_humps_best_final <- N_humps
+        #     fit_results_best_final <- fit_results
+        #     criterion_best_final <- criterion_best_current
+        #     criteria_validation_index_best_final <- criteria_validation_index_best_current
+        #     criterion_all_final <- criterion_all_best_current
+        #     parameters_inference_A_best_final <- parameters_inference_A_best_current
+        #     parameters_inference_B_best_final <- parameters_inference_B_best_current
+        #     parameters_validation_best_final <- parameters_validation_best_current
+        #     component_distributions_inference_A_best_final <- component_distributions_inference_A_best_current
+        #     component_distributions_inference_B_best_final <- component_distributions_inference_B_best_current
+        #     component_distributions_validation_best_final <- component_distributions_validation_best_current
+        #     N_humps <- N_humps + 1
+        #     #   ... except if exceeding maximum number of clusters
+        #     if (N_humps > max_N_humps) {
+        #         break
+        #     }
+        # } else {
+        #     #   ... if no, then stop
+        #     break
+        # }
     }
     # #---Check if the neutral tail component is too tiny
     # if (with_tail == TRUE & (max(parameters_inference_A_best_final[1], parameters_inference_B_best_final[1]) < pi_cutoff)) {
@@ -396,400 +448,246 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
     #     component_distributions_validation_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected_normalized[1, ]))
     # }
     #---Report the best fit
-    all_fits[[paste0(N_humps_best_final, "_clusters")]]$note <- "best given tail status"
+    # all_fits[[paste0(N_humps_best_final, "_clusters")]]$note <- "best given tail status"
     result <- list()
     result$all_fits <- all_fits
     result$best_fit <- list()
-    result$best_fit$parameters_inference_A <- parameters_inference_A_best_final
-    result$best_fit$parameters_inference_B <- parameters_inference_B_best_final
-    result$best_fit$parameters_validation <- parameters_validation_best_final
-    result$best_fit$component_distributions_inference_A <- component_distributions_inference_A_best_final
-    result$best_fit$component_distributions_inference_B <- component_distributions_inference_B_best_final
-    result$best_fit$component_distributions_validation <- component_distributions_validation_best_final
-    result$best_fit$selected_criterion <- criterion
-    result$best_fit$all_criteria <- criterion_all_final
-    result$best_fit$selected_criterion_value <- criterion_best_final
-    result$best_fit$criteria_validation_index <- criteria_validation_index_best_final
+    result$best_fit$selected_criterion <- all_fits[[paste0(best_N_humps, "_clusters")]]$criterion
+    result$best_fit$all_criteria <- criterion_values_list
+    result$best_fit$selected_criterion_value <- all_fits[[paste0(best_N_humps, "_clusters")]]$criterion_values
     result$best_fit$tail_status <- with_tail
+    result$best_fit$criterion_values <- best_criterion_values
     return(result)
 }
 
 DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                                                   SFS_data_inference_B,
                                                   SFS_data_validation,
+                                                  criterion,
+                                                  criterion_penalty_scale,
                                                   N_humps,
                                                   with_tail,
-                                                  N_trials,
+                                                  n_SMCRF_particles,
+                                                  allele_count,
                                                   sfs_bincount,
                                                   SFS_convolution_inference_A,
                                                   SFS_convolution_inference_B,
                                                   SFS_convolution_validation,
+                                                  cluster_frequency_mindiff,
                                                   neutral_power_min,
                                                   neutral_power_max,
                                                   cluster_frequency_min,
                                                   cluster_frequency_max,
-                                                  zero_cutoff,
                                                   compute_parallel,
                                                   n_cores,
                                                   progress_bar = TRUE) {
-    N_end <- SFS_convolution_inference_A$N_end
-    SFS_convolution_matrix_inference_A <- SFS_convolution_inference_A$convolution_matrix
-    SFS_convolution_matrix_inference_B <- SFS_convolution_inference_B$convolution_matrix
-    SFS_convolution_matrix_validation <- SFS_convolution_validation$convolution_matrix
-    #---Function to perform one trial to find A & K's
-    func_one_trial <- function(with_tail,
-                               N_humps,
-                               neutral_power_min,
-                               neutral_power_max,
-                               cluster_frequency_min,
-                               cluster_frequency_max,
-                               SFS_data_inference_A,
-                               SFS_data_inference_B,
-                               SFS_data_validation,
-                               sfs_bincount,
-                               N_end,
-                               SFS_convolution_matrix_inference_A,
-                               SFS_convolution_matrix_inference_B,
-                               SFS_convolution_matrix_validation,
-                               zero_cutoff) {
-        #   Sample neutral component power and cluster frequencies
-        neutral_power <- ifelse(with_tail, runif(1, neutral_power_min, neutral_power_max), NA)
-        cluster_frequencies <- sort(runif(N_humps, cluster_frequency_min, cluster_frequency_max), decreasing = TRUE)
-        #   Build the SFS component library
-        component_distributions_inference_A <- build_SFS_library(
-            neutral_power = neutral_power,
-            cluster_frequencies = cluster_frequencies,
-            sfs_bincount = sfs_bincount,
-            SFS_convolution_matrix = SFS_convolution_matrix_inference_A,
-            N_end = N_end
-        )
-        component_distributions_inference_B <- build_SFS_library(
-            neutral_power = neutral_power,
-            cluster_frequencies = cluster_frequencies,
-            sfs_bincount = sfs_bincount,
-            SFS_convolution_matrix = SFS_convolution_matrix_inference_B,
-            N_end = N_end
-        )
-        component_distributions_validation <- build_SFS_library(
-            neutral_power = neutral_power,
-            cluster_frequencies = cluster_frequencies,
-            sfs_bincount = sfs_bincount,
-            SFS_convolution_matrix = SFS_convolution_matrix_validation,
-            N_end = N_end
-        )
-        #   Find component proportions
-        results <- DECODE_for_pis(
-            SFS_data_inference_A = SFS_data_inference_A,
-            SFS_data_inference_B = SFS_data_inference_B,
-            SFS_data_validation = SFS_data_validation,
-            neutral_power = neutral_power,
-            cluster_frequencies = cluster_frequencies,
-            component_distributions_inference_A = component_distributions_inference_A,
-            component_distributions_inference_B = component_distributions_inference_B,
-            component_distributions_validation = component_distributions_validation,
-            zero_cutoff = zero_cutoff
-        )
-        output <- list()
-        output$logLikelihood <- results$log_L
-        output$parameters_inference_A <- results$parameters_A
-        output$parameters_inference_B <- results$parameters_B
-        output$parameters_validation <- results$parameters_validation
-        output$component_distributions_inference_A <- component_distributions_inference_A
-        output$component_distributions_inference_B <- component_distributions_inference_B
-        output$component_distributions_validation <- component_distributions_validation
-        return(output)
+    library(abcsmcrf)
+    #---Ingredients for ABC-SMC-DRF
+    rprior <- function(Nparameters) {
+        parameters <- data.frame(matrix(nrow = Nparameters, ncol = 0))
+        if (with_tail) {
+            parameters$alpha <- runif(Nparameters, min = neutral_power_min, max = neutral_power_max)
+            parameters$omega_inference_A_0 <- runif(Nparameters, min = 0, max = 2 * sum(SFS_data_inference_A))
+        }
+        for (i in seq_len(N_humps)) {
+            parameters[[paste0("p_", i)]] <- runif(Nparameters, min = cluster_frequency_min, max = cluster_frequency_max)
+            parameters[[paste0("omega_inference_A_", i)]] <- runif(Nparameters, min = 0, max = 2 * sum(SFS_data_inference_A))
+        }
+        return(parameters)
     }
-    #---Find best variable parameters (A & K's) for each fixed parameter set from many trials
-    if (compute_parallel == FALSE) {
-        all_logLikelihood <- c()
-        all_parameters_inference_A <- c()
-        all_parameters_inference_B <- c()
-        all_parameters_validation <- c()
-        all_component_distributions_inference_A <- list()
-        all_component_distributions_inference_B <- list()
-        all_component_distributions_validation <- list()
-        if (progress_bar) {
-            pb <- txtProgressBar(
-                min = 0,
-                max = N_trials,
-                style = 3,
-                width = 50,
-                char = "+"
-            )
+    dprior <- function(parameters, parameter_id = "all") {
+        probs <- rep(1, nrow(parameters))
+        if (with_tail) {
+            if (parameter_id %in% c("all", "alpha") && !is.null(parameters$alpha)) {
+                probs <- probs * dunif(parameters$alpha, min = neutral_power_min, max = neutral_power_max)
+            }
+            if (parameter_id %in% c("all", "omega_inference_A_0") && !is.null(parameters$omega_inference_A_0)) {
+                probs <- probs * dunif(parameters$omega_inference_A_0, min = 0, max = 2 * sum(SFS_data_inference_A))
+            }
         }
-        for (i in 1:N_trials) {
-            if (progress_bar) setTxtProgressBar(pb, i)
-            trial_result <- func_one_trial(
-                with_tail = with_tail,
-                N_humps = N_humps,
-                neutral_power_min = neutral_power_min,
-                neutral_power_max = neutral_power_max,
-                cluster_frequency_min = cluster_frequency_min,
-                cluster_frequency_max = cluster_frequency_max,
-                SFS_data_inference_A = SFS_data_inference_A,
-                SFS_data_inference_B = SFS_data_inference_B,
-                SFS_data_validation = SFS_data_validation,
-                sfs_bincount = sfs_bincount,
-                N_end = N_end,
-                SFS_convolution_matrix_inference_A = SFS_convolution_matrix_inference_A,
-                SFS_convolution_matrix_inference_B = SFS_convolution_matrix_inference_B,
-                SFS_convolution_matrix_validation = SFS_convolution_matrix_validation,
-                zero_cutoff = zero_cutoff
-            )
-            all_parameters_inference_A <- rbind(all_parameters_inference_A, trial_result$parameters_inference_A)
-            all_parameters_inference_B <- rbind(all_parameters_inference_B, trial_result$parameters_inference_B)
-            all_parameters_validation <- rbind(all_parameters_validation, trial_result$parameters_validation)
-            all_component_distributions_inference_A[[i]] <- trial_result$component_distributions_inference_A
-            all_component_distributions_inference_B[[i]] <- trial_result$component_distributions_inference_B
-            all_component_distributions_validation[[i]] <- trial_result$component_distributions_validation
-            all_logLikelihood <- c(all_logLikelihood, trial_result$logLikelihood)
+        for (i in seq_len(N_humps)) {
+            p_col <- paste0("p_", i)
+            o_col <- paste0("omega_inference_A_", i)
+            if (parameter_id %in% c("all", p_col) && !is.null(parameters[[p_col]])) {
+                probs <- probs * dunif(parameters[[p_col]], min = cluster_frequency_min, max = cluster_frequency_max)
+            }
+            if (parameter_id %in% c("all", o_col) && !is.null(parameters[[o_col]])) {
+                probs <- probs * dunif(parameters[[o_col]], min = 0, max = 2 * sum(SFS_data_inference_A))
+            }
         }
-        if (progress_bar) cat("\n")
-    } else {
-        suppressPackageStartupMessages(library(parallel))
-        suppressPackageStartupMessages(library(pbapply))
-        #   Start parallel cluster
-        numCores <- ifelse(is.null(n_cores), detectCores(), n_cores)
-        cl <- makePSOCKcluster(numCores - 1)
-        #   Prepare input parameters
-        clusterExport(cl, varlist = c(
-            "with_tail", "N_humps", "sfs_bincount", "N_end", "zero_cutoff",
-            "SFS_data_inference_A", "SFS_data_inference_B", "SFS_data_validation",
-            "SFS_convolution_matrix_inference_A", "SFS_convolution_matrix_inference_B", "SFS_convolution_matrix_validation",
-            "neutral_power_min", "neutral_power_max",
-            "cluster_frequency_min", "cluster_frequency_max",
-            "build_SFS_library", "build_SFS_library_Griffiths_Tavare",
-            "DECODE_for_pis", "compute_loglikelihood", "compute_SFS"
-        ), envir = environment())
-        #   Find best variable parameters in parallel mode
-        if (progress_bar) {
-            pboptions(type = "timer", nout = 2)
-            output <- pblapply(cl = cl, X = 1:N_trials, FUN = function(i) {
-                func_one_trial(
-                    with_tail = with_tail,
-                    N_humps = N_humps,
-                    neutral_power_min = neutral_power_min,
-                    neutral_power_max = neutral_power_max,
-                    cluster_frequency_min = cluster_frequency_min,
-                    cluster_frequency_max = cluster_frequency_max,
-                    SFS_data_inference_A = SFS_data_inference_A,
-                    SFS_data_inference_B = SFS_data_inference_B,
-                    SFS_data_validation = SFS_data_validation,
-                    sfs_bincount = sfs_bincount,
-                    N_end = N_end,
-                    SFS_convolution_matrix_inference_A = SFS_convolution_matrix_inference_A,
-                    SFS_convolution_matrix_inference_B = SFS_convolution_matrix_inference_B,
-                    SFS_convolution_matrix_validation = SFS_convolution_matrix_validation,
-                    zero_cutoff = zero_cutoff
-                )
+        return(probs)
+    }
+    model <- function(parameters) {
+        if (compute_parallel) {
+            library(parallel)
+            library(pbapply)
+            cl <- makePSOCKcluster(ifelse(is.null(n_cores), detectCores() - 1, n_cores))
+            clusterExport(cl, varlist = c(
+                "one_SFS", "allele_count", "N_humps", "cluster_frequency_mindiff",
+                "SFS_convolution_inference_A", "SFS_convolution_inference_B",
+                "SFS_data_inference_A", "SFS_data_inference_B",
+                "with_tail"
+            ), envir = environment())
+            stats_list <- parLapply(cl, seq_len(nrow(parameters)), function(i) {
+                one_SFS(parameters[i, ])
             })
+            stopCluster(cl)
+            stats <- do.call(rbind, stats_list)
         } else {
-            output <- parLapply(cl = cl, X = 1:N_trials, fun = function(i) {
-                func_one_trial(
-                    with_tail = with_tail,
-                    N_humps = N_humps,
-                    neutral_power_min = neutral_power_min,
-                    neutral_power_max = neutral_power_max,
-                    cluster_frequency_min = cluster_frequency_min,
-                    cluster_frequency_max = cluster_frequency_max,
-                    SFS_data_inference_A = SFS_data_inference_A,
-                    SFS_data_inference_B = SFS_data_inference_B,
-                    SFS_data_validation = SFS_data_validation,
-                    sfs_bincount = sfs_bincount,
-                    N_end = N_end,
-                    SFS_convolution_matrix_inference_A = SFS_convolution_matrix_inference_A,
-                    SFS_convolution_matrix_inference_B = SFS_convolution_matrix_inference_B,
-                    SFS_convolution_matrix_validation = SFS_convolution_matrix_validation,
-                    zero_cutoff = zero_cutoff
-                )
-            })
+            stats <- do.call(rbind, lapply(seq_len(nrow(parameters)), function(i) {
+                one_SFS(parameters[i, ])
+            }))
         }
-        stopCluster(cl)
-        #   Extract the results
-        all_parameters_inference_A <- do.call(rbind, lapply(output, function(x) x$parameters_inference_A))
-        all_parameters_inference_B <- do.call(rbind, lapply(output, function(x) x$parameters_inference_B))
-        all_parameters_validation <- do.call(rbind, lapply(output, function(x) x$parameters_validation))
-        all_component_distributions_inference_A <- lapply(output, function(x) x$component_distributions_inference_A)
-        all_component_distributions_inference_B <- lapply(output, function(x) x$component_distributions_inference_B)
-        all_component_distributions_validation <- lapply(output, function(x) x$component_distributions_validation)
-        all_logLikelihood <- sapply(output, function(x) x$logLikelihood)
+        return(cbind(parameters, stats))
     }
-    #---Compute stopping criteria for best fit
-    best_index <- which.max(all_logLikelihood)
-    num_parameters <- ifelse(with_tail, 2 * N_humps + 1, 2 * N_humps - 1)
-    if (neutral_power_max > neutral_power_min) num_parameters <- num_parameters + 1
-    output <- cluster_count_criteria(
-        num_parameters = num_parameters,
-        SFS_data_validation = SFS_data_validation,
-        parameters_validation = all_parameters_validation[best_index, ],
-        component_distributions_validation = all_component_distributions_validation[[best_index]],
-        with_tail = with_tail,
-        zero_cutoff = zero_cutoff
+    one_SFS <- function(one_parameter) {
+        # Build weights (omegas) and cluster frequencies
+        if (N_humps > 0) {
+            ps <- as.numeric(one_parameter[paste0("p_", 1:N_humps)])
+            if (N_humps > 1) {
+                ps_sorted <- sort(ps)
+                if (min(diff(ps_sorted)) < cluster_frequency_mindiff) {
+                    return(data.frame(distance = NA))
+                }
+            }
+        }
+        if (isTRUE(with_tail)) {
+            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 0:N_humps)])
+        } else {
+            # No neutral tail: prepend a zero weight to align with the neutral row
+            omegas_A <- c(0, as.numeric(one_parameter[paste0("omega_inference_A_", 1:N_humps)]))
+        }
+        # Build exact SFS (row 1 = neutral, subsequent rows = cluster components)
+        SFS_exact <- matrix(0, nrow = N_humps + 1, ncol = allele_count)
+        if (isTRUE(with_tail)) {
+            vec <- (1:allele_count)^(-one_parameter[["alpha"]])
+            SFS_exact[1, ] <- vec / sum(vec)
+        } else {
+            # Keep neutral row as zeros (no tail)
+            SFS_exact[1, ] <- 0
+        }
+        for (i in seq_len(N_humps)) {
+            SFS_exact[i + 1, ] <- dbinom(1:allele_count, size = allele_count, prob = ps[i])
+        }
+        # Convolution and aggregation for inference A
+        SFS_exp_A <- SFS_exact %*% SFS_convolution_inference_A$convolution_matrix
+        model_A <- colSums(sweep(SFS_exp_A, 1, omegas_A, `*`) / pmax(rowSums(SFS_exp_A), .Machine$double.eps))
+        # Convolution for inference B (reuse weights normalized by A's component mass)
+        omegas_B <- omegas_A / pmax(rowSums(SFS_exp_A), .Machine$double.eps)
+        SFS_exp_B <- SFS_exact %*% SFS_convolution_inference_B$convolution_matrix
+        model_B <- colSums(sweep(SFS_exp_B, 1, omegas_B, `*`))
+        # Normalized L1 distances for A and B
+        dA <- sum(abs(model_A - SFS_data_inference_A)) / sum(abs(SFS_data_inference_A))
+        dB <- sum(abs(model_B - SFS_data_inference_B)) / sum(abs(SFS_data_inference_B))
+        return(data.frame(distance = dA + dB))
+    }
+    #---ABC-SMC-DRF
+    smcrf_result <- smcrf(
+        method = "smcrf-multi-param",
+        honesty = FALSE, min.node.size = 1,
+        statistics_target = data.frame(distance = 0),
+        model = model,
+        rprior = rprior,
+        dprior = dprior,
+        nParticles = n_SMCRF_particles,
+        model_redo_if_NA = TRUE,
+        parallel = compute_parallel
     )
-    criteria <- output$criteria
-    criteria_validation_index <- output$criteria_validation_index
-    #---Find the best fit
+    #---Compute criterion values
+    #    Retrieve posterior parameters (keep only final iteration for output)
+    post_iter_name <- paste0("Iteration_", length(n_SMCRF_particles) + 1)
+    posterior_parameters <- smcrf_result[[post_iter_name]]$parameters
+    #    Compute SFS for validation data given posterior parameters
+    full_val <- apply(posterior_parameters, 1, function(par) {
+        if (isTRUE(with_tail)) {
+            omegas <- as.numeric(par[paste0("omega_inference_A_", 0:N_humps)])
+            neutral_power <- as.numeric(par["alpha"])
+        } else {
+            omegas <- c(0, as.numeric(par[paste0("omega_inference_A_", 1:N_humps)]))
+            neutral_power <- NA
+        }
+        if (N_humps > 0) {
+            p_values <- as.numeric(par[paste0("p_", 1:N_humps)])
+        } else {
+            p_values <- c()
+        }
+        comp <- build_SFS_library(
+            neutral_power          = neutral_power,
+            cluster_frequencies    = p_values,
+            sfs_bincount           = sfs_bincount,
+            SFS_convolution_matrix = SFS_convolution_validation$convolution_matrix,
+            N_end                  = allele_count
+        )
+        SFS_val <- colSums(sweep(comp$SFS_expected, 1, omegas, `*`))
+        setNames(SFS_val, paste0("SFS_validation_", seq_along(SFS_val)))
+    })
+    full_val <- as.data.frame(t(full_val))
+    rownames(full_val) <- NULL
+    val_cols <- paste0("SFS_validation_", 1:sfs_bincount)
+    val_mat <- as.matrix(sapply(full_val[, val_cols], as.numeric))
+
+    k <- if (isTRUE(with_tail)) 2 * N_humps + 2 else 2 * N_humps
+
+    obs_vec <- SFS_data_validation
+    N_val <- sum(obs_vec)
+
+    if (criterion == "BIC") {
+        # Multinomial deviance using normalized distributions: 2*N * D_KL(q || p)
+        # q = observed distribution, p = predicted distribution from each particle
+        obs_prob <- obs_vec / pmax(N_val, .Machine$double.eps)
+        loglikelihood <- apply(val_mat, 1, function(pred) {
+            p <- as.numeric(pred) / pmax(sum(pred), .Machine$double.eps)
+            2 * N_val * sum(pmax(obs_prob, 0) * log(pmax(obs_prob, 1e-12) / pmax(p, 1e-12)))
+        })
+        crits <- as.numeric(loglikelihood) + criterion_penalty_scale * k * log(N_val)
+    } else if (criterion == "GIC_L1") {
+        # Calculate L1 norm distance between predicted and observed SFS
+        err_L1 <- apply(val_mat, 1, function(pred) sum(abs(pred - obs_vec)))
+        crits <- err_L1 + criterion_penalty_scale * k * log(N_val)
+    } else if (criterion == "GIC_UB") {
+        # Compute 1-D unbalanced OT distance between each particle's predicted SFS and the observed SFS
+        # Use equally spaced bin centers as support points
+        # Map each SFS bin to an equally spaced discrete point (consistent with the W1 setup)
+        bins <- seq_len(sfs_bincount)
+        centers <- (bins - 0.5) / sfs_bincount
+        coords <- cbind(centers, 0)
+        target <- transport::wpp(coords, as.numeric(obs_vec))
+        UB_Wasserstein_distance <- apply(val_mat, 1, function(pred) {
+            source <- transport::wpp(coords, as.numeric(pred))
+            transport::unbalanced(source, target,
+                p      = 1,
+                C      = 1,
+                method = "revsimplex",
+                output = "dist"
+            )
+        })
+        crits <- as.numeric(UB_Wasserstein_distance) + criterion_penalty_scale * k * log(N_val)
+    }
+    posterior_dataframe <- smcrf_result[[post_iter_name]]$reference
+    posterior_dataframe$criterion_values <- crits
+
+    # return the posterior distribution
     fit_results <- list()
-    fit_results$all <- list()
-    fit_results$all$parameters_inference_A <- all_parameters_inference_A
-    fit_results$all$parameters_inference_B <- all_parameters_inference_B
-    fit_results$all$parameters_validation <- all_parameters_validation
-    fit_results$all$logLikelihood <- all_logLikelihood
-    fit_results$best <- list()
-    fit_results$best$parameters_inference_A <- all_parameters_inference_A[best_index, ]
-    fit_results$best$parameters_inference_B <- all_parameters_inference_B[best_index, ]
-    fit_results$best$parameters_validation <- all_parameters_validation[best_index, ]
-    fit_results$best$logLikelihood <- all_logLikelihood[best_index]
-    fit_results$best$criteria <- criteria
-    fit_results$best$criteria_validation_index <- criteria_validation_index
-    fit_results$best$component_distributions_inference_A <- all_component_distributions_inference_A[[best_index]]
-    fit_results$best$component_distributions_inference_B <- all_component_distributions_inference_B[[best_index]]
-    fit_results$best$component_distributions_validation <- all_component_distributions_validation[[best_index]]
+    fit_results$ABCSMCRF_method <- smcrf_result$method
+    fit_results$criterion <- criterion
+    fit_results$criterion_penalty_scale <- criterion_penalty_scale
+    fit_results$n_SMCRF_particles <- smcrf_result$n_SMCRF_particles
+    fit_results$criterion_values <- crits
+
+
+    fit_results$posterior <- posterior_dataframe
+
     return(fit_results)
 }
 
-DECODE_for_pis <- function(SFS_data_inference_A,
-                           SFS_data_inference_B,
-                           SFS_data_validation,
-                           neutral_power,
-                           cluster_frequencies,
-                           component_distributions_inference_A,
-                           component_distributions_inference_B,
-                           component_distributions_validation,
-                           zero_cutoff) {
-    #   Function for conversion of pi's between different thresholds (L,M)
-    pi_conversion <- function(from_pis,
-                              from_component_distributions,
-                              to_component_distributions,
-                              with_tail) {
-        to_pis <- from_pis
-        ii <- ifelse(with_tail, 0, 1)
-        for (i in 1:length(to_pis)) {
-            to_pis[i] <- to_pis[i] *
-                sum(to_component_distributions$SFS_expected[i + ii, ]) /
-                sum(from_component_distributions$SFS_expected[i + ii, ])
-        }
-        to_pis <- to_pis / sum(to_pis)
-        return(to_pis)
-    }
-    # 	Function for parameter transformation
-    parameter_transform <- function(parameters) {
-        vec_pi_A <- exp(parameters)
-        vec_pi_A <- vec_pi_A / sum(vec_pi_A)
-        vec_pi_B <- pi_conversion(
-            from_pis = vec_pi_A,
-            from_component_distributions = component_distributions_inference_A,
-            to_component_distributions = component_distributions_inference_B,
-            with_tail = !is.na(neutral_power)
-        )
-        vec_pi_validation <- pi_conversion(
-            from_pis = vec_pi_A,
-            from_component_distributions = component_distributions_inference_A,
-            to_component_distributions = component_distributions_validation,
-            with_tail = !is.na(neutral_power)
-        )
-        output <- list()
-        output$vec_pi_A <- vec_pi_A
-        output$vec_pi_B <- vec_pi_B
-        output$vec_pi_validation <- vec_pi_validation
-        return(output)
-    }
-    # 	Function for optimization
-    func_fit <- function(parameters) {
-        transformed_parameters <- parameter_transform(parameters)
-        if (is.na(neutral_power)) {
-            A_A <- NA
-            A_B <- NA
-            vec_K_A <- transformed_parameters$vec_pi_A
-            vec_K_B <- transformed_parameters$vec_pi_B
-        } else {
-            A_A <- transformed_parameters$vec_pi_A[1]
-            A_B <- transformed_parameters$vec_pi_B[1]
-            vec_K_A <- transformed_parameters$vec_pi_A[-1]
-            vec_K_B <- transformed_parameters$vec_pi_B[-1]
-        }
-        loglikelihood <-
-            compute_loglikelihood(
-                A = A_A,
-                vec_K = vec_K_A,
-                component_distributions = component_distributions_inference_A,
-                vec_SFS_real = SFS_data_inference_A,
-                zero_cutoff = zero_cutoff
-            ) +
-            compute_loglikelihood(
-                A = A_B,
-                vec_K = vec_K_B,
-                component_distributions = component_distributions_inference_B,
-                vec_SFS_real = SFS_data_inference_B,
-                zero_cutoff = zero_cutoff
-            )
-        return(loglikelihood)
-    }
-    N_humps <- length(cluster_frequencies)
-    if (N_humps == 0) {
-        parameters <- c(1)
-    } else {
-        # 	Initial values for parameters
-        if (is.na(neutral_power)) {
-            parameters_initial <- rep(0, N_humps)
-        } else {
-            parameters_initial <- rep(0, N_humps + 1)
-        }
-        # 	Optimization using optim function
-        optim_results <- optim(
-            par = parameters_initial,
-            fn = func_fit,
-            method = "Nelder-Mead",
-            control = list(fnscale = -1)
-        )
-        # 	Extract the results
-        parameters <- optim_results$par
-    }
-    transformed_parameters <- parameter_transform(parameters)
-    vec_pi_A <- transformed_parameters$vec_pi_A
-    vec_pi_B <- transformed_parameters$vec_pi_B
-    vec_pi_validation <- transformed_parameters$vec_pi_validation
-    log_L <- func_fit(parameters)
-    # 	Prepare the parameters to be returned
-    if (is.na(neutral_power)) {
-        parameters_A <- c()
-        parameters_B <- c()
-        parameters_validation <- c()
-    } else {
-        parameters_A <- c(vec_pi_A[1], neutral_power)
-        parameters_B <- c(vec_pi_B[1], neutral_power)
-        parameters_validation <- c(vec_pi_validation[1], neutral_power)
-    }
-    if (N_humps > 0) {
-        for (i in 1:N_humps) {
-            if (is.na(neutral_power)) {
-                parameters_A <- c(parameters_A, vec_pi_A[i], cluster_frequencies[i])
-                parameters_B <- c(parameters_B, vec_pi_B[i], cluster_frequencies[i])
-                parameters_validation <- c(parameters_validation, vec_pi_validation[i], cluster_frequencies[i])
-            } else {
-                parameters_A <- c(parameters_A, vec_pi_A[i + 1], cluster_frequencies[i])
-                parameters_B <- c(parameters_B, vec_pi_B[i + 1], cluster_frequencies[i])
-                parameters_validation <- c(parameters_validation, vec_pi_validation[i + 1], cluster_frequencies[i])
-            }
-        }
-    }
-    output <- list()
-    output$log_L <- log_L
-    output$parameters_A <- parameters_A
-    output$parameters_B <- parameters_B
-    output$parameters_validation <- parameters_validation
-    return(output)
-}
-
 choose_mutation_thresholds <- function(mutation_table,
+                                       make_readcount_distribution,
                                        max_total_read,
                                        min_variant_read_inference_A,
                                        min_variant_read_inference_B,
                                        min_variant_read_validation,
                                        SFS_data_frequencies,
-                                       inference_retained_freq,
-                                       validation_mutation_count,
-                                       validation_N_trials) {
+                                       inference_retained_freq) {
     suppressPackageStartupMessages(library(dplyr))
     suppressPackageStartupMessages(library(data.table))
     cat(bold(blue("Choose mutation thresholds for inference and validation...\n")))
@@ -800,43 +698,82 @@ choose_mutation_thresholds <- function(mutation_table,
         ungroup()
     vec_min_variant_read <- min(mutation_table_tmp$Alt_count):max(mutation_table_tmp$Alt_count)
     vec_min_total_read <- min(mutation_table_tmp$Tot_count):max_total_read
-    readcount_distribution <- expand.grid(min_variant_read = vec_min_variant_read, min_total_read = vec_min_total_read, mutation_count = 0)
-    pb <- txtProgressBar(
-        min = 1,
-        max = nrow(mutation_table_tmp),
-        style = 3,
-        width = 50,
-        char = "+"
-    )
-    for (row in 1:nrow(mutation_table_tmp)) {
-        setTxtProgressBar(pb, row)
-        min_variant_read <- mutation_table_tmp$Alt_count[row]
-        min_total_read <- mutation_table_tmp$Tot_count[row]
-        rows <- which(readcount_distribution$min_variant_read <= min_variant_read & readcount_distribution$min_total_read <= min_total_read)
-        readcount_distribution$mutation_count[rows] <- readcount_distribution$mutation_count[rows] + mutation_table_tmp$count[row]
+    if (make_readcount_distribution) {
+        readcount_distribution <- expand.grid(min_variant_read = vec_min_variant_read, min_total_read = vec_min_total_read, mutation_count = 0)
+        pb <- txtProgressBar(
+            min = 1,
+            max = nrow(mutation_table_tmp),
+            style = 3,
+            width = 50,
+            char = "+"
+        )
+        for (row in 1:nrow(mutation_table_tmp)) {
+            setTxtProgressBar(pb, row)
+            min_variant_read <- mutation_table_tmp$Alt_count[row]
+            min_total_read <- mutation_table_tmp$Tot_count[row]
+            rows <- which(readcount_distribution$min_variant_read <= min_variant_read & readcount_distribution$min_total_read <= min_total_read)
+            readcount_distribution$mutation_count[rows] <- readcount_distribution$mutation_count[rows] + mutation_table_tmp$count[row]
+        }
+        readcount_distribution$freq <- 100 * readcount_distribution$mutation_count / sum(mutation_table_tmp$count)
     }
-    cat("\n")
-    readcount_distribution$freq <- 100 * readcount_distribution$mutation_count / sum(mutation_table_tmp$count)
     #---Find the mutation thresholds for inference and validation
-    filtered_df <- readcount_distribution[readcount_distribution$min_total_read == min(readcount_distribution$min_total_read), ]
-    min_variant_read_tmp <- min(filtered_df$min_variant_read[filtered_df$freq < 100])
+    if (make_readcount_distribution) {
+        filtered_df <- readcount_distribution[readcount_distribution$min_total_read == min(readcount_distribution$min_total_read), ]
+        min_variant_read_tmp <- min(filtered_df$min_variant_read[filtered_df$freq < 100])
+    } else {
+        min_variant_read_tmp <- min(mutation_table$Alt_count) + 1
+    }
     #   Choose mutation thresholds for inference A set
     if (is.null(min_variant_read_inference_A)) min_variant_read_inference_A <- min_variant_read_tmp + 2
-    filtered_df <- readcount_distribution[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$freq >= inference_retained_freq, ]
-    min_total_read_inference_A <- ifelse(nrow(filtered_df) > 0, max(filtered_df$min_total_read), min(readcount_distribution$min_total_read))
-    Nmut_inference_A <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$min_total_read == min_total_read_inference_A]
-    freq_inference_A <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$min_total_read == min_total_read_inference_A]
+    if (make_readcount_distribution) {
+        filtered_df <- readcount_distribution[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$freq >= inference_retained_freq, ]
+        min_total_read_inference_A <- ifelse(nrow(filtered_df) > 0, max(filtered_df$min_total_read), min(readcount_distribution$min_total_read))
+        Nmut_inference_A <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$min_total_read == min_total_read_inference_A]
+        freq_inference_A <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_inference_A & readcount_distribution$min_total_read == min_total_read_inference_A]
+    } else {
+        min_total_read_inference_A <- min(mutation_table$Tot_count)
+        Nmut_inference_A <- sum(mutation_table$Alt_count >= min_variant_read_inference_A & mutation_table$Tot_count >= min_total_read_inference_A)
+        freq_inference_A <- 100 * Nmut_inference_A / nrow(mutation_table)
+        while (freq_inference_A > inference_retained_freq) {
+            min_total_read_inference_A <- min_total_read_inference_A + 1
+            Nmut_inference_A <- sum(mutation_table$Alt_count >= min_variant_read_inference_A & mutation_table$Tot_count >= min_total_read_inference_A)
+            freq_inference_A <- 100 * Nmut_inference_A / nrow(mutation_table)
+        }
+        min_total_read_inference_A <- min_total_read_inference_A - 1
+        Nmut_inference_A <- sum(mutation_table$Alt_count >= min_variant_read_inference_A & mutation_table$Tot_count >= min_total_read_inference_A)
+        freq_inference_A <- 100 * Nmut_inference_A / nrow(mutation_table)
+    }
     #   Choose mutation thresholds for inference B set
     if (is.null(min_variant_read_inference_B)) min_variant_read_inference_B <- min_variant_read_tmp + 6
-    filtered_df <- readcount_distribution[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$freq >= inference_retained_freq, ]
-    min_total_read_inference_B <- ifelse(nrow(filtered_df) > 0, max(filtered_df$min_total_read), min(readcount_distribution$min_total_read))
-    Nmut_inference_B <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$min_total_read == min_total_read_inference_B]
-    freq_inference_B <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$min_total_read == min_total_read_inference_B]
+    if (make_readcount_distribution) {
+        filtered_df <- readcount_distribution[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$freq >= inference_retained_freq, ]
+        min_total_read_inference_B <- ifelse(nrow(filtered_df) > 0, max(filtered_df$min_total_read), min(readcount_distribution$min_total_read))
+        Nmut_inference_B <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$min_total_read == min_total_read_inference_B]
+        freq_inference_B <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_inference_B & readcount_distribution$min_total_read == min_total_read_inference_B]
+    } else {
+        min_total_read_inference_B <- min(mutation_table$Tot_count)
+        Nmut_inference_B <- sum(mutation_table$Alt_count >= min_variant_read_inference_B & mutation_table$Tot_count >= min_total_read_inference_B)
+        freq_inference_B <- 100 * Nmut_inference_B / nrow(mutation_table)
+        while (freq_inference_B > inference_retained_freq) {
+            min_total_read_inference_B <- min_total_read_inference_B + 1
+            Nmut_inference_B <- sum(mutation_table$Alt_count >= min_variant_read_inference_B & mutation_table$Tot_count >= min_total_read_inference_B)
+            freq_inference_B <- 100 * Nmut_inference_B / nrow(mutation_table)
+        }
+        min_total_read_inference_B <- min_total_read_inference_B - 1
+        Nmut_inference_B <- sum(mutation_table$Alt_count >= min_variant_read_inference_B & mutation_table$Tot_count >= min_total_read_inference_B)
+        freq_inference_B <- 100 * Nmut_inference_B / nrow(mutation_table)
+    }
     #   Choose mutation thresholds for validation set
     if (is.null(min_variant_read_validation)) min_variant_read_validation <- min_variant_read_tmp + 4
-    min_total_read_validation <- min(readcount_distribution$min_total_read)
-    Nmut_validation <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_validation & readcount_distribution$min_total_read == min_total_read_validation]
-    freq_validation <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_validation & readcount_distribution$min_total_read == min_total_read_validation]
+    if (make_readcount_distribution) {
+        min_total_read_validation <- min(readcount_distribution$min_total_read)
+        Nmut_validation <- readcount_distribution$mutation_count[readcount_distribution$min_variant_read == min_variant_read_validation & readcount_distribution$min_total_read == min_total_read_validation]
+        freq_validation <- readcount_distribution$freq[readcount_distribution$min_variant_read == min_variant_read_validation & readcount_distribution$min_total_read == min_total_read_validation]
+    } else {
+        min_total_read_validation <- min(mutation_table$Tot_count)
+        Nmut_validation <- sum(mutation_table$Alt_count >= min_variant_read_validation & mutation_table$Tot_count >= min_total_read_validation)
+        freq_validation <- 100 * Nmut_validation / nrow(mutation_table)
+    }
     #   Report the chosen mutation thresholds
     report <- paste0(blue("Complete data    : "), cyan(paste0(min(mutation_table$Alt_count), " \u2264 variant reads, ", min(mutation_table$Tot_count), " \u2264 total reads \u2264 ", max(mutation_table$Tot_count), "; ", nrow(mutation_table), " mutations\n")))
     report <- paste0(report, blue("Inference A      : "), cyan(paste0(min_variant_read_inference_A, " \u2264 variant reads, ", min_total_read_inference_A, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_A, " mutations (", format(round(freq_inference_A, 3), nsmall = 3), "%)")), "\n")
@@ -868,15 +805,10 @@ choose_mutation_thresholds <- function(mutation_table,
     }
     SFS_data_inference_A <- func_SFS(mutation_table_inference_A)
     SFS_data_inference_B <- func_SFS(mutation_table_inference_B)
-    #---Prepare the real SFS data for the validation set
-    SFS_data_validation <- lapply(1:validation_N_trials, function(i) {
-        mutation_table_validation_tmp <- mutation_table_validation[sample(nrow(mutation_table_validation), validation_mutation_count, replace = TRUE), ]
-        func_SFS(mutation_table_validation_tmp)
-    })
-    SFS_data_validation <- do.call(rbind, SFS_data_validation)
+    SFS_data_validation <- func_SFS(mutation_table_validation)
     #---Report the chosen thresholds
     results <- list()
-    results$readcount_distribution <- readcount_distribution
+    if (make_readcount_distribution) results$readcount_distribution <- readcount_distribution
     results$SFS_data_inference_A <- SFS_data_inference_A
     results$SFS_data_inference_B <- SFS_data_inference_B
     results$SFS_data_validation <- SFS_data_validation
@@ -890,208 +822,6 @@ choose_mutation_thresholds <- function(mutation_table,
     results$min_variant_read_validation <- min_variant_read_validation
     results$min_total_read_validation <- min_total_read_validation
     return(results)
-}
-
-cluster_count_criteria <- function(num_parameters,
-                                   SFS_data_validation,
-                                   parameters_validation,
-                                   component_distributions_validation,
-                                   with_tail,
-                                   zero_cutoff) {
-    num_samples_validation <- sum(SFS_data_validation[1, ])
-    #   Compute the log-likelihood
-    if (with_tail) {
-        A <- parameters_validation[1]
-        vec_K <- parameters_validation[seq(3, length(parameters_validation), by = 2)]
-    } else {
-        A <- NA
-        vec_K <- parameters_validation[seq(1, length(parameters_validation), by = 2)]
-    }
-    all_log_L <- c()
-    for (i in 1:nrow(SFS_data_validation)) {
-        all_log_L <- c(all_log_L, compute_loglikelihood(
-            A = A,
-            vec_K = vec_K,
-            component_distributions = component_distributions_validation,
-            vec_SFS_real = SFS_data_validation[i, ],
-            zero_cutoff = zero_cutoff
-        ))
-    }
-    criteria_validation_index <- which.max(all_log_L)
-    log_L <- mean(all_log_L)
-    #   Compute the stopping criteria
-    compute_AIC <- function() {
-        AIC <- 2 * num_parameters - 2 * log_L
-        return(AIC)
-    }
-    compute_BIC <- function() {
-        BIC <- num_parameters * log(num_samples_validation) - 2 * log_L
-        cat(bold(magenta("Penalty term                  :")), magenta(num_parameters * log(num_samples_validation)), "\n")
-        cat(bold(magenta("Median(2*likelihood)          :")), magenta(median(2 * all_log_L)), "\n")
-        cat(bold(magenta("Mean(2*likelihood)            :")), magenta(mean(2 * all_log_L)), "\n")
-        cat(bold(magenta("Std(2*likelihood)             :")), magenta(sd(2 * all_log_L)), "\n")
-        cat(bold(magenta("===============================")), "\n")
-        cat(bold(magenta("BIC                           :")), magenta(BIC), "\n")
-        return(BIC)
-    }
-    compute_ICL <- function() {
-        #   Compute the latent variable distributions
-        latent_variable_distributions <- component_distributions_validation$SFS_expected_normalized
-        for (row in 1:nrow(latent_variable_distributions)) {
-            latent_variable_distributions[row, ] <- parameters_validation[2 * row - 1] * latent_variable_distributions[row, ]
-        }
-        for (col in 1:ncol(latent_variable_distributions)) {
-            latent_variable_distributions[, col] <- latent_variable_distributions[, col] / sum(latent_variable_distributions[, col])
-        }
-        latent_variable_distributions[which(latent_variable_distributions <= zero_cutoff | is.na(latent_variable_distributions))] <- zero_cutoff
-        #   Compute the entropy
-        entropy <- sum(SFS_data_validation * colSums(latent_variable_distributions * log(latent_variable_distributions)))
-        #   Compute the Bayesian Information Criterion
-        BIC <- log_L - 0.5 * num_parameters * log(num_samples_validation)
-        #   Compute the Integrated Completed Log-Likelihood
-        ICL <- -BIC - entropy
-        return(ICL)
-    }
-    compute_ICL_MAP <- function() {
-        #   Compute the latent variable distributions
-        latent_variable_distributions <- component_distributions_validation$SFS_expected_normalized
-        for (row in 1:nrow(latent_variable_distributions)) {
-            latent_variable_distributions[row, ] <- parameters_validation[2 * row - 1] * latent_variable_distributions[row, ]
-        }
-        for (col in 1:ncol(latent_variable_distributions)) {
-            latent_variable_distributions[, col] <- latent_variable_distributions[, col] / sum(latent_variable_distributions[, col])
-        }
-        latent_variable_distributions[which(latent_variable_distributions <= zero_cutoff | is.na(latent_variable_distributions))] <- zero_cutoff
-        #   Compute the MAP allocations for mutations to clusters
-        indicator_latent_variable_distributions <- matrix(0, nrow = nrow(latent_variable_distributions), ncol = ncol(latent_variable_distributions))
-        for (col in 1:ncol(latent_variable_distributions)) {
-            max_p <- which(latent_variable_distributions[, col] == max(latent_variable_distributions[, col]))[1]
-            indicator_latent_variable_distributions[max_p, col] <- 1
-        }
-        #   Compute the entropy
-        entropy_MAP <- sum(SFS_data_validation * colSums(indicator_latent_variable_distributions * log(latent_variable_distributions)))
-        #   Compute the Bayesian Information Criterion
-        BIC <- log_L - 0.5 * num_parameters * log(num_samples_validation)
-        #   Compute the Integrated Completed Log-Likelihood
-        ICL_MAP <- -BIC - entropy_MAP
-        return(ICL_MAP)
-    }
-    criteria <- data.frame(
-        AIC = compute_AIC(),
-        BIC = compute_BIC(),
-        ICL = compute_ICL(),
-        ICL_MAP = compute_ICL_MAP()
-    )
-    output <- list()
-    output$criteria_validation_index <- criteria_validation_index
-    output$criteria <- criteria
-    return(output)
-}
-
-parameter_conversion <- function(result,
-                                 output_parameters_df = TRUE,
-                                 mutation_count_for_fitting,
-                                 sample_size,
-                                 matrix_binomial_sample_size,
-                                 matrix_binomial_ploidy) {
-    tail_status <- result$best_fit$tail_status
-    parameters_inference_A <- result$best_fit$parameters_inference_A
-    parameters_inference_B <- result$best_fit$parameters_inference_B
-    parameters_validation <- result$best_fit$parameters_validation
-    component_distributions_inference_A <- result$best_fit$component_distributions_inference_A
-    component_distributions_inference_B <- result$best_fit$component_distributions_inference_B
-    component_distributions_validation <- result$best_fit$component_distributions_validation
-    func_get_parameters <- function(parameters, tail_status) {
-        if (tail_status) {
-            vec_A <- parameters[1:2]
-            N_humps <- length(parameters) / 2 - 1
-            ii <- 0
-        } else {
-            vec_A <- c(NA, NA)
-            N_humps <- length(parameters) / 2
-            ii <- -1
-        }
-        if (N_humps == 0) {
-            vec_p <- c()
-            vec_K <- c()
-        } else {
-            vec_p <- parameters[seq(4 + 2 * ii, length(parameters), by = 2)]
-            sorted_indices <- order(vec_p, decreasing = TRUE)
-            vec_p <- vec_p[sorted_indices]
-            vec_K <- parameters[seq(3 + 2 * ii, length(parameters), by = 2)]
-            vec_K <- vec_K[sorted_indices]
-        }
-        output <- list()
-        output$vec_A <- vec_A
-        output$vec_p <- vec_p
-        output$vec_K <- vec_K
-        output$N_humps <- N_humps
-        output$tail_status <- tail_status
-        return(output)
-    }
-    output <- list()
-    output$inference_A <- func_get_parameters(parameters_inference_A, tail_status)
-    output$inference_B <- func_get_parameters(parameters_inference_B, tail_status)
-    output$validation <- func_get_parameters(parameters_validation, tail_status)
-    if (output_parameters_df) {
-        parameters_df <- data.frame()
-        parameters_df[1, "Mutation_count_for_fitting"] <- mutation_count_for_fitting
-        parameters_df[1, "Tail"] <- tail_status
-        if (tail_status) {
-            parameters_df[1, "Tail_power"] <- output$inference_A$vec_A[2]
-            parameters_df[1, "Tail_mutcount_observed"] <-
-                output$inference_A$vec_A[1] * mutation_count_for_fitting
-            parameters_df[1, "Tail_mutcount_predicted"] <-
-                output$inference_A$vec_A[1] * mutation_count_for_fitting *
-                    sum(component_distributions_inference_A$SFS_exact[1, ]) /
-                    sum(component_distributions_inference_A$SFS_expected[1, ]) *
-                    sample_size / matrix_binomial_sample_size
-        } else {
-            parameters_df[1, "Tail_power"] <- NA
-            parameters_df[1, "Tail_mutcount_observed"] <- NA
-            parameters_df[1, "Tail_mutcount_predicted"] <- NA
-        }
-        parameters_df[1, "Cluster_count"] <- output$inference_A$N_humps
-        if (output$inference_A$N_humps > 0) {
-            for (k in 1:output$inference_A$N_humps) {
-                parameters_df[1, paste0("Cluster_frequency_", k)] <- output$inference_A$vec_p[k] / matrix_binomial_ploidy
-                parameters_df[1, paste0("Cluster_mutcount_observed_", k)] <-
-                    output$inference_A$vec_K[k] * mutation_count_for_fitting
-                parameters_df[1, paste0("Cluster_mutcount_predicted_", k)] <-
-                    output$inference_A$vec_K[k] * mutation_count_for_fitting /
-                        sum(component_distributions_inference_A$SFS_expected[k + 1, ]) /
-                        sum(component_distributions_inference_A$SFS_exact[k + 1, ])
-            }
-        }
-        output$parameters_df <- parameters_df
-    }
-    return(output)
-}
-
-compute_loglikelihood <- function(A, vec_K, component_distributions, vec_SFS_real, zero_cutoff) {
-    #----------------Compute the SFS probability distribution from model
-    vec_SFS_model <- compute_SFS(
-        A = A,
-        vec_K = vec_K,
-        component_distributions = component_distributions
-    )
-    vec_SFS_model[which(vec_SFS_model <= zero_cutoff)] <- zero_cutoff
-    vec_SFS_model_normalized <- vec_SFS_model / sum(vec_SFS_model)
-    #-----------------------------Compute the log-likelihood(data|model)
-    loglikelihood <- sum(log(vec_SFS_model_normalized) * vec_SFS_real)
-    return(loglikelihood)
-}
-
-compute_SFS <- function(A, vec_K, component_distributions) {
-    # 	Add the neutral component
-    vec_SFS_model <- component_distributions$SFS_expected_normalized[1, ]
-    if (!is.na(A)) vec_SFS_model <- A * vec_SFS_model
-    # 	Add the binomial humps
-    for (i_hump in seq_along(vec_K)) {
-        vec_SFS_model <- vec_SFS_model + vec_K[i_hump] * component_distributions$SFS_expected_normalized[i_hump + 1, ]
-    }
-    # 	Return the full SFS
-    return(vec_SFS_model)
 }
 
 build_SFS_library <- function(neutral_power, cluster_frequencies, sfs_bincount, SFS_convolution_matrix, N_end) {
@@ -1177,7 +907,7 @@ build_SFS_library_Griffiths_Tavare <- function(vec_para, N_end) {
 
 build_convolution_matrix <- function(sfs_bincount,
                                      mode = NULL,
-                                     sample_size,
+                                     allele_count,
                                      min_variant_read,
                                      min_total_read,
                                      max_total_read,
@@ -1191,7 +921,7 @@ build_convolution_matrix <- function(sfs_bincount,
     report <- "Prepare the SFS convolution matrix"
     if (!is.null(mode)) report <- paste0(report, " for ", mode)
     cat(bold(blue(paste0(report, "...\n"))))
-    N_end <- sample_size
+    N_end <- allele_count
     SFS_totalsteps_base <- sfs_bincount
     #---Compute the total readcount PDF
     if (coverage_distribution == "uniform") {
