@@ -352,7 +352,7 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
         ################################################################
         all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
 
-        current_criterion_values <- fit_results$criterion_values
+        current_criterion_values <- fit_results$criterion_values$criterion_value
         criterion_values_list[[paste0(N_humps, "_clusters")]] <- current_criterion_values
 
         if (!is.null(best_criterion_values)) {
@@ -507,12 +507,12 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         }
         for (i in seq_len(N_humps)) {
             p_col <- paste0("p_", i)
-            o_col <- paste0("omega_inference_A_", i)
+            omega_col <- paste0("omega_inference_A_", i)
             if (parameter_id %in% c("all", p_col) && !is.null(parameters[[p_col]])) {
                 probs <- probs * dunif(parameters[[p_col]], min = cluster_frequency_min, max = cluster_frequency_max)
             }
-            if (parameter_id %in% c("all", o_col) && !is.null(parameters[[o_col]])) {
-                probs <- probs * dunif(parameters[[o_col]], min = 0, max = 2 * sum(SFS_data_inference_A))
+            if (parameter_id %in% c("all", omega_col) && !is.null(parameters[[omega_col]])) {
+                probs <- probs * dunif(parameters[[omega_col]], min = 0, max = 2 * sum(SFS_data_inference_A))
             }
         }
         return(probs)
@@ -529,57 +529,99 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                 "with_tail"
             ), envir = environment())
             stats_list <- parLapply(cl, seq_len(nrow(parameters)), function(i) {
-                one_SFS(parameters[i, ])
+                data.frame(distance = one_SFS(parameters[i, ])$distance)
             })
             stopCluster(cl)
             stats <- do.call(rbind, stats_list)
         } else {
             stats <- do.call(rbind, lapply(seq_len(nrow(parameters)), function(i) {
-                one_SFS(parameters[i, ])
+                data.frame(distance = one_SFS(parameters[i, ])$distance)
             }))
         }
         return(cbind(parameters, stats))
     }
-    one_SFS <- function(one_parameter) {
-        # Build weights (omegas) and cluster frequencies
-        if (N_humps > 0) {
-            ps <- as.numeric(one_parameter[paste0("p_", 1:N_humps)])
-            if (N_humps > 1) {
-                ps_sorted <- sort(ps)
-                if (min(diff(ps_sorted)) < cluster_frequency_mindiff) {
-                    return(data.frame(distance = NA))
-                }
+    one_SFS <- function(one_parameter,
+                        output_distance = TRUE,
+                        output_validation = FALSE,
+                        output_SFS = FALSE,
+                        output_SFS_components = FALSE,
+                        output_all_parameters = FALSE) {
+        #   Check that clusters are adequately spaced
+        if (N_humps > 1) {
+            if (min(diff(sort(as.numeric(one_parameter[paste0("p_", 1:N_humps)])))) < cluster_frequency_mindiff) {
+                return(data.frame(distance = NA))
             }
         }
-        if (isTRUE(with_tail)) {
-            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 0:N_humps)])
+        #   Compute component distributions in the exact SFS
+        if (with_tail) {
+            dist <- (1:allele_count)^(-as.numeric(one_parameter[["alpha"]]))
+            dist <- dist / sum(dist)
+            SFS_exact_components <- matrix(dist, nrow = 1)
         } else {
-            # No neutral tail: prepend a zero weight to align with the neutral row
-            omegas_A <- c(0, as.numeric(one_parameter[paste0("omega_inference_A_", 1:N_humps)]))
-        }
-        # Build exact SFS (row 1 = neutral, subsequent rows = cluster components)
-        SFS_exact <- matrix(0, nrow = N_humps + 1, ncol = allele_count)
-        if (isTRUE(with_tail)) {
-            vec <- (1:allele_count)^(-one_parameter[["alpha"]])
-            SFS_exact[1, ] <- vec / sum(vec)
-        } else {
-            # Keep neutral row as zeros (no tail)
-            SFS_exact[1, ] <- 0
+            SFS_exact_components <- matrix(NA, nrow = 0, ncol = allele_count)
         }
         for (i in seq_len(N_humps)) {
-            SFS_exact[i + 1, ] <- dbinom(1:allele_count, size = allele_count, prob = ps[i])
+            dist <- dbinom(1:allele_count, size = allele_count, prob = as.numeric(one_parameter[paste0("p_", i)])) / (1 - dbinom(0, size = allele_count, prob = as.numeric(one_parameter[paste0("p_", i)])))
+            SFS_exact_components <- rbind(SFS_exact_components, dist)
         }
-        # Convolution and aggregation for inference A
-        SFS_exp_A <- SFS_exact %*% SFS_convolution_inference_A$convolution_matrix
-        model_A <- colSums(sweep(SFS_exp_A, 1, omegas_A, `*`) / pmax(rowSums(SFS_exp_A), .Machine$double.eps))
-        # Convolution for inference B (reuse weights normalized by A's component mass)
-        omegas_B <- omegas_A / pmax(rowSums(SFS_exp_A), .Machine$double.eps)
-        SFS_exp_B <- SFS_exact %*% SFS_convolution_inference_B$convolution_matrix
-        model_B <- colSums(sweep(SFS_exp_B, 1, omegas_B, `*`))
-        # Normalized L1 distances for A and B
-        dA <- sum(abs(model_A - SFS_data_inference_A)) / sum(abs(SFS_data_inference_A))
-        dB <- sum(abs(model_B - SFS_data_inference_B)) / sum(abs(SFS_data_inference_B))
-        return(data.frame(distance = dA + dB))
+        #   Compute expected SFS for inference A
+        SFS_A_components <- SFS_exact_components %*% SFS_convolution_inference_A$convolution_matrix
+        if (with_tail) {
+            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 0:N_humps)])
+        } else {
+            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 1:N_humps)])
+        }
+        omegas_exact <- omegas_A / rowSums(SFS_A_components) # omegas_exact <- omegas_A / pmax(rowSums(SFS_A_components), .Machine$double.eps)
+        SFS_A_components <- sweep(SFS_A_components, 1, omegas_exact, `*`)
+        SFS_A <- colSums(SFS_A_components)
+        #   Compute expected SFS for inference B
+        SFS_B_components <- SFS_exact_components %*% SFS_convolution_inference_B$convolution_matrix
+        SFS_B_components <- sweep(SFS_B_components, 1, omegas_exact, `*`)
+        SFS_B <- colSums(SFS_B_components)
+        #   Compute expected SFS for validation
+        if (output_validation) {
+            SFS_validation_components <- SFS_exact_components %*% SFS_convolution_validation$convolution_matrix
+            SFS_validation_components <- sweep(SFS_validation_components, 1, omegas_exact, `*`)
+            SFS_validation <- colSums(SFS_validation_components)
+        }
+        #   Statistic = sum of relative L1 errors for inference A & B
+        dA <- sum(abs(SFS_A - SFS_data_inference_A)) / sum(abs(SFS_data_inference_A))
+        dB <- sum(abs(SFS_B - SFS_data_inference_B)) / sum(abs(SFS_data_inference_B))
+        #   Prepare output data
+        output <- list()
+        if (output_distance) output$distance <- dA + dB
+        if (output_SFS) {
+            output$SFS_A <- SFS_A
+            output$SFS_B <- SFS_B
+            if (output_validation) output$SFS_validation <- SFS_validation
+        }
+        if (output_SFS_components) {
+            rownames(SFS_A_components) <- c(if (with_tail) "Tail" else NULL, paste0("Cluster_", 1:N_humps))
+            rownames(SFS_B_components) <- c(if (with_tail) "Tail" else NULL, paste0("Cluster_", 1:N_humps))
+            if (output_validation) rownames(SFS_validation_components) <- c(if (with_tail) "Tail" else NULL, paste0("Cluster_", 1:N_humps))
+            output$SFS_A_components <- SFS_A_components
+            output$SFS_B_components <- SFS_B_components
+            if (output_validation) output$SFS_validation_components <- SFS_validation_components
+        }
+        if (output_all_parameters) {
+            all_parameters <- data.frame(matrix(ncol = 0, nrow = 1))
+            if (with_tail) {
+                all_parameters[["Tail_power"]] <- one_parameter[["alpha"]]
+                all_parameters[["Tail_Nmut_exact"]] <- omegas_exact[1]
+                all_parameters[["Tail_Nmut_A"]] <- sum(SFS_A_components[1, ])
+                all_parameters[["Tail_Nmut_B"]] <- sum(SFS_B_components[1, ])
+                if (output_validation) all_parameters[["Tail_Nmut_validation"]] <- sum(SFS_validation_components[1, ])
+            }
+            for (i in seq_len(N_humps)) {
+                all_parameters[[paste0("Cluster_", i, "_freq")]] <- one_parameter[[paste0("p_", i)]]
+                all_parameters[[paste0("Cluster_", i, "_Nmut_exact")]] <- omegas_exact[i + with_tail]
+                all_parameters[[paste0("Cluster_", i, "_Nmut_A")]] <- sum(SFS_A_components[i + with_tail, ])
+                all_parameters[[paste0("Cluster_", i, "_Nmut_B")]] <- sum(SFS_B_components[i + with_tail, ])
+                if (output_validation) all_parameters[[paste0("Cluster_", i, "_Nmut_validation")]] <- sum(SFS_validation_components[i + with_tail, ])
+            }
+            output$all_parameters <- all_parameters
+        }
+        return(output)
     }
     #---ABC-SMC-DRF
     smcrf_result <- smcrf(
@@ -591,92 +633,117 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         dprior = dprior,
         nParticles = n_SMCRF_particles,
         model_redo_if_NA = TRUE,
+        verbose = FALSE,
         parallel = compute_parallel
     )
-    #---Compute criterion values
-    #    Retrieve posterior parameters (keep only final iteration for output)
-    post_iter_name <- paste0("Iteration_", length(n_SMCRF_particles) + 1)
-    posterior_parameters <- smcrf_result[[post_iter_name]]$parameters
-    #    Compute SFS for validation data given posterior parameters
-    full_val <- apply(posterior_parameters, 1, function(par) {
-        if (isTRUE(with_tail)) {
-            omegas <- as.numeric(par[paste0("omega_inference_A_", 0:N_humps)])
-            neutral_power <- as.numeric(par["alpha"])
-        } else {
-            omegas <- c(0, as.numeric(par[paste0("omega_inference_A_", 1:N_humps)]))
-            neutral_power <- NA
-        }
-        if (N_humps > 0) {
-            p_values <- as.numeric(par[paste0("p_", 1:N_humps)])
-        } else {
-            p_values <- c()
-        }
-        comp <- build_SFS_library(
-            neutral_power          = neutral_power,
-            cluster_frequencies    = p_values,
-            sfs_bincount           = sfs_bincount,
-            SFS_convolution_matrix = SFS_convolution_validation$convolution_matrix,
-            N_end                  = allele_count
-        )
-        SFS_val <- colSums(sweep(comp$SFS_expected, 1, omegas, `*`))
-        setNames(SFS_val, paste0("SFS_validation_", seq_along(SFS_val)))
-    })
-    full_val <- as.data.frame(t(full_val))
-    rownames(full_val) <- NULL
-    val_cols <- paste0("SFS_validation_", 1:sfs_bincount)
-    val_mat <- as.matrix(sapply(full_val[, val_cols], as.numeric))
-
-    k <- if (isTRUE(with_tail)) 2 * N_humps + 2 else 2 * N_humps
-
-    obs_vec <- SFS_data_validation
-    N_val <- sum(obs_vec)
-
-    if (criterion == "BIC") {
-        # Multinomial deviance using normalized distributions: 2*N * D_KL(q || p)
-        # q = observed distribution, p = predicted distribution from each particle
-        obs_prob <- obs_vec / pmax(N_val, .Machine$double.eps)
-        loglikelihood <- apply(val_mat, 1, function(pred) {
-            p <- as.numeric(pred) / pmax(sum(pred), .Machine$double.eps)
-            2 * N_val * sum(pmax(obs_prob, 0) * log(pmax(obs_prob, 1e-12) / pmax(p, 1e-12)))
+    #---Sample parameter sets from ABC-SMC-DRF posterior distribution
+    ####################################################################
+    validation_count <- 10 ############################################
+    ####################################################################
+    final_parameters <- smcrf_result[[paste0("Iteration_", length(n_SMCRF_particles))]]$parameters
+    final_weights <- smcrf_result[[paste0("Iteration_", length(n_SMCRF_particles))]]$weights
+    posterior_parameters <- final_parameters[
+        sample(nrow(final_parameters), size = validation_count, prob = final_weights[, 1], replace = T),
+    ]
+    #---Prepare results based on posterior parameters
+    compute_parallel <- FALSE
+    if (compute_parallel) {
+        library(parallel)
+        library(pbapply)
+        cl <- makePSOCKcluster(ifelse(is.null(n_cores), detectCores() - 1, n_cores))
+        clusterExport(cl, varlist = c(
+            "one_SFS", "allele_count", "N_humps", "cluster_frequency_mindiff",
+            "SFS_convolution_inference_A", "SFS_convolution_inference_B",
+            "SFS_data_inference_A", "SFS_data_inference_B",
+            "with_tail"
+        ), envir = environment())
+        posterior_results_list <- parLapply(cl, seq_len(nrow(posterior_parameters)), function(i) {
+            one_SFS(
+                posterior_parameters[i, ],
+                output_distance = FALSE,
+                output_validation = TRUE,
+                output_SFS = TRUE,
+                output_SFS_components = TRUE,
+                output_all_parameters = TRUE
+            )
         })
-        crits <- as.numeric(loglikelihood) + criterion_penalty_scale * k * log(N_val)
+        stopCluster(cl)
+    } else {
+        posterior_results_list <- lapply(seq_len(nrow(posterior_parameters)), function(i) {
+            one_SFS(
+                posterior_parameters[i, ],
+                output_distance = FALSE,
+                output_validation = TRUE,
+                output_SFS = TRUE,
+                output_SFS_components = TRUE,
+                output_all_parameters = TRUE
+            )
+        })
+    }
+    SFS_A <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_A)))
+    SFS_B <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_B)))
+    SFS_validation <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_validation)))
+    all_parameters <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$all_parameters)))
+    if (with_tail) {
+        SFS_A_tail <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_A_components["Tail", ])))
+        SFS_B_tail <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_B_components["Tail", ])))
+        SFS_validation_tail <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_validation_components["Tail", ])))
+    }
+    SFS_A_clusters <- list()
+    SFS_B_clusters <- list()
+    SFS_validation_clusters <- list()
+    for (i in seq_len(N_humps)) {
+        SFS_A_clusters[[i]] <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_A_components[paste0("Cluster_", i), ])))
+        SFS_B_clusters[[i]] <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_B_components[paste0("Cluster_", i), ])))
+        SFS_validation_clusters[[i]] <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_validation_components[paste0("Cluster_", i), ])))
+    }
+    #---Compute criterion values
+    nParameters <- if (with_tail) 2 * N_humps + 2 else 2 * N_humps
+    nData <- sum(SFS_data_validation)
+    if (criterion == "BIC") {
+        SFS_validation_normalized <- SFS_validation / rowSums(SFS_validation)
+        SFS_validation_normalized[which(SFS_validation_normalized <= .Machine$double.eps)] <- .Machine$double.eps
+        loglikelihood <- apply(SFS_validation_normalized, 1, function(SFS_pred_validation) sum(log(SFS_pred_validation) * SFS_data_validation))
+        criterion_values <- -2 * loglikelihood + criterion_penalty_scale * nParameters * log(nData)
     } else if (criterion == "GIC_L1") {
-        # Calculate L1 norm distance between predicted and observed SFS
-        err_L1 <- apply(val_mat, 1, function(pred) sum(abs(pred - obs_vec)))
-        crits <- err_L1 + criterion_penalty_scale * k * log(N_val)
+        err_L1 <- apply(SFS_validation, 1, function(SFS_pred_validation) sum(abs(SFS_pred_validation - SFS_data_validation)))
+        criterion_values <- err_L1 + criterion_penalty_scale * nParameters * log(nData)
     } else if (criterion == "GIC_UB") {
-        # Compute 1-D unbalanced OT distance between each particle's predicted SFS and the observed SFS
-        # Use equally spaced bin centers as support points
-        # Map each SFS bin to an equally spaced discrete point (consistent with the W1 setup)
-        bins <- seq_len(sfs_bincount)
-        centers <- (bins - 0.5) / sfs_bincount
-        coords <- cbind(centers, 0)
-        target <- transport::wpp(coords, as.numeric(obs_vec))
-        UB_Wasserstein_distance <- apply(val_mat, 1, function(pred) {
-            source <- transport::wpp(coords, as.numeric(pred))
+        coords <- cbind(0, (seq_len(sfs_bincount) - 0.5) / sfs_bincount)
+        target <- transport::wpp(coords, as.numeric(SFS_data_validation))
+        UB_Wasserstein_distance <- apply(SFS_validation, 1, function(SFS_pred_validation) {
+            source <- transport::wpp(coords, as.numeric(SFS_pred_validation))
             transport::unbalanced(source, target,
-                p      = 1,
-                C      = 1,
+                p = 1,
+                C = 1,
                 method = "revsimplex",
                 output = "dist"
             )
         })
-        crits <- as.numeric(UB_Wasserstein_distance) + criterion_penalty_scale * k * log(N_val)
+        criterion_values <- as.numeric(UB_Wasserstein_distance) + criterion_penalty_scale * nParameters * log(nData)
     }
-    posterior_dataframe <- smcrf_result[[post_iter_name]]$reference
-    posterior_dataframe$criterion_values <- crits
-
-    # return the posterior distribution
+    criterion_values <- data.frame(criterion_value = criterion_values)
+    #---Output results
     fit_results <- list()
-    fit_results$ABCSMCRF_method <- smcrf_result$method
-    fit_results$criterion <- criterion
-    fit_results$criterion_penalty_scale <- criterion_penalty_scale
-    fit_results$n_SMCRF_particles <- smcrf_result$n_SMCRF_particles
-    fit_results$criterion_values <- crits
-
-
-    fit_results$posterior <- posterior_dataframe
-
+    fit_results[["ABCSMCRF_method"]] <- smcrf_result$method
+    fit_results[["ABCSMCRF_nParticles"]] <- smcrf_result$n_SMCRF_particles
+    fit_results[["criterion"]] <- criterion
+    fit_results[["criterion_penalty_scale"]] <- criterion_penalty_scale
+    fit_results[["SFS_A"]] <- SFS_A
+    fit_results[["SFS_B"]] <- SFS_B
+    fit_results[["SFS_validation"]] <- SFS_validation
+    fit_results[["parameters"]] <- all_parameters
+    if (with_tail) {
+        fit_results[["SFS_A_tail"]] <- SFS_A_tail
+        fit_results[["SFS_B_tail"]] <- SFS_B_tail
+        fit_results[["SFS_validation_tail"]] <- SFS_validation_tail
+    }
+    for (i in seq_len(N_humps)) {
+        fit_results[[paste0("SFS_A_cluster_", i)]] <- SFS_A_clusters[[i]]
+        fit_results[[paste0("SFS_B_cluster_", i)]] <- SFS_B_clusters[[i]]
+        fit_results[[paste0("SFS_validation_cluster_", i)]] <- SFS_validation_clusters[[i]]
+    }
+    fit_results[["criterion_values"]] <- criterion_values
     return(fit_results)
 }
 
@@ -716,6 +783,7 @@ choose_mutation_thresholds <- function(mutation_table,
         }
         readcount_distribution$freq <- 100 * readcount_distribution$mutation_count / sum(mutation_table_tmp$count)
     }
+    cat("\n")
     #---Find the mutation thresholds for inference and validation
     if (make_readcount_distribution) {
         filtered_df <- readcount_distribution[readcount_distribution$min_total_read == min(readcount_distribution$min_total_read), ]
