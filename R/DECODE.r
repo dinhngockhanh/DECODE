@@ -3,6 +3,7 @@ DECODE <- function(sample_id = "",
                    criterion = "BIC",
                    criterion_penalty_scale = 1.0, # <<<<<<<<<<<<<<<<<<<<
                    criterion_pvalue_threshold = 0.1, # <<<<<<<<<<<<<<<<<
+                   criterion_Nsamples = 1000, # <<<<<<<<<<<<<<<<<<<<<<<<
                    neutral_power_min = 0.5,
                    neutral_power_max = 5,
                    cluster_frequency_min = 0.01,
@@ -110,6 +111,7 @@ DECODE <- function(sample_id = "",
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
+            criterion_Nsamples = criterion_Nsamples,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = TRUE,
@@ -135,6 +137,7 @@ DECODE <- function(sample_id = "",
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
+            criterion_Nsamples = criterion_Nsamples,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = FALSE,
@@ -194,6 +197,7 @@ DECODE <- function(sample_id = "",
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
+            criterion_Nsamples = criterion_Nsamples,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = TRUE,
@@ -227,6 +231,7 @@ DECODE <- function(sample_id = "",
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
+            criterion_Nsamples = criterion_Nsamples,
             min_N_humps = min_N_humps,
             max_N_humps = max_N_humps,
             with_tail = FALSE,
@@ -298,6 +303,7 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
                                      criterion,
                                      criterion_penalty_scale,
                                      criterion_pvalue_threshold,
+                                     criterion_Nsamples,
                                      min_N_humps,
                                      max_N_humps,
                                      with_tail,
@@ -327,6 +333,7 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
             SFS_data_validation = SFS_data_validation,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
+            criterion_Nsamples = criterion_Nsamples,
             N_humps = N_humps,
             with_tail = with_tail,
             n_SMCRF_particles = n_SMCRF_particles,
@@ -465,6 +472,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                                                   SFS_data_validation,
                                                   criterion,
                                                   criterion_penalty_scale,
+                                                  criterion_Nsamples,
                                                   N_humps,
                                                   with_tail,
                                                   n_SMCRF_particles,
@@ -637,13 +645,10 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         parallel = compute_parallel
     )
     #---Sample parameter sets from ABC-SMC-DRF posterior distribution
-    ####################################################################
-    validation_count <- 10 ############################################
-    ####################################################################
     final_parameters <- smcrf_result[[paste0("Iteration_", length(n_SMCRF_particles))]]$parameters
     final_weights <- smcrf_result[[paste0("Iteration_", length(n_SMCRF_particles))]]$weights
     posterior_parameters <- final_parameters[
-        sample(nrow(final_parameters), size = validation_count, prob = final_weights[, 1], replace = T),
+        sample(nrow(final_parameters), size = criterion_Nsamples, prob = final_weights[, 1], replace = T),
     ]
     #---Prepare results based on posterior parameters
     compute_parallel <- FALSE
