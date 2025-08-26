@@ -8,13 +8,13 @@ DECODE <- function(sample_id = "",
                    neutral_power_max = 5,
                    cluster_frequency_min = 0.01,
                    cluster_frequency_max = 1,
-                   cluster_frequency_mindiff = 0.01,
+                   cluster_frequency_mindiff = 0.05,
                    max_total_read = NULL,
                    allele_count = 1000,
                    matrix_binomial_allele_count = 1000, # <<<<<<<<<<<<<<
                    matrix_binomial_ploidy = 1, # <<<<<<<<<<<<<<<<<<<<<<<
                    sfs_bincount = 100, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                   n_SMCRF_particles = rep(1000, 2), # <<<<<<<<<<<<<<<<
+                   n_SMCRF_particles = rep(1000, 2), # <<<<<<<<<<<<<<<<<
                    min_variant_read_inference_A = NULL,
                    min_variant_read_inference_B = NULL,
                    min_variant_read_validation = NULL,
@@ -22,8 +22,8 @@ DECODE <- function(sample_id = "",
                    coverage_distribution = "sample-specific",
                    coverage_variables = NULL,
                    neutral_tail = NA,
-                   min_N_humps = 1,
-                   max_N_humps = Inf,
+                   min_N_clusters = 1,
+                   max_N_clusters = 5,
                    make_readcount_distribution = TRUE,
                    compute_parallel = TRUE,
                    n_cores = NULL) {
@@ -84,25 +84,42 @@ DECODE <- function(sample_id = "",
     #---DECODE
     DECODE_result <- list()
     DECODE_result$sample_id <- sample_id
-    DECODE_result$criterion <- criterion
-    DECODE_result$criterion_pvalue_threshold <- criterion_pvalue_threshold
-    DECODE_result$sfs_bincount <- sfs_bincount
     DECODE_result$mutational_table <- mutation_table
-    DECODE_result$readcount_distribution <- threshold_results$readcount_distribution
+    DECODE_result$criterion <- criterion
+    DECODE_result$criterion_penalty_scale <- criterion_penalty_scale
+    DECODE_result$criterion_pvalue_threshold <- criterion_pvalue_threshold
+    DECODE_result$criterion_Nsamples <- criterion_Nsamples
+    DECODE_result$neutral_power_min <- neutral_power_min
+    DECODE_result$neutral_power_max <- neutral_power_max
+    DECODE_result$cluster_frequency_min <- cluster_frequency_min
+    DECODE_result$cluster_frequency_max <- cluster_frequency_max
+    DECODE_result$cluster_frequency_mindiff <- cluster_frequency_mindiff
+    DECODE_result$max_total_read <- max_total_read
+    DECODE_result$allele_count <- allele_count
+    DECODE_result$matrix_binomial_allele_count <- matrix_binomial_allele_count
+    DECODE_result$matrix_binomial_ploidy <- matrix_binomial_ploidy
+    DECODE_result$sfs_bincount <- sfs_bincount
+    DECODE_result$SFS_frequencies <- SFS_data_frequencies
+    DECODE_result$n_SMCRF_particles <- n_SMCRF_particles
     DECODE_result$min_variant_read_inference_A <- threshold_results$min_variant_read_inference_A
     DECODE_result$min_total_read_inference_A <- threshold_results$min_total_read_inference_A
     DECODE_result$min_variant_read_inference_B <- threshold_results$min_variant_read_inference_B
     DECODE_result$min_total_read_inference_B <- threshold_results$min_total_read_inference_B
     DECODE_result$min_variant_read_validation <- threshold_results$min_variant_read_validation
     DECODE_result$min_total_read_validation <- threshold_results$min_total_read_validation
-    DECODE_result$max_total_read <- max_total_read
-    DECODE_result$SFS_frequencies <- SFS_data_frequencies
+    DECODE_result$inference_retained_freq <- threshold_results$inference_retained_freq
+    DECODE_result$coverage_distribution <- threshold_results$coverage_distribution
+    DECODE_result$coverage_variables <- threshold_results$coverage_variables
+    DECODE_result$neutral_tail <- threshold_results$neutral_tail
+    DECODE_result$min_N_clusters <- threshold_results$min_N_clusters
+    DECODE_result$max_N_clusters <- threshold_results$max_N_clusters
+    DECODE_result$make_readcount_distribution <- threshold_results$make_readcount_distribution
+    DECODE_result$compute_parallel <- compute_parallel
+    DECODE_result$n_cores <- n_cores
+    DECODE_result$readcount_distribution <- threshold_results$readcount_distribution
     DECODE_result$SFS_data_inference_A <- threshold_results$SFS_data_inference_A
     DECODE_result$SFS_data_inference_B <- threshold_results$SFS_data_inference_B
     DECODE_result$SFS_data_validation <- threshold_results$SFS_data_validation
-    # DECODE_result$SFS_convolution_inference_A <- SFS_convolution_inference_A
-    # DECODE_result$SFS_convolution_inference_B <- SFS_convolution_inference_B
-    # DECODE_result$SFS_convolution_validation <- SFS_convolution_validation
     if (is.na(neutral_tail)) {
         result_with_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
@@ -112,8 +129,8 @@ DECODE <- function(sample_id = "",
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
-            min_N_humps = min_N_humps,
-            max_N_humps = max_N_humps,
+            min_N_clusters = min_N_clusters,
+            max_N_clusters = max_N_clusters,
             with_tail = TRUE,
             n_SMCRF_particles = n_SMCRF_particles,
             allele_count = allele_count,
@@ -138,8 +155,8 @@ DECODE <- function(sample_id = "",
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
-            min_N_humps = min_N_humps,
-            max_N_humps = max_N_humps,
+            min_N_clusters = max(1, min_N_clusters),
+            max_N_clusters = max(1, min_N_clusters, max_N_clusters),
             with_tail = FALSE,
             n_SMCRF_particles = n_SMCRF_particles,
             allele_count = allele_count,
@@ -156,41 +173,25 @@ DECODE <- function(sample_id = "",
             n_cores = n_cores
         )
         DECODE_result$fits_without_tail <- result_without_tail
-
-        criterion_values_with_tail <- result_with_tail$best_fit$criterion_values
-        criterion_values_without_tail <- result_without_tail$best_fit$criterion_values
-
+        criterion_values_with_tail <- result_with_tail$all_fits[[paste0(result_with_tail$best_N_clusters, "_clusters")]]$criterion_values$criterion_value
+        criterion_values_without_tail <- result_without_tail$all_fits[[paste0(result_without_tail$best_N_clusters, "_clusters")]]$criterion_values$criterion_value
+        N_clusters_with_tail <- result_with_tail$best_N_clusters
+        N_clusters_without_tail <- result_without_tail$best_N_clusters
         tt <- wilcox.test(criterion_values_with_tail, criterion_values_without_tail, alternative = "greater")
-        cat("p-value =", signif(tt$p.value, 3), "\n")
+        report <- paste0(bold(blue("With vs without tail   : ")), cyan(paste0("Wilcoxon p-value = ", signif(tt$p.value, 3))))
         if (tt$p.value > criterion_pvalue_threshold) {
-            final_result <- criterion_values_with_tail
+            report <- paste0(report, yellow(paste0(" → fit with tail is selected")), "\n")
+            cat(report)
+            DECODE_result$best_with_tail <- TRUE
+            DECODE_result$best_N_clusters <- N_clusters_with_tail
         } else {
-            final_result <- criterion_values_without_tail
+            report <- paste0(report, yellow(paste0(" → fit without tail is selected")), "\n")
+            cat(report)
+            DECODE_result$best_with_tail <- FALSE
+            DECODE_result$best_N_clusters <- N_clusters_without_tail
         }
-
-
-
-        # if (result_with_tail$best_fit$selected_criterion_value < result_without_tail$best_fit$selected_criterion_value) {
-        #     N_humps <- min_N_humps
-        #     while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-        #         if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-        #             DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-        #         }
-        #         N_humps <- N_humps + 1
-        #     }
-        #     final_result <- result_with_tail
-        # } else {
-        #     N_humps <- min_N_humps
-        #     while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-        #         if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-        #             DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-        #         }
-        #         N_humps <- N_humps + 1
-        #     }
-        #     final_result <- result_without_tail
-        # }
     } else if (neutral_tail == TRUE) {
-        final_result <- DECODE_given_tail_status(
+        result_with_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
@@ -198,8 +199,8 @@ DECODE <- function(sample_id = "",
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
-            min_N_humps = min_N_humps,
-            max_N_humps = max_N_humps,
+            min_N_clusters = min_N_clusters,
+            max_N_clusters = max_N_clusters,
             with_tail = TRUE,
             n_SMCRF_particles = n_SMCRF_particles,
             allele_count = allele_count,
@@ -215,16 +216,11 @@ DECODE <- function(sample_id = "",
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
-        DECODE_result$fits_with_tail <- final_result
-        N_humps <- min_N_humps
-        # while (!is.null(DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-        #     if (DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-        #         DECODE_result$fits_with_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-        #     }
-        #     N_humps <- N_humps + 1
-        # }
+        DECODE_result$fits_with_tail <- result_with_tail
+        DECODE_result$best_with_tail <- TRUE
+        DECODE_result$best_N_clusters <- result_with_tail$best_N_clusters
     } else if (neutral_tail == FALSE) {
-        final_result <- DECODE_given_tail_status(
+        result_without_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
@@ -232,8 +228,8 @@ DECODE <- function(sample_id = "",
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_pvalue_threshold = criterion_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
-            min_N_humps = min_N_humps,
-            max_N_humps = max_N_humps,
+            min_N_clusters = max(1, min_N_clusters),
+            max_N_clusters = max(1, min_N_clusters, max_N_clusters),
             with_tail = FALSE,
             n_SMCRF_particles = n_SMCRF_particles,
             allele_count = allele_count,
@@ -249,50 +245,28 @@ DECODE <- function(sample_id = "",
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
-        DECODE_result$fits_without_tail <- final_result
-        # N_humps <- min_N_humps
-        # while (!is.null(DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]])) {
-        #     if (DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note == "best given tail status") {
-        #         DECODE_result$fits_without_tail$all_fits[[paste0(N_humps, "_clusters")]]$note <- "best"
-        #     }
-        #     N_humps <- N_humps + 1
-        # }
+        DECODE_result$fits_without_tail <- result_without_tail
+        DECODE_result$best_with_tail <- FALSE
+        DECODE_result$best_N_clusters <- result_without_tail$best_N_clusters
     }
-    DECODE_result$final_fit <- final_result
-    # #---Report the best fit
-    # tail_status_final_result <- final_result$best_fit$tail_status
-    # parameters_inference_A_final_result <- final_result$best_fit$parameters_inference_A
-    # parameters_inference_B_final_result <- final_result$best_fit$parameters_inference_B
-    # criterion_final_result <- final_result$best_fit$selected_criterion_value
-    # if (tail_status_final_result) {
-    #     N_humps_final_result <- length(parameters_inference_A_final_result) / 2 - 1
-    #     report <- bold(underline(red(paste0("Best fit = neutral tail + ", N_humps_final_result, " clusters:\n"))))
-    #     report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", format(round(criterion_final_result, 3), nsmall = 3))), "\n")
-    #     report <- paste0(report, red("Neutral component: "), yellow(paste0("power     = ", format(round(parameters_inference_A_final_result[2], 3), nsmall = 3))), red(", "))
-    #     report <- paste0(report, yellow(paste0("\u03C0 = ", format(round(parameters_inference_A_final_result[1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_final_result[1], 3), nsmall = 3), " [B]")), "\n")
-    #     ii <- 0
-    # } else {
-    #     N_humps_final_result <- length(parameters_inference_A_final_result) / 2
-    #     report <- bold(underline(red(paste0("Best fit = no neutral tail + ", N_humps_final_result, " clusters:\n"))))
-    #     report <- paste0(report, red("Score            : "), yellow(paste0(criterion, " = ", format(round(criterion_final_result, 3), nsmall = 3))), "\n")
-    #     ii <- -1
-    # }
-    # if (N_humps_final_result > 0) {
-    #     for (i in 1:N_humps_final_result) {
-    #         report <- paste0(report, red(paste0("Cluster ", i, "        : ")), yellow(paste0("frequency = ", format(round(parameters_inference_A_final_result[2 * (i + ii) + 2], 3), nsmall = 3))), red(", "))
-    #         report <- paste0(report, yellow(paste0("\u03C0 = ", format(round(parameters_inference_A_final_result[2 * (i + ii) + 1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_final_result[2 * (i + ii) + 1], 3), nsmall = 3), " [B]")), "\n")
-    #     }
-    # }
-    # cat(report)
-    # #---Translation to parameters of cancer evolution in the sample
-    # tmp <- parameter_conversion(
-    #     result = final_result,
-    #     mutation_count_for_fitting = sum(threshold_results$SFS_data_inference_A),
-    #     allele_count = allele_count,
-    #     matrix_binomial_allele_count = matrix_binomial_allele_count,
-    #     matrix_binomial_ploidy = matrix_binomial_ploidy
-    # )
-    # DECODE_result$final_fit$parameters_df <- tmp$parameters_df
+    #---Report the best fit
+    with_tail <- DECODE_result$best_with_tail
+    if (DECODE_result$best_with_tail) {
+        fit_results <- DECODE_result$fits_with_tail$all_fits[[paste0(DECODE_result$best_N_clusters, "_clusters")]]
+    } else {
+        fit_results <- DECODE_result$fits_without_tail$all_fits[[paste0(DECODE_result$best_N_clusters, "_clusters")]]
+    }
+    report <- bold(underline(red(paste0("Best fit = ", ifelse(with_tail, "", "without "), "neutral tail + ", DECODE_result$best_N_clusters, " clusters:\n"))))
+    report <- paste0(report, red("Validation score       : "), yellow(paste0(criterion, " = ", format(round(mean(fit_results$criterion_values$criterion_value), 3), nsmall = 3), " \u00B1 ", format(round(sd(fit_results$criterion_values$criterion_value), 3)))), "\n")
+    if (with_tail) {
+        report <- paste0(report, red("Neutral component      : "), yellow(paste0("\u03B1 = ", format(round(mean(fit_results$parameters[["Tail_power"]]), 3), nsmall = 3), " \u00B1 ", format(round(sd(fit_results$parameters[["Tail_power"]]), 3), nsmall = 3))), red("; "))
+        report <- paste0(report, yellow(paste0("mutation count: ", round(mean(fit_results$parameters[["Tail_Nmut_exact"]])), " [True], ", round(mean(fit_results$parameters[["Tail_Nmut_A"]])), " [A], ", round(mean(fit_results$parameters[["Tail_Nmut_B"]])), " [B]"), "\n"))
+    }
+    for (i in seq_len(DECODE_result$best_N_clusters)) {
+        report <- paste0(report, red(paste0("Cluster ", i, "              : ")), yellow(paste0("f = ", format(round(mean(fit_results$parameters[[paste0("Cluster_", i, "_freq")]]), 3), nsmall = 3), " \u00B1 ", format(round(sd(fit_results$parameters[[paste0("Cluster_", i, "_freq")]]), 3), nsmall = 3))), red("; "))
+        report <- paste0(report, yellow(paste0("mutation count: ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_exact")]])), " [True], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_A")]])), " [A], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_B")]])), " [B]"), "\n"))
+    }
+    cat(report)
     #---Return the SFS deconvolution results
     return(DECODE_result)
 }
@@ -304,8 +278,8 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
                                      criterion_penalty_scale,
                                      criterion_pvalue_threshold,
                                      criterion_Nsamples,
-                                     min_N_humps,
-                                     max_N_humps,
+                                     min_N_clusters,
+                                     max_N_clusters,
                                      with_tail,
                                      n_SMCRF_particles,
                                      allele_count,
@@ -321,12 +295,10 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
                                      compute_parallel,
                                      n_cores) {
     all_fits <- list()
-    criterion_values_list <- list()
     best_criterion_values <- NULL
-    best_N_humps <- min_N_humps
-    for (N_humps in min_N_humps:max_N_humps) {
+    for (N_clusters in min_N_clusters:max_N_clusters) {
         #---Find best parameter set, given the number of humps
-        cat(bold(blue(paste0("Inference for ", N_humps, " clusters ", ifelse(with_tail, "with", "without"), " neutral tail component...\n"))))
+        cat(bold(blue(paste0("Inference for ", N_clusters, " clusters ", ifelse(with_tail, "with", "without"), " neutral tail component...\n"))))
         fit_results <- DECODE_given_tail_status_and_Ncluster(
             SFS_data_inference_A = SFS_data_inference_A,
             SFS_data_inference_B = SFS_data_inference_B,
@@ -334,7 +306,7 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_Nsamples = criterion_Nsamples,
-            N_humps = N_humps,
+            N_clusters = N_clusters,
             with_tail = with_tail,
             n_SMCRF_particles = n_SMCRF_particles,
             allele_count = allele_count,
@@ -350,120 +322,43 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        ################################################################
-        all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
-
+        all_fits[[paste0(N_clusters, "_clusters")]] <- fit_results
+        #   Report the best fit for the current hump count
+        report <- paste0(blue("Validation score       : "), cyan(paste0(criterion, " = ", format(round(mean(fit_results$criterion_values$criterion_value), 3), nsmall = 3), " \u00B1 ", format(round(sd(fit_results$criterion_values$criterion_value), 3)))), "\n")
+        if (with_tail) {
+            report <- paste0(report, blue("Neutral component      : "), cyan(paste0("\u03B1 = ", format(round(mean(fit_results$parameters[["Tail_power"]]), 3), nsmall = 3), " \u00B1 ", format(round(sd(fit_results$parameters[["Tail_power"]]), 3), nsmall = 3))), blue("; "))
+            report <- paste0(report, cyan(paste0("mutation count: ", round(mean(fit_results$parameters[["Tail_Nmut_exact"]])), " [True], ", round(mean(fit_results$parameters[["Tail_Nmut_A"]])), " [A], ", round(mean(fit_results$parameters[["Tail_Nmut_B"]])), " [B]"), "\n"))
+        }
+        for (i in seq_len(N_clusters)) {
+            report <- paste0(report, blue(paste0("Cluster ", i, "              : ")), cyan(paste0("f = ", format(round(mean(fit_results$parameters[[paste0("Cluster_", i, "_freq")]]), 3), nsmall = 3), " \u00B1 ", format(round(sd(fit_results$parameters[[paste0("Cluster_", i, "_freq")]]), 3), nsmall = 3))), blue("; "))
+            report <- paste0(report, cyan(paste0("mutation count: ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_exact")]])), " [True], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_A")]])), " [A], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_B")]])), " [B]"), "\n"))
+        }
+        cat(report)
+        #   Statistical test to determine whether to continue with higher cluster counts
         current_criterion_values <- fit_results$criterion_values$criterion_value
-        criterion_values_list[[paste0(N_humps, "_clusters")]] <- current_criterion_values
-
         if (!is.null(best_criterion_values)) {
             tt <- wilcox.test(best_criterion_values, current_criterion_values, alternative = "greater")
-            cat("p-value =", signif(tt$p.value, 3), "\n")
+            report <- paste0(bold(blue(paste0("H = ", N_clusters, " vs H = ", N_clusters - 1, "         : "))), cyan(paste0("Wilcoxon p-value = ", signif(tt$p.value, 3))))
             if (tt$p.value > criterion_pvalue_threshold) {
-                cat(sprintf(
-                    "→ No significant improvement for %d clusters; best = %d\n",
-                    N_humps, N_humps - 1
-                ))
-                best_N_humps <- N_humps - 1
+                report <- paste0(report, yellow(paste0(" → ", N_clusters - 1, " clusters is the best fit ", ifelse(with_tail, "with", "without"), " tail")), "\n")
+                cat(report)
                 break
+            } else {
+                if (N_clusters == max_N_clusters) {
+                    report <- paste0(report, yellow(" → maximum cluster count has been reached, increased max_N_clusters may improve fit"), "\n")
+                } else {
+                    report <- paste0(report, blue(" → continue with higher cluster counts"), "\n")
+                }
+                cat(report)
             }
         }
         best_criterion_values <- current_criterion_values
-
-
-
-        # fit_results$note <- "none"
-        # all_fits[[paste0(N_humps, "_clusters")]] <- fit_results
-        # parameters_inference_A_best_current <- fit_results$best$parameters_inference_A
-        # parameters_inference_B_best_current <- fit_results$best$parameters_inference_B
-        # parameters_validation_best_current <- fit_results$best$parameters_validation
-        # component_distributions_inference_A_best_current <- fit_results$best$component_distributions_inference_A
-        # component_distributions_inference_B_best_current <- fit_results$best$component_distributions_inference_B
-        # component_distributions_validation_best_current <- fit_results$best$component_distributions_validation
-        # criterion_all_best_current <- fit_results$best$criteria
-        # criterion_best_current <- criterion_all_best_current[[criterion]]
-        # criteria_validation_index_best_current <- fit_results$best$criteria_validation_index
-        # #   Report the best fit for the current hump count
-        # cluster_pis_inference_A <- Inf
-        # cluster_pis_inference_B <- Inf
-        # report <- paste0(blue("Score            : "), cyan(paste0(criterion, " = ", format(round(criterion_best_current, 3), nsmall = 3))), "\n")
-        # if (with_tail) {
-        #     N_humps <- length(parameters_inference_A_best_current) / 2 - 1
-        #     report <- paste0(report, blue("Neutral component: "), cyan(paste0("power     = ", format(round(parameters_inference_A_best_current[2], 3), nsmall = 3))), blue(", "))
-        #     report <- paste0(report, cyan(paste0("\u03C0 = ", format(round(parameters_inference_A_best_current[1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_best_current[1], 3), nsmall = 3), " [B]")), "\n")
-        #     ii <- 0
-        # } else {
-        #     N_humps <- length(parameters_inference_A_best_current) / 2
-        #     ii <- -1
-        # }
-        # if (N_humps > 0) {
-        #     for (i in 1:N_humps) {
-        #         report <- paste0(report, blue(paste0("Cluster ", i, "        : ")), cyan(paste0("frequency = ", format(round(parameters_inference_A_best_current[2 * (i + ii) + 2], 3), nsmall = 3))), blue(", "))
-        #         report <- paste0(report, cyan(paste0("\u03C0 = ", format(round(parameters_inference_A_best_current[2 * (i + ii) + 1], 3), nsmall = 3), " [A], ", format(round(parameters_inference_B_best_current[2 * (i + ii) + 1], 3), nsmall = 3), " [B]")), "\n")
-        #         cluster_pis_inference_A <- c(cluster_pis_inference_A, parameters_inference_A_best_current[2 * (i + ii) + 1])
-        #         cluster_pis_inference_B <- c(cluster_pis_inference_B, parameters_inference_B_best_current[2 * (i + ii) + 1])
-        #     }
-        # }
-        # cat(report)
-        # #   Check if the increased hump count leads to lower criterion score without tiny selective components...
-        # if ((N_humps == min_N_humps) | ((criterion_best_current < criterion_pvalue_threshold * criterion_best_final) & (min(pmax(cluster_pis_inference_A, cluster_pis_inference_B)) >= pi_cutoff))) {
-        #     #   ... if yes, then update the best fit and continue with 1 more hump
-        #     N_humps_best_final <- N_humps
-        #     fit_results_best_final <- fit_results
-        #     criterion_best_final <- criterion_best_current
-        #     criteria_validation_index_best_final <- criteria_validation_index_best_current
-        #     criterion_all_final <- criterion_all_best_current
-        #     parameters_inference_A_best_final <- parameters_inference_A_best_current
-        #     parameters_inference_B_best_final <- parameters_inference_B_best_current
-        #     parameters_validation_best_final <- parameters_validation_best_current
-        #     component_distributions_inference_A_best_final <- component_distributions_inference_A_best_current
-        #     component_distributions_inference_B_best_final <- component_distributions_inference_B_best_current
-        #     component_distributions_validation_best_final <- component_distributions_validation_best_current
-        #     N_humps <- N_humps + 1
-        #     #   ... except if exceeding maximum number of clusters
-        #     if (N_humps > max_N_humps) {
-        #         break
-        #     }
-        # } else {
-        #     #   ... if no, then stop
-        #     break
-        # }
+        best_N_clusters <- N_clusters
     }
-    # #---Check if the neutral tail component is too tiny
-    # if (with_tail == TRUE & (max(parameters_inference_A_best_final[1], parameters_inference_B_best_final[1]) < pi_cutoff)) {
-    #     with_tail <- FALSE
-    #     parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)] <- parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)] / sum(parameters_inference_A_best_final[seq(3, length(parameters_inference_A_best_final), by = 2)])
-    #     parameters_inference_A_best_final <- parameters_inference_A_best_final[-c(1, 2)]
-    #     parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)] <- parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)] / sum(parameters_inference_B_best_final[seq(3, length(parameters_inference_B_best_final), by = 2)])
-    #     parameters_inference_B_best_final <- parameters_inference_B_best_final[-c(1, 2)]
-    #     parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] <- parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)] / sum(parameters_validation_best_final[seq(3, length(parameters_validation_best_final), by = 2)])
-    #     parameters_validation_best_final <- parameters_validation_best_final[-c(1, 2)]
-    #     component_distributions_inference_A_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_exact[1, ]))
-    #     component_distributions_inference_A_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_expected[1, ]))
-    #     component_distributions_inference_A_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_A_best_final$SFS_expected_normalized[1, ]))
-    #     component_distributions_inference_B_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_exact[1, ]))
-    #     component_distributions_inference_B_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_expected[1, ]))
-    #     component_distributions_inference_B_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_inference_B_best_final$SFS_expected_normalized[1, ]))
-    #     component_distributions_validation_best_final$SFS_exact[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_exact[1, ]))
-    #     component_distributions_validation_best_final$SFS_expected[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected[1, ]))
-    #     component_distributions_validation_best_final$SFS_expected_normalized[1, ] <- rep(0, length(component_distributions_validation_best_final$SFS_expected_normalized[1, ]))
-    # }
     #---Report the best fit
-    # all_fits[[paste0(N_humps_best_final, "_clusters")]]$note <- "best given tail status"
     result <- list()
     result$all_fits <- all_fits
-    result$best_fit <- list()
-    result$best_fit$selected_criterion <- all_fits[[paste0(best_N_humps, "_clusters")]]$criterion
-    result$best_fit$all_criteria <- criterion_values_list
-    result$best_fit$selected_criterion_value <- all_fits[[paste0(best_N_humps, "_clusters")]]$criterion_values
-    result$best_fit$tail_status <- with_tail
-    result$best_fit$criterion_values <- best_criterion_values
+    result$best_N_clusters <- best_N_clusters
     return(result)
 }
 
@@ -473,7 +368,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                                                   criterion,
                                                   criterion_penalty_scale,
                                                   criterion_Nsamples,
-                                                  N_humps,
+                                                  N_clusters,
                                                   with_tail,
                                                   n_SMCRF_particles,
                                                   allele_count,
@@ -497,7 +392,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
             parameters$alpha <- runif(Nparameters, min = neutral_power_min, max = neutral_power_max)
             parameters$omega_inference_A_0 <- runif(Nparameters, min = 0, max = 2 * sum(SFS_data_inference_A))
         }
-        for (i in seq_len(N_humps)) {
+        for (i in seq_len(N_clusters)) {
             parameters[[paste0("p_", i)]] <- runif(Nparameters, min = cluster_frequency_min, max = cluster_frequency_max)
             parameters[[paste0("omega_inference_A_", i)]] <- runif(Nparameters, min = 0, max = 2 * sum(SFS_data_inference_A))
         }
@@ -513,7 +408,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                 probs <- probs * dunif(parameters$omega_inference_A_0, min = 0, max = 2 * sum(SFS_data_inference_A))
             }
         }
-        for (i in seq_len(N_humps)) {
+        for (i in seq_len(N_clusters)) {
             p_col <- paste0("p_", i)
             omega_col <- paste0("omega_inference_A_", i)
             if (parameter_id %in% c("all", p_col) && !is.null(parameters[[p_col]])) {
@@ -531,7 +426,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
             library(pbapply)
             cl <- makePSOCKcluster(ifelse(is.null(n_cores), detectCores() - 1, n_cores))
             clusterExport(cl, varlist = c(
-                "one_SFS", "allele_count", "N_humps", "cluster_frequency_mindiff",
+                "one_SFS", "allele_count", "N_clusters", "cluster_frequency_mindiff",
                 "SFS_convolution_inference_A", "SFS_convolution_inference_B",
                 "SFS_data_inference_A", "SFS_data_inference_B",
                 "with_tail"
@@ -555,8 +450,8 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                         output_SFS_components = FALSE,
                         output_all_parameters = FALSE) {
         #   Check that clusters are adequately spaced
-        if (N_humps > 1) {
-            if (min(diff(sort(as.numeric(one_parameter[paste0("p_", 1:N_humps)])))) < cluster_frequency_mindiff) {
+        if (N_clusters > 1) {
+            if (min(diff(sort(as.numeric(one_parameter[paste0("p_", 1:N_clusters)])))) < cluster_frequency_mindiff) {
                 return(data.frame(distance = NA))
             }
         }
@@ -568,16 +463,16 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         } else {
             SFS_exact_components <- matrix(NA, nrow = 0, ncol = allele_count)
         }
-        for (i in seq_len(N_humps)) {
+        for (i in seq_len(N_clusters)) {
             dist <- dbinom(1:allele_count, size = allele_count, prob = as.numeric(one_parameter[paste0("p_", i)])) / (1 - dbinom(0, size = allele_count, prob = as.numeric(one_parameter[paste0("p_", i)])))
             SFS_exact_components <- rbind(SFS_exact_components, dist)
         }
         #   Compute expected SFS for inference A
         SFS_A_components <- SFS_exact_components %*% SFS_convolution_inference_A$convolution_matrix
         if (with_tail) {
-            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 0:N_humps)])
+            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 0:N_clusters)])
         } else {
-            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 1:N_humps)])
+            omegas_A <- as.numeric(one_parameter[paste0("omega_inference_A_", 1:N_clusters)])
         }
         omegas_exact <- omegas_A / rowSums(SFS_A_components) # omegas_exact <- omegas_A / pmax(rowSums(SFS_A_components), .Machine$double.eps)
         SFS_A_components <- sweep(SFS_A_components, 1, omegas_exact, `*`)
@@ -604,9 +499,9 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
             if (output_validation) output$SFS_validation <- SFS_validation
         }
         if (output_SFS_components) {
-            rownames(SFS_A_components) <- c(if (with_tail) "Tail" else NULL, paste0("Cluster_", 1:N_humps))
-            rownames(SFS_B_components) <- c(if (with_tail) "Tail" else NULL, paste0("Cluster_", 1:N_humps))
-            if (output_validation) rownames(SFS_validation_components) <- c(if (with_tail) "Tail" else NULL, paste0("Cluster_", 1:N_humps))
+            rownames(SFS_A_components) <- c(if (with_tail) "Tail" else NULL, if (N_clusters > 0) paste0("Cluster_", 1:N_clusters) else NULL)
+            rownames(SFS_B_components) <- c(if (with_tail) "Tail" else NULL, if (N_clusters > 0) paste0("Cluster_", 1:N_clusters) else NULL)
+            if (output_validation) rownames(SFS_validation_components) <- c(if (with_tail) "Tail" else NULL, if (N_clusters > 0) paste0("Cluster_", 1:N_clusters) else NULL)
             output$SFS_A_components <- SFS_A_components
             output$SFS_B_components <- SFS_B_components
             if (output_validation) output$SFS_validation_components <- SFS_validation_components
@@ -620,7 +515,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                 all_parameters[["Tail_Nmut_B"]] <- sum(SFS_B_components[1, ])
                 if (output_validation) all_parameters[["Tail_Nmut_validation"]] <- sum(SFS_validation_components[1, ])
             }
-            for (i in seq_len(N_humps)) {
+            for (i in seq_len(N_clusters)) {
                 all_parameters[[paste0("Cluster_", i, "_freq")]] <- one_parameter[[paste0("p_", i)]]
                 all_parameters[[paste0("Cluster_", i, "_Nmut_exact")]] <- omegas_exact[i + with_tail]
                 all_parameters[[paste0("Cluster_", i, "_Nmut_A")]] <- sum(SFS_A_components[i + with_tail, ])
@@ -640,6 +535,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         rprior = rprior,
         dprior = dprior,
         nParticles = n_SMCRF_particles,
+        final_sample = FALSE,
         model_redo_if_NA = TRUE,
         verbose = FALSE,
         parallel = compute_parallel
@@ -651,40 +547,16 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         sample(nrow(final_parameters), size = criterion_Nsamples, prob = final_weights[, 1], replace = T),
     ]
     #---Prepare results based on posterior parameters
-    compute_parallel <- FALSE
-    if (compute_parallel) {
-        library(parallel)
-        library(pbapply)
-        cl <- makePSOCKcluster(ifelse(is.null(n_cores), detectCores() - 1, n_cores))
-        clusterExport(cl, varlist = c(
-            "one_SFS", "allele_count", "N_humps", "cluster_frequency_mindiff",
-            "SFS_convolution_inference_A", "SFS_convolution_inference_B",
-            "SFS_data_inference_A", "SFS_data_inference_B",
-            "with_tail"
-        ), envir = environment())
-        posterior_results_list <- parLapply(cl, seq_len(nrow(posterior_parameters)), function(i) {
-            one_SFS(
-                posterior_parameters[i, ],
-                output_distance = FALSE,
-                output_validation = TRUE,
-                output_SFS = TRUE,
-                output_SFS_components = TRUE,
-                output_all_parameters = TRUE
-            )
-        })
-        stopCluster(cl)
-    } else {
-        posterior_results_list <- lapply(seq_len(nrow(posterior_parameters)), function(i) {
-            one_SFS(
-                posterior_parameters[i, ],
-                output_distance = FALSE,
-                output_validation = TRUE,
-                output_SFS = TRUE,
-                output_SFS_components = TRUE,
-                output_all_parameters = TRUE
-            )
-        })
-    }
+    posterior_results_list <- lapply(seq_len(nrow(posterior_parameters)), function(i) {
+        one_SFS(
+            posterior_parameters[i, ],
+            output_distance = FALSE,
+            output_validation = TRUE,
+            output_SFS = TRUE,
+            output_SFS_components = TRUE,
+            output_all_parameters = TRUE
+        )
+    })
     SFS_A <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_A)))
     SFS_B <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_B)))
     SFS_validation <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_validation)))
@@ -697,17 +569,18 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
     SFS_A_clusters <- list()
     SFS_B_clusters <- list()
     SFS_validation_clusters <- list()
-    for (i in seq_len(N_humps)) {
+    for (i in seq_len(N_clusters)) {
         SFS_A_clusters[[i]] <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_A_components[paste0("Cluster_", i), ])))
         SFS_B_clusters[[i]] <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_B_components[paste0("Cluster_", i), ])))
         SFS_validation_clusters[[i]] <- as.data.frame(do.call(rbind, lapply(posterior_results_list, function(x) x$SFS_validation_components[paste0("Cluster_", i), ])))
     }
     #---Compute criterion values
-    nParameters <- if (with_tail) 2 * N_humps + 2 else 2 * N_humps
+    nParameters <- if (with_tail) 2 * N_clusters + 2 else 2 * N_clusters
     nData <- sum(SFS_data_validation)
     if (criterion == "BIC") {
-        SFS_validation_normalized <- SFS_validation / rowSums(SFS_validation)
-        SFS_validation_normalized[which(SFS_validation_normalized <= .Machine$double.eps)] <- .Machine$double.eps
+        SFS_validation_normalized <- SFS_validation
+        SFS_validation_normalized[SFS_validation_normalized <= .Machine$double.eps] <- .Machine$double.eps
+        SFS_validation_normalized <- SFS_validation_normalized / rowSums(SFS_validation)
         loglikelihood <- apply(SFS_validation_normalized, 1, function(SFS_pred_validation) sum(log(SFS_pred_validation) * SFS_data_validation))
         criterion_values <- -2 * loglikelihood + criterion_penalty_scale * nParameters * log(nData)
     } else if (criterion == "GIC_L1") {
@@ -730,10 +603,8 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
     criterion_values <- data.frame(criterion_value = criterion_values)
     #---Output results
     fit_results <- list()
-    fit_results[["ABCSMCRF_method"]] <- smcrf_result$method
-    fit_results[["ABCSMCRF_nParticles"]] <- smcrf_result$n_SMCRF_particles
-    fit_results[["criterion"]] <- criterion
-    fit_results[["criterion_penalty_scale"]] <- criterion_penalty_scale
+    fit_results[["N_clusters"]] <- N_clusters
+    fit_results[["with_tail"]] <- with_tail
     fit_results[["SFS_A"]] <- SFS_A
     fit_results[["SFS_B"]] <- SFS_B
     fit_results[["SFS_validation"]] <- SFS_validation
@@ -743,7 +614,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         fit_results[["SFS_B_tail"]] <- SFS_B_tail
         fit_results[["SFS_validation_tail"]] <- SFS_validation_tail
     }
-    for (i in seq_len(N_humps)) {
+    for (i in seq_len(N_clusters)) {
         fit_results[[paste0("SFS_A_cluster_", i)]] <- SFS_A_clusters[[i]]
         fit_results[[paste0("SFS_B_cluster_", i)]] <- SFS_B_clusters[[i]]
         fit_results[[paste0("SFS_validation_cluster_", i)]] <- SFS_validation_clusters[[i]]
@@ -848,10 +719,10 @@ choose_mutation_thresholds <- function(mutation_table,
         freq_validation <- 100 * Nmut_validation / nrow(mutation_table)
     }
     #   Report the chosen mutation thresholds
-    report <- paste0(blue("Complete data    : "), cyan(paste0(min(mutation_table$Alt_count), " \u2264 variant reads, ", min(mutation_table$Tot_count), " \u2264 total reads \u2264 ", max(mutation_table$Tot_count), "; ", nrow(mutation_table), " mutations\n")))
-    report <- paste0(report, blue("Inference A      : "), cyan(paste0(min_variant_read_inference_A, " \u2264 variant reads, ", min_total_read_inference_A, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_A, " mutations (", format(round(freq_inference_A, 3), nsmall = 3), "%)")), "\n")
-    report <- paste0(report, blue("Inference B      : "), cyan(paste0(min_variant_read_inference_B, " \u2264 variant reads, ", min_total_read_inference_B, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_B, " mutations (", format(round(freq_inference_B, 3), nsmall = 3), "%)")), "\n")
-    report <- paste0(report, blue("Validation       : "), cyan(paste0(min_variant_read_validation, " \u2264 variant reads, ", min_total_read_validation, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_validation, " mutations (", format(round(freq_validation, 3), nsmall = 3), "%)")), "\n")
+    report <- paste0(blue("Complete data          : "), cyan(paste0(min(mutation_table$Alt_count), " \u2264 variant reads, ", min(mutation_table$Tot_count), " \u2264 total reads \u2264 ", max(mutation_table$Tot_count), "; ", nrow(mutation_table), " mutations\n")))
+    report <- paste0(report, blue("Inference A            : "), cyan(paste0(min_variant_read_inference_A, " \u2264 variant reads, ", min_total_read_inference_A, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_A, " mutations (", format(round(freq_inference_A, 3), nsmall = 3), "%)")), "\n")
+    report <- paste0(report, blue("Inference B            : "), cyan(paste0(min_variant_read_inference_B, " \u2264 variant reads, ", min_total_read_inference_B, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_B, " mutations (", format(round(freq_inference_B, 3), nsmall = 3), "%)")), "\n")
+    report <- paste0(report, blue("Validation             : "), cyan(paste0(min_variant_read_validation, " \u2264 variant reads, ", min_total_read_validation, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_validation, " mutations (", format(round(freq_validation, 3), nsmall = 3), "%)")), "\n")
     cat(report)
     #---Prepare the real SFS data
     mutation_table <- as.data.table(mutation_table)
