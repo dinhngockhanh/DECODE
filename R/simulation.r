@@ -32,6 +32,7 @@ obsSFS_generate <- function(subclonal_cell_count = c(),
             VAF = (1:total_cancer_cell_count) / (2 * total_sample_cell_count),
             Probability = (1:total_cancer_cell_count)^(-tail_power)
         )
+        exact_SFS$Probability <- exact_SFS$Probability / sum(exact_SFS$Probability)
         #   Simulate observed SFS until enough tail mutations
         Alt_counts <- c()
         Ref_counts <- c()
