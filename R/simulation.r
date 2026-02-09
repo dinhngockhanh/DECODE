@@ -8,6 +8,7 @@ obsSFS_generate <- function(subclonal_cell_count = c(),
                                 Coverage = 1:100,
                                 Probability = dbinom(1:100, size = 100, prob = 0.3)
                             ),
+                            min_variant_read = 3,
                             output_dir = NULL,
                             plot = TRUE,
                             run_name = "SFS_simulation") {
@@ -51,7 +52,7 @@ obsSFS_generate <- function(subclonal_cell_count = c(),
                 prob = coverage_distribution$Probability
             )
             Alt_counts_next <- rbinom(nTrials, size = Tot_counts_next, prob = exact_VAFs)
-            valid_indices <- which((Alt_counts_next > 0) & (Alt_counts_next < Tot_counts_next))
+            valid_indices <- which((Alt_counts_next >= min_variant_read) & (Alt_counts_next < Tot_counts_next))
             if ((length(Alt_counts) + length(valid_indices)) < tail_mutation_count) {
                 Nmut_exact <- Nmut_exact + nTrials
             } else {
@@ -100,7 +101,7 @@ obsSFS_generate <- function(subclonal_cell_count = c(),
                 prob = coverage_distribution$Probability
             )
             Alt_counts_next <- rbinom(nTrials, size = Tot_counts_next, prob = cluster_frequency)
-            valid_indices <- which((Alt_counts_next > 0) & (Alt_counts_next < Tot_counts_next))
+            valid_indices <- which((Alt_counts_next >= min_variant_read) & (Alt_counts_next < Tot_counts_next))
             if ((length(Alt_counts) + length(valid_indices)) < cluster_mutation_count) {
                 Nmut_exact <- Nmut_exact + nTrials
             } else {
