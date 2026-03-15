@@ -1,6 +1,8 @@
 DECODE_plot_model_selection <- function(DECODE_result,
                                         filename = NULL,
                                         filetype = "png",
+                                        max_variant_read = 50,
+                                        max_total_read = 150,
                                         width = 30, height = 15, units = "in", res = 150,
                                         SFS_limit = TRUE,
                                         data_marker_colors = NULL) {
@@ -210,7 +212,9 @@ DECODE_plot_model_selection <- function(DECODE_result,
     p_right <- grid.arrange(grobs = p_right, nrow = 1, widths = p_right_widths)
     #---Plot mutation threshold selection & fit selection
     p_left_threshold_selection <- DECODE_plot_readcounts(
-        DECODE_result = DECODE_result
+        DECODE_result = DECODE_result,
+        max_variant_read = max_variant_read,
+        max_total_read = max_total_read
     )
     p_left_criteria <- DECODE_plot_criteria(
         DECODE_result = DECODE_result,
@@ -496,7 +500,9 @@ DECODE_plot_SFS <- function(DECODE_result,
     }
 }
 
-DECODE_plot_readcounts <- function(DECODE_result) {
+DECODE_plot_readcounts <- function(DECODE_result,
+                                   max_variant_read = 50,
+                                   max_total_read = 150) {
     suppressPackageStartupMessages(library(ggplot2))
     suppressPackageStartupMessages(library(shadowtext))
     suppressPackageStartupMessages(library(reshape2))
@@ -504,6 +510,7 @@ DECODE_plot_readcounts <- function(DECODE_result) {
     vec_min_variant_read <- min(mutation_table$Alt_count):max(mutation_table$Alt_count)
     vec_min_total_read <- min(mutation_table$Tot_count):max(mutation_table$Tot_count)
     readcount_distribution <- DECODE_result$readcount_distribution
+    readcount_distribution <- readcount_distribution[which(readcount_distribution$min_variant_read <= max_variant_read & readcount_distribution$min_total_read <= max_total_read), ]
     min_variant_read_inference_A <- max(DECODE_result$min_variant_read_inference_A, min(mutation_table$Alt_count))
     min_total_read_inference_A <- max(DECODE_result$min_total_read_inference_A, min(mutation_table$Tot_count))
     min_variant_read_inference_B <- max(DECODE_result$min_variant_read_inference_B, min(mutation_table$Alt_count))
