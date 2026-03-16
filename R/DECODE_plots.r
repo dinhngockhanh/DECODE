@@ -16,12 +16,12 @@ DECODE_plot_model_selection <- function(DECODE_result,
         min(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_A > 0)]),
         min(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_B > 0)]),
         min(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_validation > 0)])
-    )
+    ) - 0.5 / DECODE_result$sfs_bincount
     x_max <- max(
         max(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_A > 0)]),
         max(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_B > 0)]),
         max(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_validation > 0)])
-    )
+    ) + 0.5 / DECODE_result$sfs_bincount
     func_one_fit <- function(p_right,
                              p_right_widths,
                              with_tail,
@@ -507,20 +507,16 @@ DECODE_plot_readcounts <- function(DECODE_result,
     suppressPackageStartupMessages(library(shadowtext))
     suppressPackageStartupMessages(library(reshape2))
     mutation_table <- DECODE_result$mutational_table
-    vec_min_variant_read <- min(mutation_table$Alt_count):max(mutation_table$Alt_count)
-    vec_min_total_read <- min(mutation_table$Tot_count):max(mutation_table$Tot_count)
     readcount_distribution <- DECODE_result$readcount_distribution
-    readcount_distribution <- readcount_distribution[which(readcount_distribution$min_variant_read <= max_variant_read & readcount_distribution$min_total_read <= max_total_read), ]
     min_variant_read_inference_A <- max(DECODE_result$min_variant_read_inference_A, min(mutation_table$Alt_count))
     min_total_read_inference_A <- max(DECODE_result$min_total_read_inference_A, min(mutation_table$Tot_count))
     min_variant_read_inference_B <- max(DECODE_result$min_variant_read_inference_B, min(mutation_table$Alt_count))
     min_total_read_inference_B <- max(DECODE_result$min_total_read_inference_B, min(mutation_table$Tot_count))
     min_variant_read_validation <- max(DECODE_result$min_variant_read_validation, min(mutation_table$Alt_count))
     min_total_read_validation <- max(DECODE_result$min_total_read_validation, min(mutation_table$Tot_count))
-    # #---Reduce the distribution to region satisfying the frequency cutoff
-    # max_total_read <- vec_min_total_read[which(readcount_distribution$freq[which(readcount_distribution$min_variant_read == vec_min_variant_read[1])] <= read_distribution_freq_min)[1]]
-    # max_variant_read <- vec_min_variant_read[which(readcount_distribution$freq[which(readcount_distribution$min_total_read == vec_min_total_read[1])] <= read_distribution_freq_min)[1]]
-    # readcount_distribution <- readcount_distribution[which(readcount_distribution$min_total_read <= max_total_read & readcount_distribution$min_variant_read <= max_variant_read), ]
+    max_variant_read <- max(max_variant_read, 2 * min_variant_read_inference_A, 2 * min_variant_read_inference_B, 2 * min_variant_read_validation)
+    max_total_read <- max(max_total_read, 2 * min_total_read_inference_A, 2 * min_total_read_inference_B, 2 * min_total_read_validation)
+    readcount_distribution <- readcount_distribution[which(readcount_distribution$min_variant_read <= max_variant_read & readcount_distribution$min_total_read <= max_total_read), ]
     #---Plot the readcount distribution
     freq_inference_A <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_A & readcount_distribution$min_variant_read == min_variant_read_inference_A])
     freq_inference_B <- round(readcount_distribution$freq[readcount_distribution$min_total_read == min_total_read_inference_B & readcount_distribution$min_variant_read == min_variant_read_inference_B])
