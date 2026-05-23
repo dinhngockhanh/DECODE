@@ -1,11 +1,11 @@
 data/
-DECODE & MOBSTER results/
-vignettes/Results_TCGA-COAD/
-vignettes/Results_TCGA-COAD_ABCSMCDRF/
+R/CINner_lite/
+R/DECODE_v00/
+R/DECODE_v01/
+R/DECODE_v02/
+vignettes/tests/
+vignettes/Previous results/
 vignettes/Results_ICGC/
-vignettes/Results_POG/
-vignettes/Results_DREAM/
-vignettes/TEST/
-vignettes/Old_results/
+vignettes/Results_BLCA_multimap/
 .DS_Store
 vignettes/.DS_Store

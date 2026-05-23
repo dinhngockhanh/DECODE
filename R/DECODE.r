@@ -2,43 +2,47 @@ DECODE <- function(sample_id = "",
                    mutation_table,
                    criterion = "GIC",
                    criterion_penalty_scale = 0.0015,
-                   wilcoxon_pvalue_threshold = 0.01,
+                   criterion_tail_weight = 0.3,
                    criterion_Nsamples = 1000,
-                   criterion_tail_weight = 0.3, # <<<<<<<<<<<<<<<<<<<<<<
+                   wilcoxon_pvalue_threshold = 0.01,
                    neutral_tail = NA,
                    N_clusters = NULL,
-                   min_N_clusters = 1,
-                   max_N_clusters = 5,
-                   neutral_power_min = 0.5, # <<<<<<<<<<<<<<<<<<<<<<<<<<
-                   neutral_power_max = 5, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                   cluster_frequency_min = 0.01,
-                   cluster_frequency_max = 1,
+                   N_clusters_min = 1,
+                   N_clusters_max = 5,
+                   neutral_power_min = 0.9,
+                   neutral_power_max = 5,
+                   cluster_VAF_min = 0.01,
+                   cluster_VAF_max = 1,
                    max_total_read = NULL,
                    read_distribution_freq_min = 10,
                    allele_count = 1000,
-                   matrix_binomial_allele_count = 1000, # <<<<<<<<<<<<<<
-                   ploidy = 2, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                   sfs_bincount = 100, # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                   n_SMCRF_particles = rep(1000, 10), # <<<<<<<<<<<<<<<<
+                   SFS_bincount = 100,
+                   ABCSMCDRF_nParticles = rep(1000, 10),
                    min_variant_read_inference_A = NULL,
                    min_variant_read_inference_B = NULL,
                    min_variant_read_validation = NULL,
                    inference_retained_freq = 95,
-                   coverage_distribution = "sample-specific",
-                   coverage_variables = NULL,
                    compute_parallel = FALSE,
                    n_cores = NULL) {
-    if (!is.null(N_clusters)) {
-        min_N_clusters <- N_clusters
-        max_N_clusters <- N_clusters
-    }
     suppressPackageStartupMessages(library(crayon))
     cat(paste0("\n\n\n", bold(red("PERFORMING DECODE FOR SAMPLE ")), bold(yellow(sample_id)), bold(red("...")), "\n"))
+    if (!is.null(N_clusters)) {
+        N_clusters_min <- N_clusters
+        N_clusters_max <- N_clusters
+    }
+    #---Ensure that the input mutation table is valid
+    if (!is.data.frame(mutation_table) || !all(c("Ref_count", "Alt_count") %in% colnames(mutation_table))) {
+        stop("mutation_table must be a data frame with columns 'Ref_count' and 'Alt_count'.")
+    }
+    if (!all(mutation_table$Ref_count == floor(mutation_table$Ref_count) & mutation_table$Ref_count >= 0, na.rm = TRUE) ||
+        !all(mutation_table$Alt_count == floor(mutation_table$Alt_count) & mutation_table$Alt_count >= 0, na.rm = TRUE)) {
+        stop("Columns 'Ref_count' and 'Alt_count' in mutation_table must contain only non-negative integers.")
+    }
     mutation_table$Tot_count <- mutation_table$Ref_count + mutation_table$Alt_count
     mutation_table$VAF <- mutation_table$Alt_count / mutation_table$Tot_count
     if (is.null(max_total_read)) max_total_read <- max(mutation_table$Tot_count)
-    #---Choose mutation thresholds, get resulting SFS from data
-    SFS_data_frequencies <- seq(1, sfs_bincount) / sfs_bincount
+    #---Select mutation thresholds for inference A, inference B and validation
+    SFS_data_frequencies <- seq(1, SFS_bincount) / SFS_bincount
     threshold_results <- choose_mutation_thresholds(
         mutation_table = mutation_table,
         max_total_read = max_total_read,
@@ -52,102 +56,94 @@ DECODE <- function(sample_id = "",
     if (sum(threshold_results$SFS_data_inference_A) == 0 | (sum(threshold_results$SFS_data_inference_B) == 0) | (sum(threshold_results$SFS_data_validation) == 0)) {
         stop("No mutations passed the filtering criteria. Please adjust the filtering thresholds.")
     }
-    #---Prepare the SFS convolution matrix
+    #---Prepare the convolution matrices to transform the theoretical SFS to expected SFS
     SFS_convolution_inference_A <- build_convolution_matrix(
-        sfs_bincount = sfs_bincount,
+        SFS_bincount = SFS_bincount,
         mode = "inference A",
-        allele_count = matrix_binomial_allele_count,
+        allele_count = allele_count,
         min_variant_read = threshold_results$min_variant_read_inference_A,
         min_total_read = threshold_results$min_total_read_inference_A,
         max_total_read = max_total_read,
-        coverage_distribution = coverage_distribution,
-        coverage_variables = coverage_variables,
         sample_coverage = threshold_results$sample_coverage_inference_A
     )
     SFS_convolution_inference_B <- build_convolution_matrix(
-        sfs_bincount = sfs_bincount,
+        SFS_bincount = SFS_bincount,
         mode = "inference B",
-        allele_count = matrix_binomial_allele_count,
+        allele_count = allele_count,
         min_variant_read = threshold_results$min_variant_read_inference_B,
         min_total_read = threshold_results$min_total_read_inference_B,
         max_total_read = max_total_read,
-        coverage_distribution = coverage_distribution,
-        coverage_variables = coverage_variables,
         sample_coverage = threshold_results$sample_coverage_inference_B
     )
     SFS_convolution_validation <- build_convolution_matrix(
-        sfs_bincount = sfs_bincount,
+        SFS_bincount = SFS_bincount,
         mode = "validation",
-        allele_count = matrix_binomial_allele_count,
+        allele_count = allele_count,
         min_variant_read = threshold_results$min_variant_read_validation,
         min_total_read = threshold_results$min_total_read_validation,
         max_total_read = max_total_read,
-        coverage_distribution = coverage_distribution,
-        coverage_variables = coverage_variables,
         sample_coverage = threshold_results$sample_coverage_validation
     )
-    #---DECODE
-    DECODE_result <- list()
-    DECODE_result$sample_id <- sample_id
-    DECODE_result$mutational_table <- mutation_table
-    DECODE_result$criterion <- criterion
-    DECODE_result$criterion_penalty_scale <- criterion_penalty_scale
-    DECODE_result$wilcoxon_pvalue_threshold <- wilcoxon_pvalue_threshold
-    DECODE_result$criterion_Nsamples <- criterion_Nsamples
-    DECODE_result$criterion_tail_weight <- criterion_tail_weight
-    DECODE_result$neutral_power_min <- neutral_power_min
-    DECODE_result$neutral_power_max <- neutral_power_max
-    DECODE_result$cluster_frequency_min <- cluster_frequency_min
-    DECODE_result$cluster_frequency_max <- cluster_frequency_max
-    DECODE_result$max_total_read <- max_total_read
-    DECODE_result$allele_count <- allele_count
-    DECODE_result$matrix_binomial_allele_count <- matrix_binomial_allele_count
-    DECODE_result$ploidy <- ploidy
-    DECODE_result$sfs_bincount <- sfs_bincount
-    DECODE_result$SFS_frequencies <- SFS_data_frequencies
-    DECODE_result$n_SMCRF_particles <- n_SMCRF_particles
-    DECODE_result$min_variant_read_inference_A <- threshold_results$min_variant_read_inference_A
-    DECODE_result$min_total_read_inference_A <- threshold_results$min_total_read_inference_A
-    DECODE_result$min_variant_read_inference_B <- threshold_results$min_variant_read_inference_B
-    DECODE_result$min_total_read_inference_B <- threshold_results$min_total_read_inference_B
-    DECODE_result$min_variant_read_validation <- threshold_results$min_variant_read_validation
-    DECODE_result$min_total_read_validation <- threshold_results$min_total_read_validation
-    DECODE_result$inference_retained_freq <- inference_retained_freq
-    DECODE_result$coverage_distribution <- coverage_distribution
-    DECODE_result$coverage_variables <- coverage_variables
-    DECODE_result$neutral_tail <- neutral_tail
-    DECODE_result$min_N_clusters <- min_N_clusters
-    DECODE_result$max_N_clusters <- max_N_clusters
-    DECODE_result$compute_parallel <- compute_parallel
-    DECODE_result$n_cores <- n_cores
-    DECODE_result$readcount_distribution <- threshold_results$readcount_distribution
-    DECODE_result$SFS_data_inference_A <- threshold_results$SFS_data_inference_A
-    DECODE_result$SFS_data_inference_B <- threshold_results$SFS_data_inference_B
-    DECODE_result$SFS_data_validation <- threshold_results$SFS_data_validation
+    #---Save DECODE settings
+    DECODE_result <- list(
+        sample_id = sample_id,
+        mutation_table = mutation_table,
+        criterion = criterion,
+        criterion_penalty_scale = criterion_penalty_scale,
+        wilcoxon_pvalue_threshold = wilcoxon_pvalue_threshold,
+        criterion_Nsamples = criterion_Nsamples,
+        criterion_tail_weight = criterion_tail_weight,
+        neutral_power_min = neutral_power_min,
+        neutral_power_max = neutral_power_max,
+        cluster_VAF_min = cluster_VAF_min,
+        cluster_VAF_max = cluster_VAF_max,
+        max_total_read = max_total_read,
+        allele_count = allele_count,
+        SFS_bincount = SFS_bincount,
+        SFS_frequencies = SFS_data_frequencies,
+        ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
+        min_variant_read_inference_A = threshold_results$min_variant_read_inference_A,
+        min_total_read_inference_A = threshold_results$min_total_read_inference_A,
+        min_variant_read_inference_B = threshold_results$min_variant_read_inference_B,
+        min_total_read_inference_B = threshold_results$min_total_read_inference_B,
+        min_variant_read_validation = threshold_results$min_variant_read_validation,
+        min_total_read_validation = threshold_results$min_total_read_validation,
+        inference_retained_freq = inference_retained_freq,
+        neutral_tail = neutral_tail,
+        N_clusters_min = N_clusters_min,
+        N_clusters_max = N_clusters_max,
+        compute_parallel = compute_parallel,
+        n_cores = n_cores,
+        readcount_distribution = threshold_results$readcount_distribution,
+        SFS_data_inference_A = threshold_results$SFS_data_inference_A,
+        SFS_data_inference_B = threshold_results$SFS_data_inference_B,
+        SFS_data_validation = threshold_results$SFS_data_validation
+    )
+    #---Perform DECODE deconvolution of the mutation table
     if (is.na(neutral_tail)) {
+        #   Find best DECODE fits with and without neutral tail
         result_with_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            ploidy = ploidy,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             wilcoxon_pvalue_threshold = wilcoxon_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
             criterion_tail_weight = criterion_tail_weight,
-            min_N_clusters = min_N_clusters,
-            max_N_clusters = max_N_clusters,
+            N_clusters_min = N_clusters_min,
+            N_clusters_max = N_clusters_max,
             with_tail = TRUE,
-            n_SMCRF_particles = n_SMCRF_particles,
+            ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
             allele_count = allele_count,
-            sfs_bincount = sfs_bincount,
+            SFS_bincount = SFS_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
-            cluster_frequency_min = cluster_frequency_min,
-            cluster_frequency_max = cluster_frequency_max,
+            cluster_VAF_min = cluster_VAF_min,
+            cluster_VAF_max = cluster_VAF_max,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
@@ -156,29 +152,29 @@ DECODE <- function(sample_id = "",
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            ploidy = ploidy,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             wilcoxon_pvalue_threshold = wilcoxon_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
             criterion_tail_weight = criterion_tail_weight,
-            min_N_clusters = max(1, min_N_clusters),
-            max_N_clusters = max(1, min_N_clusters, max_N_clusters),
+            N_clusters_min = max(1, N_clusters_min),
+            N_clusters_max = max(1, N_clusters_min, N_clusters_max),
             with_tail = FALSE,
-            n_SMCRF_particles = n_SMCRF_particles,
+            ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
             allele_count = allele_count,
-            sfs_bincount = sfs_bincount,
+            SFS_bincount = SFS_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
-            cluster_frequency_min = cluster_frequency_min,
-            cluster_frequency_max = cluster_frequency_max,
+            cluster_VAF_min = cluster_VAF_min,
+            cluster_VAF_max = cluster_VAF_max,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
         DECODE_result$fits_without_tail <- result_without_tail
+        #   Select best fit overall
         criterion_values_with_tail <- result_with_tail$all_fits[[paste0(result_with_tail$best_N_clusters, "_clusters")]]$criterion_values$criterion_value
         criterion_values_without_tail <- result_without_tail$all_fits[[paste0(result_without_tail$best_N_clusters, "_clusters")]]$criterion_values$criterion_value
         N_clusters_with_tail <- result_with_tail$best_N_clusters
@@ -186,40 +182,40 @@ DECODE <- function(sample_id = "",
         tt <- wilcox.test(criterion_values_with_tail, criterion_values_without_tail, alternative = "greater")
         report <- paste0(bold(blue("With vs without tail   : ")), cyan(paste0("Wilcoxon p-value = ", signif(tt$p.value, 3))))
         if (tt$p.value > wilcoxon_pvalue_threshold) {
-            report <- paste0(report, yellow(paste0(" → fit with tail is selected")), "\n")
+            report <- paste0(report, bold(yellow(paste0(" → fit with tail is selected"))), "\n")
             cat(report)
             DECODE_result$best_with_tail <- TRUE
             DECODE_result$best_N_clusters <- N_clusters_with_tail
         } else {
-            report <- paste0(report, yellow(paste0(" → fit without tail is selected")), "\n")
+            report <- paste0(report, bold(yellow(paste0(" → fit without tail is selected"))), "\n")
             cat(report)
             DECODE_result$best_with_tail <- FALSE
             DECODE_result$best_N_clusters <- N_clusters_without_tail
         }
     } else if (neutral_tail == TRUE) {
+        #   Find best DECODE fit with neutral tail
         result_with_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            ploidy = ploidy,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             wilcoxon_pvalue_threshold = wilcoxon_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
             criterion_tail_weight = criterion_tail_weight,
-            min_N_clusters = min_N_clusters,
-            max_N_clusters = max_N_clusters,
+            N_clusters_min = N_clusters_min,
+            N_clusters_max = N_clusters_max,
             with_tail = TRUE,
-            n_SMCRF_particles = n_SMCRF_particles,
+            ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
             allele_count = allele_count,
-            sfs_bincount = sfs_bincount,
+            SFS_bincount = SFS_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
-            cluster_frequency_min = cluster_frequency_min,
-            cluster_frequency_max = cluster_frequency_max,
+            cluster_VAF_min = cluster_VAF_min,
+            cluster_VAF_max = cluster_VAF_max,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
@@ -227,29 +223,29 @@ DECODE <- function(sample_id = "",
         DECODE_result$best_with_tail <- TRUE
         DECODE_result$best_N_clusters <- result_with_tail$best_N_clusters
     } else if (neutral_tail == FALSE) {
+        #   Find best DECODE fit without neutral tail
         result_without_tail <- DECODE_given_tail_status(
             SFS_data_inference_A = threshold_results$SFS_data_inference_A,
             SFS_data_inference_B = threshold_results$SFS_data_inference_B,
             SFS_data_validation = threshold_results$SFS_data_validation,
-            ploidy = ploidy,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             wilcoxon_pvalue_threshold = wilcoxon_pvalue_threshold,
             criterion_Nsamples = criterion_Nsamples,
             criterion_tail_weight = criterion_tail_weight,
-            min_N_clusters = max(1, min_N_clusters),
-            max_N_clusters = max(1, min_N_clusters, max_N_clusters),
+            N_clusters_min = max(1, N_clusters_min),
+            N_clusters_max = max(1, N_clusters_min, N_clusters_max),
             with_tail = FALSE,
-            n_SMCRF_particles = n_SMCRF_particles,
+            ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
             allele_count = allele_count,
-            sfs_bincount = sfs_bincount,
+            SFS_bincount = SFS_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
-            cluster_frequency_min = cluster_frequency_min,
-            cluster_frequency_max = cluster_frequency_max,
+            cluster_VAF_min = cluster_VAF_min,
+            cluster_VAF_max = cluster_VAF_max,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
@@ -257,7 +253,7 @@ DECODE <- function(sample_id = "",
         DECODE_result$best_with_tail <- FALSE
         DECODE_result$best_N_clusters <- result_without_tail$best_N_clusters
     }
-    #---Report the best fit
+    #---Report DECODE's best fit
     with_tail <- DECODE_result$best_with_tail
     if (DECODE_result$best_with_tail) {
         fit_results <- DECODE_result$fits_with_tail$all_fits[[paste0(DECODE_result$best_N_clusters, "_clusters")]]
@@ -279,93 +275,92 @@ DECODE <- function(sample_id = "",
         report <- paste0(report, yellow(paste0("mutation count: ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_exact")]])), " \u00B1 ", round(sd(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_exact")]])), " [True], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_A")]])), " \u00B1 ", round(sd(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_A")]])), " [A], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_B")]])), " \u00B1 ", round(sd(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_B")]])), " [B]"), "\n"))
     }
     cat(report)
-    #---Return the SFS deconvolution results
+    #---Return DECODE's results
     return(DECODE_result)
 }
 
 DECODE_given_tail_status <- function(SFS_data_inference_A,
                                      SFS_data_inference_B,
                                      SFS_data_validation,
-                                     ploidy,
                                      criterion,
                                      criterion_penalty_scale,
                                      wilcoxon_pvalue_threshold,
                                      criterion_Nsamples,
                                      criterion_tail_weight,
-                                     min_N_clusters,
-                                     max_N_clusters,
+                                     N_clusters_min,
+                                     N_clusters_max,
                                      with_tail,
-                                     n_SMCRF_particles,
+                                     ABCSMCDRF_nParticles,
                                      allele_count,
-                                     sfs_bincount,
+                                     SFS_bincount,
                                      SFS_convolution_inference_A,
                                      SFS_convolution_inference_B,
                                      SFS_convolution_validation,
                                      neutral_power_min,
                                      neutral_power_max,
-                                     cluster_frequency_min,
-                                     cluster_frequency_max,
+                                     cluster_VAF_min,
+                                     cluster_VAF_max,
                                      compute_parallel,
                                      n_cores) {
     all_fits <- list()
     best_criterion_values <- NULL
-    for (N_clusters in min_N_clusters:max_N_clusters) {
-        #---Find best parameter set, given the number of humps
-        cat(bold(blue(paste0("Inference for ", N_clusters, " clusters ", ifelse(with_tail, "with", "without"), " neutral tail component...\n"))))
+    for (N_clusters in N_clusters_min:N_clusters_max) {
+        #---Find best parameter set, given cluster count and tail status
+        cat(bold(blue(paste0("Inference for ", N_clusters, " cluster", ifelse(N_clusters > 1, "s", ""), ifelse(with_tail, " with", " without"), " neutral tail component...\n"))))
+        #   ... with uninformed prior distributions
         fit_results <- DECODE_given_tail_status_and_Ncluster(
             SFS_data_inference_A = SFS_data_inference_A,
             SFS_data_inference_B = SFS_data_inference_B,
             SFS_data_validation = SFS_data_validation,
-            ploidy = ploidy,
             criterion = criterion,
             criterion_penalty_scale = criterion_penalty_scale,
             criterion_Nsamples = criterion_Nsamples,
             criterion_tail_weight = criterion_tail_weight,
             N_clusters = N_clusters,
             with_tail = with_tail,
-            n_SMCRF_particles = n_SMCRF_particles,
+            ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
             allele_count = allele_count,
-            sfs_bincount = sfs_bincount,
+            SFS_bincount = SFS_bincount,
             SFS_convolution_inference_A = SFS_convolution_inference_A,
             SFS_convolution_inference_B = SFS_convolution_inference_B,
             SFS_convolution_validation = SFS_convolution_validation,
             neutral_power_min = neutral_power_min,
             neutral_power_max = neutral_power_max,
-            cluster_frequency_min = cluster_frequency_min,
-            cluster_frequency_max = cluster_frequency_max,
+            cluster_VAF_min = cluster_VAF_min,
+            cluster_VAF_max = cluster_VAF_max,
             compute_parallel = compute_parallel,
             n_cores = n_cores
         )
-        if (N_clusters > min_N_clusters) {
+        #   ... with prior distributions informed by results with lower cluster count
+        if (N_clusters > N_clusters_min) {
             fit_results_assisted <- DECODE_given_tail_status_and_Ncluster(
                 SFS_data_inference_A = SFS_data_inference_A,
                 SFS_data_inference_B = SFS_data_inference_B,
                 SFS_data_validation = SFS_data_validation,
                 previous_fit = all_fits[[paste0(N_clusters - 1, "_clusters")]],
-                ploidy = ploidy,
                 criterion = criterion,
                 criterion_penalty_scale = criterion_penalty_scale,
                 criterion_Nsamples = criterion_Nsamples,
                 criterion_tail_weight = criterion_tail_weight,
                 N_clusters = N_clusters,
                 with_tail = with_tail,
-                n_SMCRF_particles = n_SMCRF_particles,
+                ABCSMCDRF_nParticles = ABCSMCDRF_nParticles,
                 allele_count = allele_count,
-                sfs_bincount = sfs_bincount,
+                SFS_bincount = SFS_bincount,
                 SFS_convolution_inference_A = SFS_convolution_inference_A,
                 SFS_convolution_inference_B = SFS_convolution_inference_B,
                 SFS_convolution_validation = SFS_convolution_validation,
                 neutral_power_min = neutral_power_min,
                 neutral_power_max = neutral_power_max,
-                cluster_frequency_min = cluster_frequency_min,
-                cluster_frequency_max = cluster_frequency_max,
+                cluster_VAF_min = cluster_VAF_min,
+                cluster_VAF_max = cluster_VAF_max,
                 compute_parallel = compute_parallel,
                 n_cores = n_cores
             )
             if (!is.null(fit_results_assisted) && mean(fit_results_assisted[["distances"]]) < mean(fit_results[["distances"]])) fit_results <- fit_results_assisted
         }
         all_fits[[paste0(N_clusters, "_clusters")]] <- fit_results
-        #   Report the best fit for the current hump count
+        #---Report DECODE's best fit for the given cluster count
         report <- paste0(blue("Validation score       : "), cyan(paste0(criterion, " = ", format(round(mean(fit_results$criterion_values$criterion_value), 2), nsmall = 2), " \u00B1 ", format(round(sd(fit_results$criterion_values$criterion_value), 2)))))
         if (criterion == "GIC") {
             report <- paste0(report, cyan(paste0(" (L1 error = ", format(round(mean(fit_results$criterion_values$L1_error), 2), nsmall = 2), " \u00B1 ", format(round(sd(fit_results$criterion_values$L1_error), 2)), ", penalty = ", format(round(mean(fit_results$criterion_values$penalty), 2), nsmall = 2), " \u00B1 ", format(round(sd(fit_results$criterion_values$penalty), 2)), ")")))
@@ -380,20 +375,20 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
             report <- paste0(report, cyan(paste0("mutation count: ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_exact")]])), " \u00B1 ", round(sd(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_exact")]])), " [True], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_A")]])), " \u00B1 ", round(sd(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_A")]])), " [A], ", round(mean(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_B")]])), " \u00B1 ", round(sd(fit_results$parameters[[paste0("Cluster_", i, "_Nmut_B")]])), " [B]"), "\n"))
         }
         cat(report)
-        #   Statistical test to determine whether to continue with higher cluster counts
+        #---Select better fit and decide whether to continue with higher cluster counts
         current_criterion_values <- fit_results$criterion_values$criterion_value
         if (!is.null(best_criterion_values)) {
             tt <- wilcox.test(best_criterion_values, current_criterion_values, alternative = "greater")
             report <- paste0(bold(blue(paste0("H = ", N_clusters, " vs H = ", N_clusters - 1, "         : "))), cyan(paste0("Wilcoxon p-value = ", signif(tt$p.value, 3))))
             if (tt$p.value > wilcoxon_pvalue_threshold) {
-                report <- paste0(report, yellow(paste0(" → ", N_clusters - 1, " clusters is the best fit ", ifelse(with_tail, "with", "without"), " tail")), "\n")
+                report <- paste0(report, bold(yellow(paste0(" → ", N_clusters - 1, " clusters is the best fit ", ifelse(with_tail, "with", "without"), " tail"))), "\n")
                 cat(report)
                 break
             } else {
-                if (N_clusters == max_N_clusters) {
-                    report <- paste0(report, yellow(" → maximum cluster count has been reached, increased max_N_clusters may improve fit"), "\n")
+                if (N_clusters == N_clusters_max) {
+                    report <- paste0(report, bold(yellow(" → maximum cluster count has been reached, increased N_clusters_max may improve fit")), "\n")
                 } else {
-                    report <- paste0(report, blue(" → continue with higher cluster counts"), "\n")
+                    report <- paste0(report, bold(blue(" → continue with higher cluster counts")), "\n")
                 }
                 cat(report)
             }
@@ -401,42 +396,41 @@ DECODE_given_tail_status <- function(SFS_data_inference_A,
         best_criterion_values <- current_criterion_values
         best_N_clusters <- N_clusters
     }
-    #---Report the best fit
-    result <- list()
-    result$all_fits <- all_fits
-    result$best_N_clusters <- best_N_clusters
-    return(result)
+    result <- list(
+        all_fits = all_fits,
+        best_N_clusters = best_N_clusters
+    )
 }
 
 DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                                                   SFS_data_inference_B,
                                                   SFS_data_validation,
                                                   previous_fit = NULL,
-                                                  ploidy,
                                                   criterion,
                                                   criterion_penalty_scale,
                                                   criterion_Nsamples,
                                                   criterion_tail_weight,
                                                   N_clusters,
                                                   with_tail,
-                                                  n_SMCRF_particles,
+                                                  ABCSMCDRF_nParticles,
                                                   allele_count,
-                                                  sfs_bincount,
+                                                  SFS_bincount,
                                                   SFS_convolution_inference_A,
                                                   SFS_convolution_inference_B,
                                                   SFS_convolution_validation,
                                                   neutral_power_min,
                                                   neutral_power_max,
-                                                  cluster_frequency_min,
-                                                  cluster_frequency_max,
+                                                  cluster_VAF_min,
+                                                  cluster_VAF_max,
                                                   compute_parallel,
                                                   n_cores,
                                                   progress_bar = TRUE) {
     library(truncnorm)
-    #---Ingredients for ABC-SMC-DRF
+    #---Define priors for ABC-SMC-DRF
     if (!is.null(previous_fit)) {
-        #---Initial clustering composition based on previous fit
-        SFS_data_frequencies <- seq(1, sfs_bincount) / sfs_bincount
+        #---... with distributions informed by results with lower cluster count
+        #   Find SFS location with maximal mutation residual in previous fit
+        SFS_data_frequencies <- seq(1, SFS_bincount) / SFS_bincount
         SFS_inference_A_residual <- pmax(0, SFS_data_inference_A - colMeans(previous_fit[["SFS_inference_A"]]))
         if (all(SFS_inference_A_residual == 0)) {
             return(NULL)
@@ -447,6 +441,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         initial_guess <- colMeans(previous_fit[["posterior_parameters"]])
         initial_guess[[paste0("p_", N_clusters)]] <- SFS_data_frequencies[which.max(SFS_inference_A_residual)]
         initial_guess[[paste0("omega_inference_A_", N_clusters)]] <- sum(SFS_inference_A_residual)
+        #   Define informed prior distributions
         rprior <- function(Nparameters) {
             parameters <- data.frame(matrix(nrow = Nparameters, ncol = 0))
             if (with_tail) {
@@ -454,30 +449,30 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                     n = Nparameters,
                     a = neutral_power_min, b = neutral_power_max,
                     mean = initial_guess[["alpha"]],
-                    sd = 0.05 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                    sd = 0.05
                 )
                 parameters[["omega_inference_A_0"]] <- rtruncnorm(
                     n = Nparameters,
                     a = 0, b = 2 * sum(SFS_data_inference_A),
                     mean = initial_guess[["omega_inference_A_0"]],
-                    sd = 0.05 * sum(SFS_data_inference_A) # <<<<<<<<<<<<
+                    sd = 0.05 * sum(SFS_data_inference_A)
                 )
             }
             for (i in seq_len(N_clusters)) {
                 parameters[[paste0("p_", i)]] <- rtruncnorm(
                     n = Nparameters,
-                    a = cluster_frequency_min, b = cluster_frequency_max,
+                    a = cluster_VAF_min, b = cluster_VAF_max,
                     mean = initial_guess[[paste0("p_", i)]],
-                    sd = 0.05 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                    sd = 0.05
                 )
                 parameters[[paste0("omega_inference_A_", i)]] <- rtruncnorm(
                     n = Nparameters,
                     a = 0, b = 2 * sum(SFS_data_inference_A),
                     mean = initial_guess[[paste0("omega_inference_A_", i)]],
-                    sd = 0.05 * sum(SFS_data_inference_A) # <<<<<<<<<<<<
+                    sd = 0.05 * sum(SFS_data_inference_A)
                 )
             }
-            #---Order parameter sets in decreasing cluster VAFs
+            #   Order parameter sets in decreasing cluster VAFs
             if (N_clusters > 1) {
                 p_colnames <- paste0("p_", 1:N_clusters)
                 omega_colnames <- paste0("omega_inference_A_", 1:N_clusters)
@@ -503,7 +498,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                         parameters[["alpha"]],
                         a = neutral_power_min, b = neutral_power_max,
                         mean = initial_guess[["alpha"]],
-                        sd = 0.05 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                        sd = 0.05
                     )
                 }
                 if (parameter_id %in% c("all", "omega_inference_A_0") && !is.null(parameters[["omega_inference_A_0"]])) {
@@ -511,7 +506,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                         parameters[["omega_inference_A_0"]],
                         a = 0, b = 2 * sum(SFS_data_inference_A),
                         mean = initial_guess[["omega_inference_A_0"]],
-                        sd = 0.05 * sum(SFS_data_inference_A) # <<<<<<<<
+                        sd = 0.05 * sum(SFS_data_inference_A)
                     )
                 }
             }
@@ -521,9 +516,9 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                 if (parameter_id %in% c("all", p_col) && !is.null(parameters[[p_col]])) {
                     probs <- probs * dtruncnorm(
                         parameters[[p_col]],
-                        a = cluster_frequency_min, b = cluster_frequency_max,
+                        a = cluster_VAF_min, b = cluster_VAF_max,
                         mean = initial_guess[[p_col]],
-                        sd = 0.05 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                        sd = 0.05
                     )
                 }
                 if (parameter_id %in% c("all", omega_col) && !is.null(parameters[[omega_col]])) {
@@ -531,13 +526,14 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                         parameters[[omega_col]],
                         a = 0, b = 2 * sum(SFS_data_inference_A),
                         mean = initial_guess[[omega_col]],
-                        sd = 0.05 * sum(SFS_data_inference_A) # <<<<<<<<
+                        sd = 0.05 * sum(SFS_data_inference_A)
                     )
                 }
             }
             return(probs)
         }
     } else {
+        #---... with uninformed distributions
         rprior <- function(Nparameters) {
             parameters <- data.frame(matrix(nrow = Nparameters, ncol = 0))
             if (with_tail) {
@@ -545,10 +541,10 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                 parameters[["omega_inference_A_0"]] <- runif(Nparameters, min = 0, max = 2 * sum(SFS_data_inference_A))
             }
             for (i in seq_len(N_clusters)) {
-                parameters[[paste0("p_", i)]] <- runif(Nparameters, min = cluster_frequency_min, max = cluster_frequency_max)
+                parameters[[paste0("p_", i)]] <- runif(Nparameters, min = cluster_VAF_min, max = cluster_VAF_max)
                 parameters[[paste0("omega_inference_A_", i)]] <- runif(Nparameters, min = 0, max = 2 * sum(SFS_data_inference_A))
             }
-            #---Order parameter sets in decreasing cluster VAFs
+            #   Order parameter sets in decreasing cluster VAFs
             if (N_clusters > 1) {
                 p_colnames <- paste0("p_", 1:N_clusters)
                 omega_colnames <- paste0("omega_inference_A_", 1:N_clusters)
@@ -580,7 +576,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                 p_col <- paste0("p_", i)
                 omega_col <- paste0("omega_inference_A_", i)
                 if (parameter_id %in% c("all", p_col) && !is.null(parameters[[p_col]])) {
-                    probs <- probs * dunif(parameters[[p_col]], min = cluster_frequency_min, max = cluster_frequency_max)
+                    probs <- probs * dunif(parameters[[p_col]], min = cluster_VAF_min, max = cluster_VAF_max)
                 }
                 if (parameter_id %in% c("all", omega_col) && !is.null(parameters[[omega_col]])) {
                     probs <- probs * dunif(parameters[[omega_col]], min = 0, max = 2 * sum(SFS_data_inference_A))
@@ -589,6 +585,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
             return(probs)
         }
     }
+    #---Define perturbation scheme for ABC-SMC-DRF: normal distributions with Beaumont variances
     rperturb <- function(parameters_unperturbed, parameters_previous_sampled, iteration) {
         Beaumont_variances <- 2 * pmax(sapply(parameters_previous_sampled, var), 1e-10)
         parameters_perturbed <- parameters_unperturbed
@@ -611,7 +608,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
             omega_col <- paste0("omega_inference_A_", i)
             parameters_perturbed[[p_col]] <- rtruncnorm(
                 n = nrow(parameters_perturbed),
-                a = cluster_frequency_min, b = cluster_frequency_max,
+                a = cluster_VAF_min, b = cluster_VAF_max,
                 mean = parameters_perturbed[[p_col]],
                 sd = sqrt(Beaumont_variances[[p_col]])
             )
@@ -651,7 +648,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
             if (parameter_id %in% c("all", p_col) && !is.null(parameters[[p_col]])) {
                 probs <- probs * dtruncnorm(
                     parameters[[p_col]],
-                    a = cluster_frequency_min, b = cluster_frequency_max,
+                    a = cluster_VAF_min, b = cluster_VAF_max,
                     mean = parameters_previous[[p_col]],
                     sd = sqrt(Beaumont_variances[[p_col]])
                 )
@@ -667,16 +664,16 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         }
         return(probs)
     }
+    #---Define objective function for ABC-SMC-DRF
     model <- function(parameters) {
         if (compute_parallel) {
             library(parallel)
             library(pbapply)
             cl <- makePSOCKcluster(ifelse(is.null(n_cores), detectCores() - 1, n_cores))
             clusterExport(cl, varlist = c(
-                "one_SFS", "allele_count", "N_clusters",
+                "one_SFS", "allele_count", "N_clusters", "with_tail",
                 "SFS_convolution_inference_A", "SFS_convolution_inference_B",
-                "SFS_data_inference_A", "SFS_data_inference_B",
-                "with_tail", "ploidy"
+                "SFS_data_inference_A", "SFS_data_inference_B"
             ), envir = environment())
             stats_list <- parLapply(cl, seq_len(nrow(parameters)), function(i) {
                 data.frame(distance = one_SFS(parameters[i, ])$distance)
@@ -696,11 +693,10 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
                         output_SFS = FALSE,
                         output_SFS_components = FALSE,
                         output_all_parameters = FALSE) {
-        #   Compute component distributions in the exact SFS
+        #   Compute distributions for each component in the exact SFS
         if (with_tail) {
             dist <- c(1:round(allele_count * max(as.numeric(one_parameter[paste0("p_", 1:N_clusters)]))))^(-as.numeric(one_parameter[["alpha"]]))
             dist <- c(dist, rep(0, allele_count - length(dist)))
-            # dist <- c((1:round(allele_count / ploidy))^(-as.numeric(one_parameter[["alpha"]])), rep(0, allele_count - round(allele_count / ploidy)))
             dist <- dist / sum(dist)
             SFS_exact_components <- matrix(dist, nrow = 1)
         } else {
@@ -770,7 +766,7 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         }
         return(output)
     }
-    #---ABC-SMC-DRF
+    #---Perform ABC-SMC-DRF
     smcrf_result <- smcrf_multi_param(
         statistics_target = data.frame(distance = 0),
         model = model,
@@ -778,11 +774,11 @@ DECODE_given_tail_status_and_Ncluster <- function(SFS_data_inference_A,
         dprior = dprior,
         rperturb = rperturb,
         dperturb = dperturb,
-        nParticles = n_SMCRF_particles,
+        nParticles = ABCSMCDRF_nParticles,
         parallel = compute_parallel,
         min.node.size = 1
     )
-    #---Sample parameter sets from ABC-SMC-DRF posterior distribution
+    #---Sample parameter sets from ABC-SMC-DRF's posterior distribution
     final_parameters <- smcrf_result[[paste0("Iteration_", smcrf_result[["nIterations"]])]]$parameters
     final_weights <- smcrf_result[[paste0("Iteration_", smcrf_result[["nIterations"]])]]$weights
     posterior_parameters <- final_parameters[
@@ -940,7 +936,7 @@ choose_mutation_thresholds <- function(mutation_table,
     }
     readcount_distribution$freq <- 100 * readcount_distribution$mutation_count / sum(mutation_table_new$count)
     cat("\n")
-    #   Report the chosen mutation thresholds
+    #---Report the chosen mutation thresholds
     report <- paste0(blue("Complete data          : "), cyan(paste0(min(mutation_table$Alt_count), " \u2264 variant reads, ", min(mutation_table$Tot_count), " \u2264 total reads \u2264 ", max(mutation_table$Tot_count), "; ", nrow(mutation_table), " mutations\n")))
     report <- paste0(report, blue("Inference A            : "), cyan(paste0(min_variant_read_inference_A, " \u2264 variant reads, ", min_total_read_inference_A, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_A, " mutations (", format(round(freq_inference_A, 2), nsmall = 2), "%)")), "\n")
     report <- paste0(report, blue("Inference B            : "), cyan(paste0(min_variant_read_inference_B, " \u2264 variant reads, ", min_total_read_inference_B, " \u2264 total reads \u2264 ", max_total_read, "; ", Nmut_inference_B, " mutations (", format(round(freq_inference_B, 2), nsmall = 2), "%)")), "\n")
@@ -983,14 +979,12 @@ choose_mutation_thresholds <- function(mutation_table,
     return(results)
 }
 
-build_convolution_matrix <- function(sfs_bincount,
+build_convolution_matrix <- function(SFS_bincount,
                                      mode = NULL,
                                      allele_count,
                                      min_variant_read,
                                      min_total_read,
                                      max_total_read,
-                                     coverage_distribution,
-                                     coverage_variables,
                                      sample_coverage,
                                      compute_parallel = FALSE,
                                      n_cores = NULL) {
@@ -999,23 +993,15 @@ build_convolution_matrix <- function(sfs_bincount,
     if (!is.null(mode)) report <- paste0(report, " for ", mode)
     cat(bold(blue(paste0(report, "...\n"))))
     N_end <- allele_count
-    SFS_totalsteps_base <- sfs_bincount
+    SFS_totalsteps_base <- SFS_bincount
     #---Compute the total readcount PDF
-    if (coverage_distribution == "uniform") {
-        sample_coverage_distribution <- data.frame(total_readcount = min_total_read:max_total_read)
-        sample_coverage_distribution$pdf <- 1 / nrow(sample_coverage_distribution)
-    } else if (coverage_distribution == "binomial") {
-        sample_coverage_distribution <- data.frame(total_readcount = min_total_read:max_total_read)
-        sample_coverage_distribution$pdf <- dbinom(sample_coverage_distribution$total_readcount, size = N_end, prob = coverage_variables$mean / N_end)
-    } else if (coverage_distribution == "sample-specific") {
-        sample_coverage_distribution <- sample_coverage
-    }
+    sample_coverage_distribution <- sample_coverage
     #---Function to compute the convolution vector for a given SFS bin
     func_convolution_vector <- function(N_end,
                                         SFS_totalsteps_base,
                                         min_variant_read,
                                         sample_coverage_distribution,
-                                        sfs_bincount,
+                                        SFS_bincount,
                                         i) {
         r <- sample_coverage_distribution$total_readcount
         r1 <- r * (i - 1) / SFS_totalsteps_base
@@ -1034,22 +1020,22 @@ build_convolution_matrix <- function(sfs_bincount,
     }
     #---Build convolution matrix to transform Griffiths-Tavare SFS to expected SFS
     if (compute_parallel == FALSE) {
-        mat_convolution <- matrix(0, nrow = N_end, ncol = sfs_bincount)
+        mat_convolution <- matrix(0, nrow = N_end, ncol = SFS_bincount)
         pb <- txtProgressBar(
             min = 0,
-            max = sfs_bincount,
+            max = SFS_bincount,
             style = 3,
             width = 50,
             char = "+"
         )
-        for (i in 1:sfs_bincount) {
+        for (i in 1:SFS_bincount) {
             setTxtProgressBar(pb, i)
             mat_convolution[, i] <- func_convolution_vector(
                 N_end = N_end,
                 SFS_totalsteps_base = SFS_totalsteps_base,
                 min_variant_read = min_variant_read,
                 sample_coverage_distribution = sample_coverage_distribution,
-                sfs_bincount = sfs_bincount,
+                SFS_bincount = SFS_bincount,
                 i = i
             )
         }
@@ -1062,16 +1048,16 @@ build_convolution_matrix <- function(sfs_bincount,
         cl <- makePSOCKcluster(numCores - 1)
         clusterExport(cl, varlist = c(
             "N_end", "SFS_totalsteps_base", "min_variant_read",
-            "sample_coverage_distribution", "sfs_bincount", "func_convolution_vector"
+            "sample_coverage_distribution", "SFS_bincount", "func_convolution_vector"
         ), envir = environment())
         #   Compute each convolution vector
-        output <- pblapply(cl = cl, X = 1:sfs_bincount, FUN = function(i) {
+        output <- pblapply(cl = cl, X = 1:SFS_bincount, FUN = function(i) {
             return(func_convolution_vector(
                 N_end = N_end,
                 SFS_totalsteps_base = SFS_totalsteps_base,
                 min_variant_read = min_variant_read,
                 sample_coverage_distribution = sample_coverage_distribution,
-                sfs_bincount = sfs_bincount,
+                SFS_bincount = SFS_bincount,
                 i = i
             ))
         })
@@ -1085,8 +1071,6 @@ build_convolution_matrix <- function(sfs_bincount,
     output$SFS_totalsteps_base <- SFS_totalsteps_base
     output$min_total_read <- min_total_read
     output$max_total_read <- max_total_read
-    output$coverage_distribution <- coverage_distribution
-    output$coverage_variables <- coverage_variables
     return(output)
 }
 
@@ -1262,9 +1246,6 @@ smcrf_multi_param <- function(statistics_target,
         }
         DRF_weights <- data.frame(matrix(rep(DRF_weights, length(parameters_ids)), ncol = length(parameters_ids)))
         colnames(DRF_weights) <- parameters_ids
-        ################################################################
-        ################################################################
-        ################################################################
         #---Order parameter sets in decreasing cluster VAFs
         N_clusters <- max(as.numeric(sub("p_", "", grep("^p_", colnames(parameters), value = TRUE))))
         if (N_clusters > 1) {
@@ -1282,9 +1263,6 @@ smcrf_multi_param <- function(statistics_target,
             parameters <- as.data.frame(t(apply(parameters, 1, reorder_clusters)))
             colnames(parameters) <- colnames(parameters)
         }
-        ################################################################
-        ################################################################
-        ################################################################
         #---Save SMC-DRF results from this iteration
         SMCDRF_iteration <- list()
         SMCDRF_iteration$reference <- reference
