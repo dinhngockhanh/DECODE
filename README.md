@@ -11,3 +11,7 @@ devtools::install_github("dinhngockhanh/DECODE")
 ```
 
 Detailed descriptions of how to run DECODE and analyze its output can be viewed in the INTRODUCTORY VIGNETTE.
+
+##  Methodology
+
+![Image](Fig_schematics.jpg)
