@@ -10,4 +10,4 @@ The DECODE library can be installed with
 devtools::install_github("dinhngockhanh/DECODE")
 ```
 
-Detailed descriptions of how to run DECODE and analyze its output can be viewed in the introductory vignette (???).
+Detailed descriptions of how to run DECODE and analyze its output can be viewed in the INTRODUCTORY VIGNETTE.
