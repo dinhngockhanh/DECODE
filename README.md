@@ -16,9 +16,6 @@ Detailed descriptions of how to run DECODE and analyze its output can be viewed 
 
 UP
 
-<figure>
-  <img src="Fig_schematics.jpg" alt="Image">
-  <figcaption><small><em>Figure 1: Your legend text here.</em></small></figcaption>
-</figure>
+![Image](Fig_schematics.jpg)
 
 DOWN
