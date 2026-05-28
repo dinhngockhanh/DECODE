@@ -17,7 +17,7 @@ Detailed descriptions of how to run DECODE and analyze its output can be viewed 
 UP
 
 <p align="center">
-  <img src="Fig_schematics.jpg" alt="DLP+ pipeline" width="80%">
+  <img src="Fig_schematics.jpg" alt="DECODE methodology" width="100%">
 </p>
 <p align="center">
   <small><em>
