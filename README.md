@@ -14,7 +14,11 @@ Detailed descriptions of how to run DECODE and analyze its output can be viewed 
 
 ##  Methodology
 
+UP
+
 <figure>
   <img src="Fig_schematics.jpg" alt="Image">
   <figcaption>Figure 1: Your legend text here.</figcaption>
 </figure>
+
+DOWN
