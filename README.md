@@ -15,3 +15,4 @@ Detailed descriptions of how to run DECODE and analyze its output can be viewed 
 ##  Methodology
 
 ![Image](Fig_schematics.jpg)
+*Figure 1: Your legend text here.*
