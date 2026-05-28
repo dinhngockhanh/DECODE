@@ -18,7 +18,7 @@ UP
 
 <figure>
   <img src="Fig_schematics.jpg" alt="Image">
-  <figcaption>Figure 1: Your legend text here.</figcaption>
+  <figcaption><small><em>Figure 1: Your legend text here.</em></small></figcaption>
 </figure>
 
 DOWN
