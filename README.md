@@ -16,6 +16,13 @@ Detailed descriptions of how to run DECODE and analyze its output can be viewed 
 
 UP
 
-![Image](Fig_schematics.jpg)
+<p align="center">
+  <img src="Fig_schematics.jpg" alt="DLP+ pipeline" width="80%">
+</p>
+<p align="center">
+  <small><em>
+    Caption text here. Left: description. Right: description.
+  </em></small>
+</p>
 
 DOWN
