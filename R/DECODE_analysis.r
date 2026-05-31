@@ -51,7 +51,7 @@ DECODE_mutation_assignment <- function(DECODE_result,
     }
     report <- paste0("\n", bold(red("Assign mutations to DECODE components with configuration ")), bold(yellow(paste0(ifelse(neutral_tail, "with tail", "without tail"), " + ", N_clusters, " clusters"))), bold(red("...")), "\n")
     cat(report)
-    #---Extract DECODE components
+    #---Extract DECODE components (each as a length-B vector)
     sfs_components <- list()
     if (neutral_tail) {
         sfs_components[["tail"]] <- colMeans(fit_results[[paste0("SFS_", mode, "_tail")]], na.rm = TRUE)
@@ -60,39 +60,29 @@ DECODE_mutation_assignment <- function(DECODE_result,
         sfs_components[[paste0("cluster_", i)]] <- colMeans(fit_results[[paste0("SFS_", mode, "_cluster_", i)]], na.rm = TRUE)
     }
     component_IDs <- names(sfs_components)
-    #---Normalize DECODE component probabilities for each SFS bin
-    sfs_proportions_df <- data.frame(matrix(0, nrow = DECODE_result$sfs_bincount, ncol = length(component_IDs)))
-    colnames(sfs_proportions_df) <- component_IDs
-    rownames(sfs_proportions_df) <- paste0("V", 1:DECODE_result$sfs_bincount)
-    for (i in seq_along(component_IDs)) {
-        sfs_proportions_df[, i] <- sfs_components[[component_IDs[i]]]
+    prob_cols <- paste0("prob_", component_IDs)
+    #---Build (B x C) component proportions matrix and row-normalize in one shot
+    P <- do.call(cbind, sfs_components)
+    if (!is.matrix(P)) {
+        P <- matrix(P, ncol = length(sfs_components),
+                    dimnames = list(NULL, component_IDs))
     }
-    row_sums <- rowSums(sfs_proportions_df, na.rm = TRUE)
-    for (i in seq_len(nrow(sfs_proportions_df))) {
-        if (row_sums[i] > 0 && !is.na(row_sums[i])) {
-            sfs_proportions_df[i, ] <- sfs_proportions_df[i, ] / row_sums[i]
-        } else {
-            sfs_proportions_df[i, ] <- 0
-        }
-    }
-    sfs_proportions_df[is.na(sfs_proportions_df)] <- 0
-    sfs_proportions_df[!is.finite(as.matrix(sfs_proportions_df))] <- 0
-    #---Assign component probabilities for each mutation
-    for (comp_name in component_IDs) {
-        mutation_table[[paste0("prob_", comp_name)]] <- NA
-    }
+    row_sums <- rowSums(P, na.rm = TRUE)
+    P <- P / row_sums
+    P[!is.finite(P)] <- 0
+    #---Vectorized bin assignment: preserves original (lo, hi] semantics via left.open = TRUE
     bin_edges <- c(-Inf, DECODE_result$SFS_frequencies[1:(length(DECODE_result$SFS_frequencies) - 1)], Inf)
-    for (SFS_bin in 1:(length(bin_edges) - 1)) {
-        bin_lower <- bin_edges[SFS_bin]
-        bin_upper <- bin_edges[SFS_bin + 1]
-        mutations_in_bin <- which(mutation_table$normalized_VAF > bin_lower & mutation_table$normalized_VAF <= bin_upper)
-        if (length(mutations_in_bin) == 0) {
-            next
-        }
-        bin_proportions <- sfs_proportions_df[SFS_bin, , drop = FALSE]
-        for (comp_name in component_IDs) {
-            mutation_table[[paste0("prob_", comp_name)]][mutations_in_bin] <- bin_proportions[1, comp_name]
-        }
+    B <- length(bin_edges) - 1L
+    vaf <- mutation_table$normalized_VAF
+    bin_idx <- findInterval(vaf, bin_edges, left.open = TRUE)
+    valid <- !is.na(bin_idx) & bin_idx >= 1L & bin_idx <= B
+    prob_mat <- matrix(NA_real_, nrow = length(vaf), ncol = length(component_IDs))
+    if (any(valid)) {
+        prob_mat[valid, ] <- P[bin_idx[valid], , drop = FALSE]
+    }
+    #---Append probability columns in one pass (one column-copy per component, not per bin)
+    for (j in seq_along(prob_cols)) {
+        mutation_table[[prob_cols[j]]] <- prob_mat[, j]
     }
     #---Return mutation table extended with DECODE component probabilities
     return(mutation_table)

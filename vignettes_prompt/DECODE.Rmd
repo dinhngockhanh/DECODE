@@ -1,0 +1,374 @@
+---
+title: "Introduction to DECODE"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to DECODE}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+    collapse = TRUE,
+    comment = "#>",
+    fig.align = "center",
+    out.width = "100%"
+)
+# rmarkdown::render("vignettes_prompt/DECODE.Rmd")
+```
+
+```{r setup}
+# Paths work when the knitting/interactive root is either vignettes_prompt/ or the repo root.
+vignette_dir <- if (file.exists(file.path("sim_data", "mutation_table.csv"))) {
+    "."
+} else if (file.exists(file.path("vignettes_prompt", "sim_data", "mutation_table.csv"))) {
+    "vignettes_prompt"
+}
+
+# Load DECODE after installation:
+# devtools::install_github("dinhngockhanh/DECODE")
+# library(DECODE)
+
+# Or source the R scripts from a local clone of the repository:
+r_dir <- file.path(vignette_dir, "..", "R")
+if (dir.exists(r_dir)) {
+    r_files <- list.files(r_dir, pattern = "[.]r$|[.]R$", full.names = TRUE)
+    invisible(lapply(r_files, source))
+}
+
+set.seed(1)
+options(max.print = 100)
+
+sample_id <- "example_sample"
+data_dir <- file.path(vignette_dir, "sim_data")
+output_dir <- file.path(vignette_dir, "DECODE_results")
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+```
+
+# Introduction
+
+DECODE (Deciphering Cancer Origin from DNA Evolution) deconvolves bulk tumor mutations into a neutral tail and one or more mutation clusters based on their Variant Allele Frequencies (VAFs).
+The algorithm corrects for sample-specific sequencing coverage and mutation-calling biases when building the Site Frequency Spectrum (SFS).
+
+This vignette walks through a complete hands-on workflow:
+
+1. Prepare a mutation table and a copy-number segment file.
+2. Annotate each mutation with its local copy number.
+3. Retain diploid loci (`nMajor == 1` and `nMinor == 1`) and run DECODE. 
+4. Save the result and generate diagnostic plots.
+
+Throughout this tutorial we use the example files in `sim_data/`:
+
+- `mutation_table.csv`
+- `copy_number_segments.txt`
+
+# 1. Prepare input data
+
+DECODE requires a mutation table with at least `Ref_count` and `Alt_count`.
+In practice, you also need genomic coordinates so that each mutation can be matched to a copy-number segment.
+
+## 1a. Mutation table
+
+The mutation table must contain read counts for the reference and alternate alleles.
+Additional columns such as chromosome and position are needed for copy-number annotation, but are not passed directly to `DECODE()`.
+
+Below is the expected format (first few rows):
+
+```{r show-mutation-table}
+mutation_table <- read.csv(file.path(data_dir, "mutation_table.csv"))
+head(mutation_table)
+```
+
+Required columns:
+
+| Column | Description |
+|--------|-------------|
+| `Ref_count` | Number of reads supporting the reference allele |
+| `Alt_count` | Number of reads supporting the alternate allele |
+
+Typical optional columns:
+
+| Column | Description |
+|--------|-------------|
+| `Chromosome` | Chromosome name (e.g. `chr1`, `chr2`, …) |
+| `Position` | Genomic position on that chromosome |
+
+If your data come from a VCF or other format, convert them to this structure before continuing.
+For example, if you have total depth and alternate count, set `Ref_count = total_depth - Alt_count`.
+
+## 1b. Copy-number segment file
+
+Copy-number segments define the major and minor allele copy number along each chromosome.
+DECODE should be run on mutations in diploid regions (`nMajor == 1`, `nMinor == 1`), where VAF directly reflects clonal frequency.
+
+The example file uses tab-separated values with the following columns:
+
+```{r show-cn-segments}
+cn_segments <- read.delim(file.path(data_dir, "copy_number_segments.txt"))
+head(cn_segments)
+```
+
+Required columns:
+
+| Column | Description |
+|--------|-------------|
+| `chr` | Chromosome identifier (e.g. `1`, `2`, …, `X`) |
+| `startpos` | Start coordinate of the segment (bp) |
+| `endpos` | End coordinate of the segment (bp) |
+| `nMajor` | Copy number of the major allele |
+| `nMinor` | Copy number of the minor allele |
+
+Segments on the same chromosome must not overlap, and should be sorted by `startpos`.
+
+**Note on chromosome naming.**
+Mutation tables often use a `chr` prefix (`chr1`), while copy-number files may use bare chromosome names (`1`).
+We normalize chromosome labels in the next section before matching.
+
+# 2. Annotate mutations with copy number
+
+We assign each mutation to the copy-number segment that contains its genomic position.
+For each chromosome, `findInterval()` locates the segment whose `startpos` is less than or equal to the mutation position.
+
+```{r annotate-cn-function}
+annotate_mutations_with_cn <- function(mutation_table, cn_segments) {
+    if (!all(c("Chromosome", "Position") %in% colnames(mutation_table))) {
+        stop("mutation_table must contain columns 'Chromosome' and 'Position'.")
+    }
+    if (!all(c("chr", "startpos", "endpos", "nMajor", "nMinor") %in% colnames(cn_segments))) {
+        stop("cn_segments must contain columns 'chr', 'startpos', 'endpos', 'nMajor', and 'nMinor'.")
+    }
+
+    mutation_table <- mutation_table
+    mutation_table$chr <- sub("^chr", "", as.character(mutation_table$Chromosome))
+    cn_segments <- cn_segments
+    cn_segments$chr <- as.character(cn_segments$chr)
+
+    mutation_table$nMajor <- NA_integer_
+    mutation_table$nMinor <- NA_integer_
+
+    for (chr in unique(mutation_table$chr)) {
+        mut_idx <- which(mutation_table$chr == chr)
+        cn_chr <- cn_segments[cn_segments$chr == chr, , drop = FALSE]
+        if (nrow(cn_chr) == 0) next
+
+        cn_chr <- cn_chr[order(cn_chr$startpos), , drop = FALSE]
+        pos <- mutation_table$Position[mut_idx]
+        seg_idx <- findInterval(pos, cn_chr$startpos)
+
+        # Keep only positions that fall inside the matched segment
+        valid <- seg_idx > 0
+        valid[valid] <- pos[valid] <= cn_chr$endpos[seg_idx[valid]]
+        mutation_table$nMajor[mut_idx[valid]] <- cn_chr$nMajor[seg_idx[valid]]
+        mutation_table$nMinor[mut_idx[valid]] <- cn_chr$nMinor[seg_idx[valid]]
+    }
+
+    return(mutation_table)
+}
+```
+
+Apply the annotation:
+
+```{r annotate-cn}
+mutation_table_cn <- annotate_mutations_with_cn(
+    mutation_table = mutation_table,
+    cn_segments = cn_segments
+)
+
+cat(
+    "Total mutations:", nrow(mutation_table_cn), "\n",
+    "Mapped to a CN segment:", sum(!is.na(mutation_table_cn$nMajor)), "\n"
+)
+head(mutation_table_cn[, c("Chromosome", "Position", "Ref_count", "Alt_count", "nMajor", "nMinor")])
+```
+
+Mutations with missing copy-number values lie outside the supplied segment file (for example, on chromosomes not present in the CN table) and should be removed before filtering.
+
+```{r remove-unmapped}
+mutation_table_cn <- mutation_table_cn[!is.na(mutation_table_cn$nMajor), ]
+nrow(mutation_table_cn)
+```
+
+# 3. Select diploid mutations for DECODE
+
+DECODE models clonal structure from VAF under the assumption that each mutation occurs on a single haploid copy in a diploid locus.
+Therefore, retain only mutations with `nMajor == 1` and `nMinor == 1`:
+
+```{r filter-diploid}
+mutation_table_diploid <- mutation_table_cn[
+    mutation_table_cn$nMajor == 1 & mutation_table_cn$nMinor == 1,
+]
+
+cat(
+    "Diploid mutations (nMajor = 1, nMinor = 1):", nrow(mutation_table_diploid), "\n"
+)
+```
+
+Remove mutations with zero reference or alternate read counts, and keep only the columns required by `DECODE()`:
+
+```{r prepare-decode-input}
+mutation_table_decode <- mutation_table_diploid[
+    mutation_table_diploid$Ref_count > 0 & mutation_table_diploid$Alt_count > 0,
+    c("Ref_count", "Alt_count")
+]
+
+head(mutation_table_decode)
+nrow(mutation_table_decode)
+```
+
+DECODE needs a sufficient number of mutations to estimate the SFS reliably.
+If fewer than roughly 100 mutations remain after filtering, consider relaxing upstream filters or checking copy-number inference quality.
+
+# 4. Run DECODE
+
+The main function is `DECODE()`.
+It accepts the filtered mutation table and returns a list object with model-selection results, best-fit parameters, and SFS summaries.
+
+Key arguments include:
+
+- `sample_id`: label for the sample.
+- `mutation_table`: data frame with `Ref_count` and `Alt_count`.
+- `neutral_tail`: whether to include a neutral tail (`NA` = compare with and without tail automatically).
+- `N_clusters_min`, `N_clusters_max`: range of cluster counts to evaluate.
+- `ABCSMCDRF_nParticles`: number of ABC-SMC-DRF particles per iteration (larger values improve accuracy but increase runtime).
+
+```{r run-decode, cache=TRUE}
+DECODE_result <- DECODE(
+    sample_id = sample_id,
+    mutation_table = mutation_table_decode,
+    neutral_tail = NA,
+    N_clusters_min = 1,
+    N_clusters_max = 3,
+    ABCSMCDRF_nParticles = rep(1000, 10)
+)
+```
+
+The console output reports the selected model (with or without neutral tail), the optimal number of clusters, and parameter estimates for each component.
+
+Inspect the main result fields:
+
+```{r inspect-result}
+names(DECODE_result)
+DECODE_result$best_with_tail
+DECODE_result$best_N_clusters
+```
+
+To retrieve parameters from the best-fitting model:
+
+```{r best-fit-parameters}
+if (DECODE_result$best_with_tail) {
+    fit_key <- paste0("fits_with_tail")
+} else {
+    fit_key <- paste0("fits_without_tail")
+}
+best_fit <- DECODE_result[[fit_key]]$all_fits[[
+    paste0(DECODE_result$best_N_clusters, "_clusters")
+]]
+names(best_fit)
+```
+
+For production analyses, use the default `ABCSMCDRF_nParticles = rep(1000, 10)` and a wider `N_clusters_max` if needed.
+The reduced settings above keep vignette rendering time reasonable.
+
+# 5. Save the DECODE result
+
+Save the full result object as an `.rds` file so you can reload it later without rerunning inference:
+
+```{r save-result}
+result_file <- file.path(output_dir, paste0("DECODE_", sample_id, ".rds"))
+saveRDS(DECODE_result, file = result_file)
+result_file
+```
+
+Reload a saved result in a new R session:
+
+```{r load-result, eval=FALSE}
+DECODE_result <- readRDS(result_file)
+```
+
+# 6. Visualize DECODE output
+
+DECODE provides several plotting functions in `DECODE_plots.r`:
+
+- `DECODE_plot_SFS()`: observed vs. fitted SFS for the best model.
+- `DECODE_plot_model_selection()`: comparison of candidate models (with/without tail, different cluster counts).
+- `DECODE_plot_criteria()`: model-selection criteria across candidates.
+- `DECODE_plot_readcounts()`: mutation read-count distribution with DECODE filtering thresholds.
+
+Both `DECODE_plot_SFS()` and `DECODE_plot_model_selection()` accept optional `filename`, `width`, `height`, `units`, and `res` arguments.
+Their defaults are `width = 30`, `height = 15`, `units = "in"`, and `res = 150` (i.e. 4500 × 2250 pixels when saved as PNG).
+The plot layout and font sizes in `DECODE_plots.r` are calibrated for this canvas size.
+
+When embedding plots in an HTML vignette, save the PNG first and then display it with `knitr::include_graphics()`.
+Re-drawing the ggplot or grid object inside a small default knitr device (~7 × 7 inches) compresses the same absolute font sizes into a much smaller figure and causes clipping.
+The workflow below writes PNG files to `DECODE_results/` in a hidden chunk, shows the plotting code in the visible chunks, and embeds the saved PNG files so the HTML output matches the on-disk figures.
+
+```{r plot-paths, include=FALSE}
+sfs_file <- file.path(output_dir, paste0("DECODE_SFS_", sample_id))
+model_selection_file <- file.path(
+    output_dir,
+    paste0("DECODE_model_selection_", sample_id)
+)
+```
+
+```{r plot-save, include=FALSE}
+DECODE_plot_SFS(
+    DECODE_result = DECODE_result,
+    filename = sfs_file,
+    filetype = "png"
+)
+DECODE_plot_model_selection(
+    DECODE_result = DECODE_result,
+    filename = model_selection_file,
+    filetype = "png"
+)
+```
+
+## 6a. Site Frequency Spectrum plot
+
+```{r plot-sfs-code, eval=FALSE}
+sfs_file <- file.path(output_dir, paste0("DECODE_SFS_", sample_id))
+
+DECODE_plot_SFS(
+    DECODE_result = DECODE_result,
+    filename = sfs_file,
+    filetype = "png"
+)
+```
+
+```{r plot-sfs-fig, echo=FALSE, out.width="100%"}
+knitr::include_graphics(paste0(sfs_file, ".png"))
+```
+
+The PNG is saved to `DECODE_results/DECODE_SFS_example_sample.png` at 30 × 15 inches and 150 dpi.
+
+## 6b. Model selection plot
+
+```{r plot-model-selection-code, eval=FALSE}
+model_selection_file <- file.path(
+    output_dir,
+    paste0("DECODE_model_selection_", sample_id)
+)
+
+DECODE_plot_model_selection(
+    DECODE_result = DECODE_result,
+    filename = model_selection_file,
+    filetype = "png"
+)
+```
+
+```{r plot-model-selection-fig, echo=FALSE, out.width="100%"}
+knitr::include_graphics(paste0(model_selection_file, ".png"))
+```
+
+# Summary
+
+This workflow covered the standard DECODE analysis path:
+
+1. Load a mutation table (`Ref_count`, `Alt_count`, plus genomic coordinates).
+2. Load copy-number segments (`chr`, `startpos`, `endpos`, `nMajor`, `nMinor`).
+3. Annotate each mutation with copy number via `findInterval`.
+4. Filter to diploid loci (`nMajor == 1`, `nMinor == 1`) and run `DECODE()`.
+5. Save the result with `saveRDS()`.
+6. Generate SFS and model-selection plots with `DECODE_plot_SFS()` and `DECODE_plot_model_selection()`.
+
+For your own data, replace the paths in `data_dir` with your mutation table and copy-number segment files, then repeat the same steps.
