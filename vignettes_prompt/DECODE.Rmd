@@ -23,6 +23,11 @@ vignette_dir <- if (file.exists(file.path("sim_data", "mutation_table.csv"))) {
     "."
 } else if (file.exists(file.path("vignettes_prompt", "sim_data", "mutation_table.csv"))) {
     "vignettes_prompt"
+} else {
+    stop(
+        "Cannot find sim_data/mutation_table.csv. ",
+        "Set the working directory to vignettes_prompt/ (recommended) or the DECODE repo root."
+    )
 }
 
 # Load DECODE after installation:
@@ -52,15 +57,21 @@ The algorithm corrects for sample-specific sequencing coverage and mutation-call
 
 This vignette walks through a complete hands-on workflow:
 
-1. Prepare a mutation table and a copy-number segment file.
-2. Annotate each mutation with its local copy number.
-3. Retain diploid loci (`nMajor == 1` and `nMinor == 1`) and run DECODE. 
-4. Save the result and generate diagnostic plots.
+1. Prepare a mutation table and a copy-number segment file (Section 1).
+2. Annotate each mutation with its local copy number (Section 2).
+3. Retain diploid loci (`nMajor = 1`, `nMinor = 1`) and run `DECODE()` (Sections 3–4).
+4. Save the `DECODE_result` object (Section 5).
+5. Generate diagnostic plots (Section 6).
+6. Extract key biological parameters: number of clusters, purity, CCF, and mutation burden (Section 7).
+7. Compute `normalized_VAF`, estimate multiplicity (e.g. with GRITIC), and assign mutations to DECODE components (Section 8).
+
+If you already have a saved `.rds` file, load it with `readRDS()` (Section 5) and continue from Section 6 or 7.
 
 Throughout this tutorial we use the example files in `sim_data/`:
 
 - `mutation_table.csv`
 - `copy_number_segments.txt`
+- `mutation_table_with_multiplicity.csv` (example table with multiplicity and normalized VAF)
 
 # 1. Prepare input data
 
@@ -99,7 +110,7 @@ For example, if you have total depth and alternate count, set `Ref_count = total
 ## 1b. Copy-number segment file
 
 Copy-number segments define the major and minor allele copy number along each chromosome.
-DECODE should be run on mutations in diploid regions (`nMajor == 1`, `nMinor == 1`), where VAF directly reflects clonal frequency.
+DECODE is run on mutations in diploid regions (`nMajor = 1`, `nMinor = 1`), where each mutation lies on a single haploid copy and $\mathrm{VAF} \approx \mathrm{CCF}/2$ (see [Section 7c](#7c-purity-and-cancer-cell-fraction-ccf)).
 
 The example file uses tab-separated values with the following columns:
 
@@ -124,7 +135,7 @@ Segments on the same chromosome must not overlap, and should be sorted by `start
 Mutation tables often use a `chr` prefix (`chr1`), while copy-number files may use bare chromosome names (`1`).
 We normalize chromosome labels in the next section before matching.
 
-# 2. Annotate mutations with copy number
+# 2. Annotate mutations with copy number {#2-annotate-mutations-with-copy-number}
 
 We assign each mutation to the copy-number segment that contains its genomic position.
 For each chromosome, `findInterval()` locates the segment whose `startpos` is less than or equal to the mutation position.
@@ -217,6 +228,7 @@ nrow(mutation_table_decode)
 
 DECODE needs a sufficient number of mutations to estimate the SFS reliably.
 If fewer than roughly 100 mutations remain after filtering, consider relaxing upstream filters or checking copy-number inference quality.
+The diploid assumption used here is the same as in [Section 7c](#7c-purity-and-cancer-cell-fraction-ccf) when interpreting cluster frequencies as CCF.
 
 # 4. Run DECODE
 
@@ -252,22 +264,10 @@ DECODE_result$best_with_tail
 DECODE_result$best_N_clusters
 ```
 
-To retrieve parameters from the best-fitting model:
+Parameter extraction from the best-fitting model is covered in [Section 7](#7-extract-key-parameters-from-decode-results).
 
-```{r best-fit-parameters}
-if (DECODE_result$best_with_tail) {
-    fit_key <- paste0("fits_with_tail")
-} else {
-    fit_key <- paste0("fits_without_tail")
-}
-best_fit <- DECODE_result[[fit_key]]$all_fits[[
-    paste0(DECODE_result$best_N_clusters, "_clusters")
-]]
-names(best_fit)
-```
-
-For production analyses, use the default `ABCSMCDRF_nParticles = rep(1000, 10)` and a wider `N_clusters_max` if needed.
-The reduced settings above keep vignette rendering time reasonable.
+The example below uses default `ABCSMCDRF_nParticles = rep(1000, 10)` and `N_clusters_max = 3`.
+For production analyses, consider a wider `N_clusters_max`; to speed up exploratory runs, reduce `ABCSMCDRF_nParticles`.
 
 # 5. Save the DECODE result
 
@@ -279,13 +279,13 @@ saveRDS(DECODE_result, file = result_file)
 result_file
 ```
 
-Reload a saved result in a new R session:
+Reload a saved result in a new R session and skip Sections 3–4:
 
 ```{r load-result, eval=FALSE}
 DECODE_result <- readRDS(result_file)
 ```
 
-# 6. Visualize DECODE output
+# 6. Visualize DECODE output {#6-visualize-decode-output}
 
 DECODE provides several plotting functions in `DECODE_plots.r`:
 
@@ -360,15 +360,287 @@ DECODE_plot_model_selection(
 knitr::include_graphics(paste0(model_selection_file, ".png"))
 ```
 
+## 6c. Optional diagnostic plots
+
+`DECODE_plot_criteria()` and `DECODE_plot_readcounts()` summarize model selection and the read-count filtering thresholds used by DECODE.
+They return ggplot objects and can be saved with `ggsave()` or displayed with `print()`.
+
+```{r plot-optional, eval=FALSE}
+print(DECODE_plot_criteria(DECODE_result = DECODE_result))
+print(DECODE_plot_readcounts(DECODE_result = DECODE_result))
+```
+
+# 7. Extract key parameters from DECODE results {#7-extract-key-parameters-from-decode-results}
+
+After DECODE finishes, the selected model is stored in `DECODE_result`.
+The ABC-SMC-DRF algorithm returns a **posterior sample** of parameters in `best_fit$parameters` (one row per particle).
+In practice, each scalar parameter is summarized by its **posterior mean**.
+
+## 7a. Retrieve the best fit
+
+First locate the best-fitting model chosen by DECODE (with or without neutral tail, and the optimal cluster count):
+
+```{r extract-best-fit}
+if (DECODE_result$best_with_tail) {
+    fit_key <- "fits_with_tail"
+} else {
+    fit_key <- "fits_without_tail"
+}
+
+best_fit <- DECODE_result[[fit_key]]$all_fits[[
+    paste0(DECODE_result$best_N_clusters, "_clusters")
+]]
+parameters <- best_fit$parameters
+
+DECODE_result$best_with_tail
+DECODE_result$best_N_clusters
+```
+
+## 7b. Number of clusters
+
+The selected number of mutation clusters is stored directly in the result object:
+
+```{r extract-n-clusters}
+N_clusters <- DECODE_result$best_N_clusters
+N_clusters
+```
+
+## 7c. Purity and Cancer Cell Fraction (CCF) {#7c-purity-and-cancer-cell-fraction-ccf}
+
+DECODE estimates a cluster frequency `Cluster_i_freq` (denoted `f` in the console report) for each cluster `i`.
+Under the **diploid assumption** used in this vignette (`nMajor = 1`, `nMinor = 1`), each cluster mutation lies on a single haploid copy, so for every diploid cluster
+
+$$\mathrm{VAF} \approx \frac{\mathrm{CCF}_i}{2}$$
+
+Equivalently, for cluster `i` we approximate
+
+$$\mathrm{CCF}_i \approx \min\left(1,\ 2 \times \mathrm{mean}(\texttt{Cluster_i_freq})\right)$$
+
+where `Cluster_i_freq` is the posterior sample of `f` for cluster `i`.
+
+The cluster with the **highest** posterior mean `Cluster_i_freq` is interpreted as the descendant of the tumour **most recent common ancestor (MRCA)**.
+Its CCF equals the tumour cell fraction in the sample, i.e. **purity**:
+
+$$\mathrm{purity} \approx \mathrm{CCF}_{i^*}, \quad i^* = \arg\max_i \mathrm{mean}(\texttt{Cluster_i_freq})$$
+
+```{r extract-ccf-purity}
+cluster_mean_freq <- vapply(
+    seq_len(N_clusters),
+    function(i) mean(parameters[[paste0("Cluster_", i, "_freq")]]),
+    numeric(1)
+)
+names(cluster_mean_freq) <- paste0("Cluster_", seq_len(N_clusters))
+
+cluster_ccf <- pmin(1, 2 * cluster_mean_freq)
+
+mrca_cluster <- names(which.max(cluster_mean_freq))
+purity <- cluster_ccf[mrca_cluster]
+
+data.frame(
+    cluster = names(cluster_mean_freq),
+    mean_VAF = cluster_mean_freq,
+    CCF = cluster_ccf
+)
+purity
+mrca_cluster
+```
+
+The MRCA-descendant cluster is `mrca_cluster`; its CCF equals `purity`.
+
+## 7d. Mutation burden per cluster {#7d-mutation-burden-per-cluster}
+
+DECODE does **not** use every diploid mutation when fitting the SFS.
+During the automatic read-count filtering step (`choose_mutation_thresholds()`), three non-overlapping subsets are defined:
+
+| Subset | Typical use | Mutation-count column |
+|--------|-------------|------------------------|
+| `inference_A` | Primary inference (most mutations retained) | `Cluster_i_Nmut_A` |
+| `inference_B` | Secondary inference (stricter thresholds) | `Cluster_i_Nmut_B` |
+| `validation` | Held-out validation SFS (strictest thresholds) | `Cluster_i_Nmut_validation` |
+
+For a **quick start**, we recommend summarizing mutation burden with the **inference A** counts:
+
+```{r extract-mutation-burden}
+cluster_burden <- data.frame(
+    cluster = paste0("Cluster_", seq_len(N_clusters)),
+    Nmut_A = vapply(
+        seq_len(N_clusters),
+        function(i) mean(parameters[[paste0("Cluster_", i, "_Nmut_A")]]),
+        numeric(1)
+    ),
+    Nmut_B = vapply(
+        seq_len(N_clusters),
+        function(i) mean(parameters[[paste0("Cluster_", i, "_Nmut_B")]]),
+        numeric(1)
+    ),
+    Nmut_validation = vapply(
+        seq_len(N_clusters),
+        function(i) mean(parameters[[paste0("Cluster_", i, "_Nmut_validation")]]),
+        numeric(1)
+    ),
+    CCF = cluster_ccf
+)
+cluster_burden
+```
+
+If the selected model includes a neutral tail (`DECODE_result$best_with_tail == TRUE`), the tail mutation burden can be read similarly, for example `mean(parameters$Tail_Nmut_A)`.
+
+## 7e. Summary table
+
+Combine the key quantities into one table:
+
+```{r extract-summary}
+decode_summary <- data.frame(
+    sample_id = DECODE_result$sample_id,
+    neutral_tail = DECODE_result$best_with_tail,
+    N_clusters = N_clusters,
+    purity = purity,
+    mrca_cluster = mrca_cluster
+)
+decode_summary
+cluster_burden[, c("cluster", "CCF", "Nmut_A")]
+```
+
+# 8. Mutation assignment
+
+DECODE fits the SFS at the **bulk** level.
+To associate individual mutations with the inferred neutral tail or mutation clusters, use `DECODE_mutation_assignment()` in `DECODE_analysis.r`.
+
+This function requires a mutation table with a `normalized_VAF` column: the VAF each mutation would have if it occurred in a **diploid** locus, on a **single** mutant copy, in the same sample purity.
+Mutations can come from **any** copy-number background (not only `nMajor = 1`, `nMinor = 1`), as long as `normalized_VAF` is computed correctly.
+
+## 8a. Normalized VAF
+
+Let $f_i$ be the observed VAF of mutation $i$, with multiplicity $m_i$ and total copy number $c_i = \mathrm{major\_cn} + \mathrm{minor\_cn}$ in a sample with purity $\rho$.
+Following Tarabichi et al. (2021), the **normalized VAF** is the expected VAF if the mutation were diploid:
+
+$$\bar{f}_i = f_i \cdot \frac{\dfrac{\rho}{2\rho + 2(1-\rho)}}{\dfrac{m_i \cdot \rho}{c_i \cdot \rho + 2(1-\rho)}}$$
+
+For **diploid** mutations (`major_cn = 1`, `minor_cn = 1`, `multiplicity = 1`), this simplifies to $\bar{f}_i = f_i$.
+
+Use the purity estimate from [Section 7c](#7c-purity-and-cancer-cell-fraction-ccf) as $\rho$.
+
+```{r normalized-vaf-function}
+compute_normalized_vaf <- function(VAF, multiplicity, total_cn, purity) {
+    vaf_if_diploid <- purity / (2 * purity + 2 * (1 - purity))
+    vaf_expected <- (multiplicity * purity) / (total_cn * purity + 2 * (1 - purity))
+    VAF * vaf_if_diploid / vaf_expected
+}
+```
+
+## 8b. Mutation multiplicity
+
+The normalized VAF formula requires the **multiplicity** $m_i$: the number of mutant copies of the alternate allele in the tumor cells.
+
+When `major_cn <= 1`, only one mutant copy can be present on the major allele, so $m_i = 1$.
+
+When `major_cn > 1`, multiple mutant copies are possible.
+We recommend estimating multiplicity with **[GRITIC](https://github.com/VanLoo-lab/gritic)**, which takes:
+
+- a mutation table (`Chromosome`, `Position`, `Tumor_Ref_Count`, `Tumor_Alt_Count`),
+- a copy-number table (`Chromosome`, `Segment_Start`, `Segment_End`, `Major_CN`, `Minor_CN`), and
+- the sample purity $\rho$.
+
+No further inputs are required. Install GRITIC with `pip install gritic` and run, for example:
+
+```{r gritic-example, eval=FALSE}
+# Convert DECODE inputs to GRITIC format, then run (command-line example):
+# python rungritic_cmd.py \
+#   --mutation_table path/to/snv_table.tsv \
+#   --copy_number_table path/to/cn_table.tsv \
+#   --purity 0.87 \
+#   --sample_id example_sample \
+#   --output path/to/gritic_output
+#
+# GRITIC writes a processed mutation table with multiplicity probabilities
+# (_mutation_table.tsv). Use the estimated multiplicity for each SNV.
+```
+
+In this vignette, the example file `mutation_table_with_multiplicity.csv` supplies multiplicity for all 100 SNVs (including loci with `major_cn > 1`).
+For your own data, run GRITIC and merge its multiplicity estimates into your annotated mutation table by `Chromosome` and `Position`.
+
+## 8c. Build the mutation assignment table
+
+The worked example below reads `mutation_table_with_multiplicity.csv` directly.
+It contains 100 SNVs with copy number and multiplicity already annotated (including non-diploid loci).
+For a full cohort, start from `mutation_table_cn` (Section 2), add a `multiplicity` column (`1` when `nMajor <= 1`; GRITIC otherwise), then compute `normalized_VAF`.
+
+```{r build-assignment-table}
+mutation_assignment_input <- read.csv(
+    file.path(data_dir, "mutation_table_with_multiplicity.csv")
+)
+
+mutation_assignment_input$VAF <- with(
+    mutation_assignment_input,
+    Alt_count / (Ref_count + Alt_count)
+)
+mutation_assignment_input$total_cn <- with(
+    mutation_assignment_input,
+    major_cn + minor_cn
+)
+
+# Recompute normalized VAF using purity from DECODE (Section 7)
+mutation_assignment_input$normalized_VAF <- compute_normalized_vaf(
+    VAF = mutation_assignment_input$VAF,
+    multiplicity = mutation_assignment_input$multiplicity,
+    total_cn = mutation_assignment_input$total_cn,
+    purity = purity
+)
+
+head(
+    mutation_assignment_input[
+        ,
+        c(
+            "Chromosome", "Position", "Ref_count", "Alt_count",
+            "major_cn", "minor_cn", "multiplicity", "VAF", "normalized_VAF"
+        )
+    ]
+)
+```
+
+For loci with `major_cn <= 1`, set `multiplicity <- 1`.
+For loci with `major_cn > 1`, populate `multiplicity` from GRITIC output before calling `compute_normalized_vaf()`.
+
+## 8d. Soft assignment with `DECODE_mutation_assignment()`
+
+`DECODE_mutation_assignment()` maps each mutation to the VAF bin of its `normalized_VAF` in the fitted SFS, then reads off the **component proportions** in that bin.
+This yields a soft assignment: columns `prob_tail`, `prob_cluster_1`, `prob_cluster_2`, … give the probability that each mutation belongs to each DECODE component.
+
+By default the function uses the **best overall fit** (`neutral_tail = NA`, `N_clusters = NULL`) and the **inference A** SFS (`mode = "inference_A"`).
+Other modes (`inference_B`, `validation`) can be selected to match the mutation subset used in [Section 7d](#7d-mutation-burden-per-cluster).
+
+```{r mutation-assignment}
+mutation_assignment <- DECODE_mutation_assignment(
+    DECODE_result = DECODE_result,
+    mutation_table = mutation_assignment_input,
+    mode = "inference_A"
+)
+
+prob_cols <- grep("^prob_", names(mutation_assignment), value = TRUE)
+head(mutation_assignment[, c("Chromosome", "Position", "normalized_VAF", prob_cols)])
+```
+
+Each row's probability columns sum to 1 (when the mutation falls inside a valid SFS bin).
+For example, a mutation with high `prob_cluster_1` and low `prob_tail` is likely assigned to cluster 1 rather than the neutral tail.
+
+Save the full assignment table:
+
+```{r save-assignment}
+assignment_file <- file.path(output_dir, paste0("mutation_assignment_", sample_id, ".csv"))
+write.csv(mutation_assignment, file = assignment_file, row.names = FALSE)
+assignment_file
+```
+
 # Summary
 
-This workflow covered the standard DECODE analysis path:
+This workflow covered the standard DECODE analysis path (Sections 1–8):
 
-1. Load a mutation table (`Ref_count`, `Alt_count`, plus genomic coordinates).
-2. Load copy-number segments (`chr`, `startpos`, `endpos`, `nMajor`, `nMinor`).
-3. Annotate each mutation with copy number via `findInterval`.
-4. Filter to diploid loci (`nMajor == 1`, `nMinor == 1`) and run `DECODE()`.
-5. Save the result with `saveRDS()`.
-6. Generate SFS and model-selection plots with `DECODE_plot_SFS()` and `DECODE_plot_model_selection()`.
+1. **Section 1** — Load a mutation table and copy-number segments.
+2. **Section 2** — Annotate each mutation with copy number via `findInterval`.
+3. **Sections 3–4** — Filter to diploid loci and run `DECODE()`.
+4. **Section 5** — Save the result with `saveRDS()`.
+5. **Section 6** — Generate SFS and model-selection plots.
+6. **Section 7** — Extract number of clusters, purity, CCF, and mutation burden.
+7. **Section 8** — Compute `normalized_VAF`, estimate multiplicity with GRITIC, and assign mutations with `DECODE_mutation_assignment()`.
 
 For your own data, replace the paths in `data_dir` with your mutation table and copy-number segment files, then repeat the same steps.
