@@ -16,12 +16,12 @@ DECODE_plot_model_selection <- function(DECODE_result,
         min(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_A > 0)]),
         min(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_B > 0)]),
         min(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_validation > 0)])
-    ) - 0.5 / DECODE_result$sfs_bincount
+    ) - 0.5 / DECODE_result$SFS_bincount
     x_max <- max(
         max(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_A > 0)]),
         max(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_inference_B > 0)]),
         max(DECODE_result$SFS_frequencies[which(DECODE_result$SFS_data_validation > 0)])
-    ) + 0.5 / DECODE_result$sfs_bincount
+    ) + 0.5 / DECODE_result$SFS_bincount
     func_one_fit <- function(p_right,
                              p_right_widths,
                              with_tail,

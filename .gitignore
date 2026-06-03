@@ -3,3 +3,5 @@ data/
 vignettes/.DS_Store
 R/.DS_Store
 vignettes/Previous results/
+
+vignettes_prompt/DECODE_cache/
