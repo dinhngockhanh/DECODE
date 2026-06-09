@@ -432,6 +432,7 @@ cluster_mean_freq <- vapply(
 names(cluster_mean_freq) <- paste0("Cluster_", seq_len(N_clusters))
 
 cluster_ccf <- pmin(1, 2 * cluster_mean_freq)
+names(cluster_ccf) <- names(cluster_mean_freq)
 
 mrca_cluster <- names(which.max(cluster_mean_freq))
 purity <- cluster_ccf[mrca_cluster]

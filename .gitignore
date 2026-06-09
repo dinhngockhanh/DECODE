@@ -5,3 +5,8 @@ R/.DS_Store
 vignettes/Previous results/
 
 vignettes_prompt/DECODE_cache/
+
+Archive/
+vignettes_prompt/shuffle_sim_data.R
+vignettes_prompt/optimize_sfs.R
+vignettes_prompt/fix_inference_A_threshold.R
