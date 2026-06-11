@@ -9,9 +9,9 @@
 #' consisting of VAFs normalized to match the copy number state analyzed by \code{\link{DECODE}}.
 #' @param mode String to specify which DECODE mode to use:
 #' \code{"inference_A"}, \code{"inference_B"}, or \code{"validation"} (\code{"inference_A"} by default).
-#' @param neutral_tail Logical variable for whether to apply DECODE fit with or without tail:
+#' @param with_tail Logical variable for whether to apply DECODE fit with or without tail:
 #' \code{TRUE}, \code{FALSE}, or \code{NA} (\code{NA} by default).
-#' If \code{neutral_tail = NA}, the best overall fit chosen by \code{\link{DECODE}} is used.
+#' If \code{with_tail = NA}, the best overall fit chosen by \code{\link{DECODE}} is used.
 #' @param N_clusters Integer to select the cluster count in the DECODE fit to apply (\code{NULL} by default).
 #' If \code{N_clusters = NULL}, the best overall fit chosen by \code{\link{DECODE}} is used.
 #' @return Dataframe extending \code{mutation_table} with probability columns:
@@ -21,7 +21,7 @@
 DECODE_mutation_assignment <- function(DECODE_result,
                                        mutation_table,
                                        mode = "inference_A",
-                                       neutral_tail = NA,
+                                       with_tail = NA,
                                        N_clusters = NULL) {
     suppressPackageStartupMessages(library(crayon))
     if (!"normalized_VAF" %in% colnames(mutation_table)) {
@@ -31,11 +31,11 @@ DECODE_mutation_assignment <- function(DECODE_result,
         stop("Invalid mode. Must be one of: 'inference_A', 'inference_B', 'validation'")
     }
     #---Determine which fit configuration to use
-    if (is.na(neutral_tail)) {
-        neutral_tail <- DECODE_result$best_with_tail
+    if (is.na(with_tail)) {
+        with_tail <- DECODE_result$best_with_tail
     }
     if (is.null(N_clusters)) {
-        if (neutral_tail) {
+        if (with_tail) {
             N_clusters <- DECODE_result$fits_with_tail$best_N_clusters
             fit_results <- DECODE_result$fits_with_tail$all_fits[[paste0(N_clusters, "_clusters")]]
         } else {
@@ -43,17 +43,17 @@ DECODE_mutation_assignment <- function(DECODE_result,
             fit_results <- DECODE_result$fits_without_tail$all_fits[[paste0(N_clusters, "_clusters")]]
         }
     } else {
-        if (neutral_tail) {
+        if (with_tail) {
             fit_results <- DECODE_result$fits_with_tail$all_fits[[paste0(N_clusters, "_clusters")]]
         } else {
             fit_results <- DECODE_result$fits_without_tail$all_fits[[paste0(N_clusters, "_clusters")]]
         }
     }
-    report <- paste0("\n", bold(red("Assign mutations to DECODE components with configuration ")), bold(yellow(paste0(ifelse(neutral_tail, "with tail", "without tail"), " + ", N_clusters, " clusters"))), bold(red("...")), "\n")
+    report <- paste0("\n", bold(red("Assign mutations to DECODE components with configuration ")), bold(yellow(paste0(ifelse(with_tail, "with tail", "without tail"), " + ", N_clusters, " clusters"))), bold(red("...")), "\n")
     cat(report)
     #---Extract DECODE components (each as a length-B vector)
     sfs_components <- list()
-    if (neutral_tail) {
+    if (with_tail) {
         sfs_components[["tail"]] <- colMeans(fit_results[[paste0("SFS_", mode, "_tail")]], na.rm = TRUE)
     }
     for (i in 1:N_clusters) {
@@ -64,8 +64,10 @@ DECODE_mutation_assignment <- function(DECODE_result,
     #---Build (B x C) component proportions matrix and row-normalize in one shot
     P <- do.call(cbind, sfs_components)
     if (!is.matrix(P)) {
-        P <- matrix(P, ncol = length(sfs_components),
-                    dimnames = list(NULL, component_IDs))
+        P <- matrix(P,
+            ncol = length(sfs_components),
+            dimnames = list(NULL, component_IDs)
+        )
     }
     row_sums <- rowSums(P, na.rm = TRUE)
     P <- P / row_sums

@@ -35,13 +35,13 @@ The algorithm corrects for sample-specific sequencing coverage and mutation-call
 
 This vignette walks through a complete hands-on workflow:
 
-- Section 1:  Prepare a mutation table with annotated copy numbers
-- Section 2:  Decompose diploid mutations with DECODE
-- Section 3:  Generate diagnostic plots
-- Section 4:  Extract key biological parameters
-- Section 5:  Assign mutations to DECODE components
+- [Section 1](#section-1):  Prepare a mutation table with annotated copy numbers
+- [Section 2](#section-2):  Decompose diploid mutations with DECODE
+- [Section 3](#section-3):  Generate diagnostic plots
+- [Section 4](#section-4):  Extract key biological parameters
+- [Section 5](#section-5):  Assign mutations to DECODE compartments
 
-# 1. Prepare a mutation table with annotated copy numbers
+# 1. Prepare a mutation table with annotated copy numbers {#section-1}
 
 DECODE requires a mutation table with columns `Ref_count` and `Alt_count`,
 containing the reference and alternative read counts for each mutation, respectively.
@@ -55,527 +55,340 @@ mutation_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE 
 head(mutation_table)
 ```
 
-NOTE FOR YANJIE: INCLUDE COLUMN Mutation_ID AS 1ST COLUMN.
+**NOTE FOR YANJIE: INCLUDE COLUMN Mutation_ID AS 1ST COLUMN.**
 
-
-
-Copy-number segments define the major and minor allele copy number along each chromosome.
-DECODE is run on mutations in diploid regions (`nMajor = 1`, `nMinor = 1`), where each mutation lies on a single haploid copy and $\mathrm{VAF} \approx \mathrm{CCF}/2$ (see [Section 7c](#7c-purity-and-cancer-cell-fraction-ccf)).
-
-The example file uses tab-separated values with the following columns:
+Since DECODE operates on the mutational SFS, decomposition should be limited to mutations sharing the same copy-number state,
+in which case mutation clusters correspond directly to distinct subclones.
+In practice, DECODE works best for samples that are mainly diploid.
+To extract only diploid mutations, we first load the table containing allele-specific copy number segments,
+e.g., from [ASCAT](https://github.com/VanLoo-lab/ascat).
 
 ```{r show-cn-segments}
-# cn_segments <- read.delim( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
+# cn_table <- read.delim( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
 #     system.file("extdata", "copy_number_segments.txt", package = "DECODE")
 # )
-cn_segments <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
+cn_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
     read.delim("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt")
-head(cn_segments)
+head(cn_table)
 ```
 
-Required columns:
-
-| Column | Description |
-|--------|-------------|
-| `chr` | Chromosome identifier (e.g. `1`, `2`, …, `X`) |
-| `startpos` | Start coordinate of the segment (bp) |
-| `endpos` | End coordinate of the segment (bp) |
-| `nMajor` | Copy number of the major allele |
-| `nMinor` | Copy number of the minor allele |
-
-Segments on the same chromosome must not overlap, and should be sorted by `startpos`.
-
-**Note on chromosome naming.**
-Mutation tables often use a `chr` prefix (`chr1`), while copy-number files may use bare chromosome names (`1`).
-We normalize chromosome labels in the next section before matching.
-
-## 1c. Annotate mutations with copy number
-
-We assign each mutation to the copy-number segment that contains its genomic position.
-For each chromosome, `findInterval()` locates the segment whose `startpos` is less than or equal to the mutation position.
+We can then assign allele-specific copy numbers to each mutation.
 
 ```{r annotate-cn-function}
-annotate_mutations_with_cn <- function(mutation_table, cn_segments) {
-    if (!all(c("Chromosome", "Position") %in% colnames(mutation_table))) {
-        stop("mutation_table must contain columns 'Chromosome' and 'Position'.")
-    }
-    if (!all(c("chr", "startpos", "endpos", "nMajor", "nMinor") %in% colnames(cn_segments))) {
-        stop("cn_segments must contain columns 'chr', 'startpos', 'endpos', 'nMajor', and 'nMinor'.")
-    }
-
-    mutation_table <- mutation_table
-    mutation_table$chr <- sub("^chr", "", as.character(mutation_table$Chromosome))
-    cn_segments <- cn_segments
-    cn_segments$chr <- as.character(cn_segments$chr)
-
+annotate_mutations_with_cn <- function(mutation_table, cn_table) {
+    cn_table$chr <- paste0("chr", cn_table$chr)
     mutation_table$nMajor <- NA_integer_
     mutation_table$nMinor <- NA_integer_
-
-    for (chr in unique(mutation_table$chr)) {
-        mut_idx <- which(mutation_table$chr == chr)
-        cn_chr <- cn_segments[cn_segments$chr == chr, , drop = FALSE]
-        if (nrow(cn_chr) == 0) next
-
-        cn_chr <- cn_chr[order(cn_chr$startpos), , drop = FALSE]
-        pos <- mutation_table$Position[mut_idx]
-        seg_idx <- findInterval(pos, cn_chr$startpos)
-
-        # Keep only positions that fall inside the matched segment
-        valid <- seg_idx > 0
-        valid[valid] <- pos[valid] <= cn_chr$endpos[seg_idx[valid]]
-        mutation_table$nMajor[mut_idx[valid]] <- cn_chr$nMajor[seg_idx[valid]]
-        mutation_table$nMinor[mut_idx[valid]] <- cn_chr$nMinor[seg_idx[valid]]
+    for (segment in 1:nrow(cn_table)) {
+        mutation_rows <- which(
+            mutation_table$Chromosome == cn_table$chr[segment] &
+                mutation_table$Position >= cn_table$startpos[segment] &
+                mutation_table$Position <= cn_table$endpos[segment]
+        )
+        mutation_table$nMajor[mutation_rows] <- cn_table$nMajor[segment]
+        mutation_table$nMinor[mutation_rows] <- cn_table$nMinor[segment]
     }
-
     return(mutation_table)
 }
-```
-
-Apply the annotation:
-
-```{r annotate-cn}
-mutation_table_cn <- annotate_mutations_with_cn(
+mutation_table <- annotate_mutations_with_cn(
     mutation_table = mutation_table,
-    cn_segments = cn_segments
+    cn_table = cn_table
 )
-
-cat(
-    "Total mutations:", nrow(mutation_table_cn), "\n",
-    "Mapped to a CN segment:", sum(!is.na(mutation_table_cn$nMajor)), "\n"
-)
-head(mutation_table_cn[, c("Chromosome", "Position", "Ref_count", "Alt_count", "nMajor", "nMinor")])
+cat("Total mutations:                     ", nrow(mutation_table), "\nMutations with assigned copy numbers:", sum(!is.na(mutation_table$nMajor)), "\n")
+head(mutation_table)
 ```
 
-Mutations with missing copy-number values lie outside the supplied segment file (for example, on chromosomes not present in the CN table) and should be removed before filtering.
+If allele-specific copy numbers are not available, we can filter for mutations with total copy number = 2.
+In this case, attention should be paid to potentially spurious clusters.
+For instance, mutations with (`nMajor`, `nMinor`) = (2, 0) may produce secondary clusters with higher VAF
+compared to their counterparts with (`nMajor`, `nMinor`) = (1, 1).
+These artificial clusters may inflate the clone count and sample purity.
 
-```{r remove-unmapped}
-mutation_table_cn <- mutation_table_cn[!is.na(mutation_table_cn$nMajor), ]
-nrow(mutation_table_cn)
-```
+# 2. Decompose diploid mutations with DECODE {#section-2}
 
-# 2. Decompose diploid mutations with DECODE
-
-## 2a. Filter to diploid mutations
-
-DECODE models clonal structure from VAF under the assumption that each mutation occurs on a single haploid copy in a diploid locus.
-Therefore, retain only mutations with `nMajor == 1` and `nMinor == 1`:
+We extract diploid mutations, i.e., those with (`nMajor`, `nMinor`) = (1, 1), for DECODE analysis.
+Furthermore, mutations without reported reference or alternate read counts must be excluded.
+Optionally, mutations with no reference or alternate read counts can also be omitted.
 
 ```{r filter-diploid}
-mutation_table_diploid <- mutation_table_cn[
-    mutation_table_cn$nMajor == 1 & mutation_table_cn$nMinor == 1,
-]
-
-cat(
-    "Diploid mutations (nMajor = 1, nMinor = 1):", nrow(mutation_table_diploid), "\n"
-)
+mutation_table <- mutation_table[which(
+    mutation_table$nMajor == 1 &
+        mutation_table$nMinor == 1 &
+        !is.na(mutation_table$Ref_count) &
+        !is.na(mutation_table$Alt_count) &
+        mutation_table$Ref_count > 0 &
+        mutation_table$Alt_count > 0
+), ]
+cat("Mutations on diploid regions:        ", nrow(mutation_table), "\n")
+head(mutation_table)
 ```
 
-Remove mutations with zero reference or alternate read counts, and keep only the columns required by `DECODE()`:
+DECODE requires a sufficient number of mutations to decompose the SFS reliably.
+If there are fewer than 100 mutations remaining in the table, consider using a different copy number state instead.
+Note that the ploidy assumption should be accounted for 
+[when translating cluster VAFs into subclonal CCFs](#section-4a).
 
-```{r prepare-decode-input}
-mutation_table_decode <- mutation_table_diploid[
-    mutation_table_diploid$Ref_count > 0 & mutation_table_diploid$Alt_count > 0,
-    c("Ref_count", "Alt_count")
-]
-
-head(mutation_table_decode)
-nrow(mutation_table_decode)
-```
-
-DECODE needs a sufficient number of mutations to estimate the SFS reliably.
-If fewer than roughly 100 mutations remain after filtering, consider relaxing upstream filters or checking copy-number inference quality.
-The diploid assumption used here is the same as in [Section 7c](#7c-purity-and-cancer-cell-fraction-ccf) when interpreting cluster frequencies as CCF.
-
-## 2b. Run DECODE
-
-The main function is `DECODE()`.
-It accepts the filtered mutation table and returns a list object with model-selection results, best-fit parameters, and SFS summaries.
-
-Key arguments include:
+We can then decompose the retained mutations with `DECODE()`.
+At minimum, DECODE requires `mutation_table`, a dataframe with columns `Ref_count` and `Alt_count`.
+DECODE also accepts several optional arguments:
 
 - `sample_id`: label for the sample.
-- `mutation_table`: data frame with `Ref_count` and `Alt_count`.
-- `neutral_tail`: whether to include a neutral tail (`NA` = compare with and without tail automatically).
-- `N_clusters_min`, `N_clusters_max`: range of cluster counts to evaluate.
-- `ABCSMCDRF_nParticles`: number of ABC-SMC-DRF particles per iteration (larger values improve accuracy but increase runtime).
+- `neutral_tail`: whether the decomposition should include a neutral tail (if `TRUE`) or not (if `FALSE`).
+By default, `neutral_tail = NA`, in which case DECODE will compare the fits with and without a neutral tail to select the parsimonious model.
+- `N_clusters`: requested cluster count.
+By default, `N_clusters = NA`, in which case DECODE will automatically determine the optimal number of clusters.
+- `N_clusters_min`, `N_clusters_max`: range of cluster counts (`N_clusters_min = 1` and `N_clusters_max = 5` by default).
+- `ABCSMCDRF_nParticles`: a vector of [ABC-SMC-DRF](https://github.com/dinhngockhanh/abcsmcrf) particle count
+(`rep(1000, 10)` by default).
+The length of `ABCSMCDRF_nParticles` indicates the total number of iterations,
+and each element indicates the particle count for the corresponding iteration.
+For complicated samples, increasing the iteration count or particle counts may improve DECODE's accuracy.
 
 ```{r run-decode, cache=TRUE}
 DECODE_result <- DECODE(
     sample_id = "Example",
-    mutation_table = mutation_table_decode
+    mutation_table = mutation_table
 )
 ```
 
-The console output reports the selected model (with or without neutral tail), the optimal number of clusters, and parameter estimates for each component.
+# 3. Generate diagnostic plots {#section-3}
 
-Inspect the main result fields:
-
-```{r inspect-result}
-names(DECODE_result)
-DECODE_result$best_with_tail
-DECODE_result$best_N_clusters
-```
-
-Parameter extraction from the best-fitting model is covered in [Section 7](#7-extract-key-parameters-from-decode-results).
-
-The example below uses default `ABCSMCDRF_nParticles = rep(1000, 10)` and `N_clusters_max = 3`.
-For production analyses, consider a wider `N_clusters_max`; to speed up exploratory runs, reduce `ABCSMCDRF_nParticles`.
-
-## 2c. Save the DECODE result
-
-Save the full result object as an `.rds` file so you can reload it later without rerunning inference:
-
-```{r save-result}
-result_file <- paste0("DECODE.rds")
-saveRDS(DECODE_result, file = result_file)
-result_file
-```
-
-Reload a saved result in a new R session and skip Sections 3–4:
-
-```{r load-result, eval=FALSE}
-DECODE_result <- readRDS(result_file)
-```
-
-# 3. Generate diagnostic plots
-
-DECODE provides several plotting functions in `DECODE_plots.r`:
-
-- `DECODE_plot_SFS()`: observed vs. fitted SFS for the best model.
-- `DECODE_plot_model_selection()`: comparison of candidate models (with/without tail, different cluster counts).
-- `DECODE_plot_criteria()`: model-selection criteria across candidates.
-- `DECODE_plot_readcounts()`: mutation read-count distribution with DECODE filtering thresholds.
-
-Both `DECODE_plot_SFS()` and `DECODE_plot_model_selection()` accept optional `filename`, `width`, `height`, `units`, and `res` arguments.
-Their defaults are `width = 30`, `height = 15`, `units = "in"`, and `res = 150` (i.e. 4500 × 2250 pixels when saved as PNG).
-The plot layout and font sizes in `DECODE_plots.r` are calibrated for this canvas size.
-
-When embedding plots in an HTML vignette, save the PNG first and then display it with `knitr::include_graphics()`.
-Re-drawing the ggplot or grid object inside a small default knitr device (~7 × 7 inches) compresses the same absolute font sizes into a much smaller figure and causes clipping.
-The workflow below writes PNG files to `DECODE_results/` in a hidden chunk, shows the plotting code in the visible chunks, and embeds the saved PNG files so the HTML output matches the on-disk figures.
-
-```{r plot-paths, include=FALSE}
-sfs_file <- "DECODE_SFS"
-model_selection_file <- "DECODE_model_selection"
-```
+DECODE provides two main plotting functions: `DECODE_plot_SFS()` and `DECODE_plot_model_selection()`.
+Both accept optional `filename`, `width`, `height`, `units`, and `res` arguments.
+The defaults are `width = 30`, `height = 15`, `units = "in"`, and `res = 150`
+(i.e. 4500×2250 pixels).
 
 ```{r plot-save, include=FALSE}
 DECODE_plot_SFS(
     DECODE_result = DECODE_result,
-    filename = sfs_file,
+    filename = "DECODE_SFS",
     filetype = "png"
 )
 DECODE_plot_model_selection(
     DECODE_result = DECODE_result,
-    filename = model_selection_file,
+    filename = "DECODE_model_selection",
     filetype = "png"
 )
 ```
 
-## 3a. Site Frequency Spectrum plot
+`DECODE_plot_SFS()` compares the empirical SFS against DECODE's result for particular subsample and fit.
+By default, it plots the best DECODE fit for the inference A subsample.
+The user can change to a different subsample with argument `mode` 
+(which accepts `"inference_A"`, `"inference_B"` or `"validation"`)
+and a different fit by changing arguments `with_tail` (`"TRUE"` or `"FALSE"`) and `N_clusters`
+(any integer cluster count that DECODE considered).
 
 ```{r plot-sfs-code, eval=FALSE}
-sfs_file <- "DECODE_SFS"
-
 DECODE_plot_SFS(
     DECODE_result = DECODE_result,
-    filename = sfs_file,
+    filename = "DECODE_SFS",
     filetype = "png"
 )
 ```
 
 ```{r plot-sfs-fig, echo=FALSE, out.width="100%"}
-knitr::include_graphics(paste0(sfs_file, ".png"))
+knitr::include_graphics(paste0("DECODE_SFS", ".png"))
 ```
 
-The PNG is saved to `DECODE_results/DECODE_SFS_example_sample.png` at 30 × 15 inches and 150 dpi.
-
-## 3b. Model selection plot
+`DECODE_plot_model_selection()` provides all information regarding the model selection process.
 
 ```{r plot-model-selection-code, eval=FALSE}
-model_selection_file <- "DECODE_model_selection"
-
 DECODE_plot_model_selection(
     DECODE_result = DECODE_result,
-    filename = model_selection_file,
+    filename = "DECODE_model_selection",
     filetype = "png"
 )
 ```
 
 ```{r plot-model-selection-fig, echo=FALSE, out.width="100%"}
-knitr::include_graphics(paste0(model_selection_file, ".png"))
+knitr::include_graphics(paste0("DECODE_model_selection", ".png"))
 ```
 
-## 3c. Optional diagnostic plots
+Top left: heatmap detailing the proportion of mutations retained for given variant and total read count thresholds.
+Filtering thresholds for inference A, inference B and validation subsamples are highlighted.
+Right: Optimal decompositions given cluster count $H$ with a tail (column T+$H$) or without a tail (column NT+$H$).
+For each $H$, the expected SFS for each subsample given the inferred parameters
+(shaded areas, colors denoting tail and clusters) is compared against the empirical SFS (black histogram).
+Means and standard deviations of tail power ($\alpha$) and cluster VAFs ($f$) are reported on top.
+Bottom left: comparison of Generalized Information Criteria (GIC) between different tail and cluster count assumptions.
+The fit with the lowest GIC is selected as the final result, and denoted with purple GIC bar
+and purple box around the corresponding SFS fits.
 
-`DECODE_plot_criteria()` and `DECODE_plot_readcounts()` summarize model selection and the read-count filtering thresholds used by DECODE.
-They return ggplot objects and can be saved with `ggsave()` or displayed with `print()`.
+**NOTE FOR YANJIE: CHECK WHY THE TEXTS IN HEATMAP ARE NOT DISPLAYING.**
 
-```{r plot-optional, eval=FALSE}
-print(DECODE_plot_criteria(DECODE_result = DECODE_result))
-print(DECODE_plot_readcounts(DECODE_result = DECODE_result))
-```
+# 4. Extract key biological parameters {#section-4}
 
-# 4. Extract key biological parameters
+Relevant biological parameters can be extracted or inferred from the output argument `DECODE_result`.
 
-After DECODE finishes, the selected model is stored in `DECODE_result`.
-The ABC-SMC-DRF algorithm returns a **posterior sample** of parameters in `best_fit$parameters` (one row per particle).
-In practice, each scalar parameter is summarized by its **posterior mean**.
-
-## 4a. Retrieve the best fit
-
-First locate the best-fitting model chosen by DECODE (with or without neutral tail, and the optimal cluster count):
+We first find details regarding DECODE's best fit,
+i.e., whether the tail can be detected, the number of clusters,
+and the corresponding parameter posterior distribution.
 
 ```{r extract-best-fit}
-if (DECODE_result$best_with_tail) {
-    fit_key <- "fits_with_tail"
-} else {
-    fit_key <- "fits_without_tail"
-}
-
-best_fit <- DECODE_result[[fit_key]]$all_fits[[
-    paste0(DECODE_result$best_N_clusters, "_clusters")
-]]
-parameters <- best_fit$parameters
-
-DECODE_result$best_with_tail
-DECODE_result$best_N_clusters
-```
-
-## 4b. Number of clusters
-
-The selected number of mutation clusters is stored directly in the result object:
-
-```{r extract-n-clusters}
+with_tail <- DECODE_result$best_with_tail
 N_clusters <- DECODE_result$best_N_clusters
-N_clusters
+fit_key <- ifelse(with_tail, "fits_with_tail", "fits_without_tail")
+parameters <- DECODE_result[[fit_key]]$all_fits[[paste0(N_clusters, "_clusters")]]$parameters
+cat("DECODE's tail status:                ", with_tail, "\nDECODE's cluster count:              ", N_clusters, "\n")
+head(parameters)
 ```
 
-## 4c. Purity and Cancer Cell Fraction (CCF) {#7c-purity-and-cancer-cell-fraction-ccf}
+## 4a. Sample purity and subclonal Cancer Cell Fractions (CCFs) {#section-4a}
 
-DECODE estimates a cluster frequency `Cluster_i_freq` (denoted `f` in the console report) for each cluster `i`.
-Under the **diploid assumption** used in this vignette (`nMajor = 1`, `nMinor = 1`), each cluster mutation lies on a single haploid copy, so for every diploid cluster
+DECODE estimates the clusters' mean VAFs (reported in columns `Cluster_i_freq` in `parameters`).
+The [formula for translating the VAF for clone $i$ into its subclonal CCF](https://doi.org/10.1038/s41592-020-01013-2)
+requires knowing sample purity $\rho$, copy number $N$ and multiplicity $m$:
 
-$$\mathrm{VAF} \approx \frac{\mathrm{CCF}_i}{2}$$
+$$\mathrm{CCF}_i \approx \frac{\mathrm{VAF}_i}{m\cdot\rho}\left(\rho\cdot N+2(1-\rho)\right)$$
 
-Equivalently, for cluster `i` we approximate
+If DECODE is limited to diploid mutations ((`nMajor`, `nMinor`) = (1, 1)), the multiplicity is necessarily 1,
+and the formula simplifies considerably:
 
-$$\mathrm{CCF}_i \approx \min\left(1,\ 2 \times \mathrm{mean}(\texttt{Cluster_i_freq})\right)$$
+$$\mathrm{CCF}_i \approx \frac{2\cdot\mathrm{VAF}_i}{\rho}$$
 
-where `Cluster_i_freq` is the posterior sample of `f` for cluster `i`.
+The subclonal CCFs, unnormalized for purity, are hence twice the cluster VAFs, averaged among DECODE's estimates.
 
-The cluster with the **highest** posterior mean `Cluster_i_freq` is interpreted as the descendant of the tumour **most recent common ancestor (MRCA)**.
-Its CCF equals the tumour cell fraction in the sample, i.e. **purity**:
-
-$$\mathrm{purity} \approx \mathrm{CCF}_{i^*}, \quad i^* = \arg\max_i \mathrm{mean}(\texttt{Cluster_i_freq})$$
-
-```{r extract-ccf-purity}
-cluster_mean_freq <- vapply(
+```{r extract-ccf}
+cluster_VAFs <- vapply(
     seq_len(N_clusters),
     function(i) mean(parameters[[paste0("Cluster_", i, "_freq")]]),
     numeric(1)
 )
-names(cluster_mean_freq) <- paste0("Cluster_", seq_len(N_clusters))
-
-cluster_ccf <- pmin(1, 2 * cluster_mean_freq)
-names(cluster_ccf) <- names(cluster_mean_freq)
-
-mrca_cluster <- names(which.max(cluster_mean_freq))
-purity <- cluster_ccf[mrca_cluster]
-
+cluster_CCFs <- 2 * cluster_VAFs
 data.frame(
-    cluster = names(cluster_mean_freq),
-    mean_VAF = cluster_mean_freq,
-    CCF = cluster_ccf
+    Compartment = paste0("Cluster ", seq_len(N_clusters)),
+    VAF = cluster_VAFs,
+    CCF = cluster_CCFs
 )
-purity
-mrca_cluster
 ```
 
-The MRCA-descendant cluster is `mrca_cluster`; its CCF equals `purity`.
+DECODE automatically orders the clusters in decreasing VAFs.
+Therefore, the sample purity equals the unnormalized CCF of cluster 1.
+Optionally, the subclonal CCFs can then be normalized by dividing by `purity`.
 
-## 4d. Mutation burden per cluster {#7d-mutation-burden-per-cluster}
+```{r extract-purity}
+purity <- cluster_CCFs[1]
+purity
+```
 
-DECODE does **not** use every diploid mutation when fitting the SFS.
-During the automatic read-count filtering step (`choose_mutation_thresholds()`), three non-overlapping subsets are defined:
+The formulae above can be adjusted if a different copy number state from diploidy was employed for DECODE.
 
-| Subset | Typical use | Mutation-count column |
-|--------|-------------|------------------------|
-| `inference_A` | Primary inference (most mutations retained) | `Cluster_i_Nmut_A` |
-| `inference_B` | Secondary inference (stricter thresholds) | `Cluster_i_Nmut_B` |
-| `validation` | Held-out validation SFS (strictest thresholds) | `Cluster_i_Nmut_validation` |
+## 4b. Subclonal mutation burden {#section-4b}
 
-For a **quick start**, we recommend summarizing mutation burden with the **inference A** counts:
+DECODE does not decompose all mutations in the input table.
+Instead, it creates three subsamples with varying readcount thresholds:
+
+| Subsample | Note                                                     |
+|-----------|----------------------------------------------------------|
+| `inference_A` | Lowest alternative readcount threshold; if the tail is detected, this subsample retains the most mutations in the tail |
+| `inference_B` | Highest alternative readcount threshold; if the tail is detected, this subsample retains the fewest mutations in the tail |
+| `validation` | Intermediate readcount threshold; mainly used to validate the parameters inferred from `inference_A` and `inference_B` |
+
+The mutation burden for each compartment, both mutation clusters and the tail if detected by DECODE, in each subsample
+can be estimated by averaging among DECODE's estimates.
 
 ```{r extract-mutation-burden}
 cluster_burden <- data.frame(
-    cluster = paste0("Cluster_", seq_len(N_clusters)),
-    Nmut_A = vapply(
-        seq_len(N_clusters),
-        function(i) mean(parameters[[paste0("Cluster_", i, "_Nmut_A")]]),
-        numeric(1)
+    Compartment = c(ifelse(with_tail, "Tail", c()), paste0("Cluster ", seq_len(N_clusters))),
+    CCF = c(ifelse(with_tail, c(NA), c()), cluster_CCFs),
+    nMut = c(sum(DECODE_result$SFS_data_inference_A), sum(DECODE_result$SFS_data_inference_B), sum(DECODE_result$SFS_data_validation)),
+    nMut_inference_A = c(
+        ifelse(with_tail, round(mean(parameters[["Tail_Nmut_A"]])), c()),
+        vapply(seq_len(N_clusters), function(i) round(mean(parameters[[paste0("Cluster_", i, "_Nmut_A")]])), numeric(1))
     ),
-    Nmut_B = vapply(
-        seq_len(N_clusters),
-        function(i) mean(parameters[[paste0("Cluster_", i, "_Nmut_B")]]),
-        numeric(1)
+    nMut_inference_B = c(
+        ifelse(with_tail, round(mean(parameters[["Tail_Nmut_B"]])), c()),
+        vapply(seq_len(N_clusters), function(i) round(mean(parameters[[paste0("Cluster_", i, "_Nmut_B")]])), numeric(1))
     ),
-    Nmut_validation = vapply(
-        seq_len(N_clusters),
-        function(i) mean(parameters[[paste0("Cluster_", i, "_Nmut_validation")]]),
-        numeric(1)
-    ),
-    CCF = cluster_ccf
+    nMut_validation = c(
+        ifelse(with_tail, round(mean(parameters[["Tail_Nmut_validation"]])), c()),
+        vapply(seq_len(N_clusters), function(i) round(mean(parameters[[paste0("Cluster_", i, "_Nmut_validation")]])), numeric(1))
+    )
 )
 cluster_burden
 ```
 
-If the selected model includes a neutral tail (`DECODE_result$best_with_tail == TRUE`), the tail mutation burden can be read similarly, for example `mean(parameters$Tail_Nmut_A)`.
+# 5. Assign mutations to DECODE compartment {#section-5}
 
-## 4e. Summary table
-
-Combine the key quantities into one table:
-
-```{r extract-summary}
-decode_summary <- data.frame(
-    sample_id = DECODE_result$sample_id,
-    neutral_tail = DECODE_result$best_with_tail,
-    N_clusters = N_clusters,
-    purity = purity,
-    mrca_cluster = mrca_cluster
-)
-decode_summary
-cluster_burden[, c("cluster", "CCF", "Nmut_A")]
-```
-
-# 5. Mutation assignment
-
-DECODE fits the SFS at the **bulk** level.
-To associate individual mutations with the inferred neutral tail or mutation clusters, use `DECODE_mutation_assignment()` in `DECODE_analysis.r`.
-
-This function requires a mutation table with a `normalized_VAF` column: the VAF each mutation would have if it occurred in a **diploid** locus, on a **single** mutant copy, in the same sample purity.
-Mutations can come from **any** copy-number background (not only `nMajor = 1`, `nMinor = 1`), as long as `normalized_VAF` is computed correctly.
-
-## 5a. Normalized VAF
-
-Let $f_i$ be the observed VAF of mutation $i$, with multiplicity $m_i$ and total copy number $c_i = \mathrm{major\_cn} + \mathrm{minor\_cn}$ in a sample with purity $\rho$.
-Following Tarabichi et al. (2021), the **normalized VAF** is the expected VAF if the mutation were diploid:
-
-$$\bar{f}_i = f_i \cdot \frac{\dfrac{\rho}{2\rho + 2(1-\rho)}}{\dfrac{m_i \cdot \rho}{c_i \cdot \rho + 2(1-\rho)}}$$
-
-For **diploid** mutations (`major_cn = 1`, `minor_cn = 1`, `multiplicity = 1`), this simplifies to $\bar{f}_i = f_i$.
-
-Use the purity estimate from [Section 7c](#7c-purity-and-cancer-cell-fraction-ccf) as $\rho$.
-
-```{r normalized-vaf-function}
-compute_normalized_vaf <- function(VAF, multiplicity, total_cn, purity) {
-    vaf_if_diploid <- purity / (2 * purity + 2 * (1 - purity))
-    vaf_expected <- (multiplicity * purity) / (total_cn * purity + 2 * (1 - purity))
-    VAF * vaf_if_diploid / vaf_expected
-}
-```
-
-## 5b. Mutation multiplicity
-
-The normalized VAF formula requires the **multiplicity** $m_i$: the number of mutant copies of the alternate allele in the tumor cells.
-
-When `major_cn <= 1`, only one mutant copy can be present on the major allele, so $m_i = 1$.
-
-When `major_cn > 1`, multiple mutant copies are possible.
-We recommend estimating multiplicity with **[GRITIC](https://github.com/VanLoo-lab/gritic)**, which takes:
-
-- a mutation table (`Chromosome`, `Position`, `Tumor_Ref_Count`, `Tumor_Alt_Count`),
-- a copy-number table (`Chromosome`, `Segment_Start`, `Segment_End`, `Major_CN`, `Minor_CN`), and
-- the sample purity $\rho$.
-
-No further inputs are required. Install GRITIC with `pip install gritic` and run, for example:
+Although DECODE decomposes only subsamples of diploid mutations,
+the remaining mutations can also be mapped to compartments inferred from DECODE
+(i.e., mutation clusters and the tail if detected), including those with different copy number states.
+However, their VAFs must first be converted to be compatible with the copy number state
+of DECODE's input mutation table.
+This requires first inferring mutation multiplicities,
+which can be performed with [GRITIC](https://github.com/VanLoo-lab/gritic) for instance.
 
 ```{r gritic-example, eval=FALSE}
-# Convert DECODE inputs to GRITIC format, then run (command-line example):
 # python rungritic_cmd.py \
-#   --mutation_table path/to/snv_table.tsv \
+#   --mutation_table path/to/mutation_table.tsv \
 #   --copy_number_table path/to/cn_table.tsv \
 #   --purity 0.87 \
-#   --sample_id example_sample \
+#   --sample_id Example \
 #   --output path/to/gritic_output
-#
-# GRITIC writes a processed mutation table with multiplicity probabilities
-# (_mutation_table.tsv). Use the estimated multiplicity for each SNV.
 ```
 
-In this vignette, the example file `mutation_table_with_multiplicity.csv` supplies multiplicity for all 100 SNVs (including loci with `major_cn > 1`).
-For your own data, run GRITIC and merge its multiplicity estimates into your annotated mutation table by `Chromosome` and `Position`.
+Once results from GRITIC or other CNA timing algorithms have been ascertained,
+the multiplicities can be assigned for each mutation.
+Here we use a pre-annotated mutation table as an example.
 
-## 5c. Build the mutation assignment table
+**NOTE FOR YANJIE: FOR mutation_table_with_multiplicity.csv, START FROM mutation_table.csv THEN ADD COLUMNS nMajor, nMinor and multiplicity. DO NOT ADD COLUMN normalized_VAF.**
 
-The worked example below reads `mutation_table_with_multiplicity.csv` directly.
-It contains 100 SNVs with copy number and multiplicity already annotated (including non-diploid loci).
-For a full cohort, start from `mutation_table_cn` (Section 2), add a `multiplicity` column (`1` when `nMajor <= 1`; GRITIC otherwise), then compute `normalized_VAF`.
-
-```{r build-assignment-table}
-# mutation_assignment_input <- read.csv( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
+```{r build-assignment-table-1}
+# mutation_table_with_multiplicity <- read.csv( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
 #     system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE")
 # )
-mutation_assignment_input <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
+mutation_table_with_multiplicity <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
     read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
-
-mutation_assignment_input$VAF <- with(
-    mutation_assignment_input,
-    Alt_count / (Ref_count + Alt_count)
-)
-mutation_assignment_input$total_cn <- with(
-    mutation_assignment_input,
-    major_cn + minor_cn
-)
-
-# Recompute normalized VAF using purity from DECODE (Section 7)
-mutation_assignment_input$normalized_VAF <- compute_normalized_vaf(
-    VAF = mutation_assignment_input$VAF,
-    multiplicity = mutation_assignment_input$multiplicity,
-    total_cn = mutation_assignment_input$total_cn,
-    purity = purity
-)
-
-head(
-    mutation_assignment_input[
-        ,
-        c(
-            "Chromosome", "Position", "Ref_count", "Alt_count",
-            "major_cn", "minor_cn", "multiplicity", "VAF", "normalized_VAF"
-        )
-    ]
-)
+head(mutation_table_with_multiplicity)
 ```
 
-For loci with `major_cn <= 1`, set `multiplicity <- 1`.
-For loci with `major_cn > 1`, populate `multiplicity` from GRITIC output before calling `compute_normalized_vaf()`.
+The [relationship between a mutation's VAF and its CCF](https://doi.org/10.1038/s41592-020-01013-2)
+can be rearranged to calculate each mutation's normalized VAF, i.e., the VAF if the mutation were diploid:
+$$f_\text{normalized} = f \cdot \left.\dfrac{\rho}{2\rho + 2(1-\rho)}\middle/\dfrac{m \cdot \rho}{c \cdot \rho + 2(1-\rho)}\right.$$
+where $f$ is the mutation's observed VAF, $m$ and $c$ are its multiplicity and total copy number, respectively, and $\rho$ is the sample purity.
+If a different copy number state was implemented for DECODE, the fraction in the numerator can be adjusted accordingly.
 
-## 5d. Soft assignment with `DECODE_mutation_assignment()`
+```{r build-assignment-table-2}
+mutation_table_with_multiplicity$VAF <- with(
+    mutation_table_with_multiplicity,
+    Alt_count / (Ref_count + Alt_count)
+)
+mutation_table_with_multiplicity$total_cn <- with(
+    mutation_table_with_multiplicity,
+    major_cn + minor_cn
+)
+mutation_table_with_multiplicity$normalized_VAF <- with(
+    mutation_table_with_multiplicity,
+    VAF * purity / (2 * purity + 2 * (1 - purity)) /
+        ((multiplicity * purity) / (total_cn * purity + 2 * (1 - purity)))
+)
+head(mutation_table_with_multiplicity)
+```
 
-`DECODE_mutation_assignment()` maps each mutation to the VAF bin of its `normalized_VAF` in the fitted SFS, then reads off the **component proportions** in that bin.
-This yields a soft assignment: columns `prob_tail`, `prob_cluster_1`, `prob_cluster_2`, … give the probability that each mutation belongs to each DECODE component.
+Function `DECODE_mutation_assignment()` calculates the probability that each mutation belongs to a given DECODE compartment,
+given the mutation's normalized VAF.
+This is sometimes referred to as the probabilistic or soft subclonal mutation assignment.
+By default, `DECODE_mutation_assignment()` uses the best DECODE fit for the inference A subsample.
+The user can change to a different subsample with argument `mode` 
+(which accepts `"inference_A"`, `"inference_B"` or `"validation"`)
+and a different fit by changing arguments `with_tail` (`"TRUE"` or `"FALSE"`) and `N_clusters`
+(any integer cluster count that DECODE considered).
 
-By default the function uses the **best overall fit** (`neutral_tail = NA`, `N_clusters = NULL`) and the **inference A** SFS (`mode = "inference_A"`).
-Other modes (`inference_B`, `validation`) can be selected to match the mutation subset used in [Section 7d](#7d-mutation-burden-per-cluster).
+**NOTE FOR YANJIE: Change DECODE_plot_SFS() to default mode = "inference_A", with_tail = NA, N_clusters = NULL**
 
 ```{r mutation-assignment}
 mutation_assignment <- DECODE_mutation_assignment(
     DECODE_result = DECODE_result,
-    mutation_table = mutation_assignment_input,
-    mode = "inference_A"
+    mutation_table = mutation_table_with_multiplicity
 )
-
-prob_cols <- grep("^prob_", names(mutation_assignment), value = TRUE)
-head(mutation_assignment[, c("Chromosome", "Position", "normalized_VAF", prob_cols)])
+head(mutation_assignment)
 ```
 
-Each row's probability columns sum to 1 (when the mutation falls inside a valid SFS bin).
-For example, a mutation with high `prob_cluster_1` and low `prob_tail` is likely assigned to cluster 1 rather than the neutral tail.
+The columns `prob_tail`, `prob_cluster_1`, `prob_cluster_2`, ...
+contain the probabilities that each mutation belongs to the tail or each cluster, respectively.
+The mutations in VAF bins that DECODE did not decompose, e.g., due to lack of data in the input diploid mutation table,
+are assigned `NA` probabilities.
 
-Save the full assignment table:
-
-```{r save-assignment}
-assignment_file <- "mutation_assignment.csv"
-write.csv(mutation_assignment, file = assignment_file, row.names = FALSE)
-assignment_file
-```
+If the deterministic (or hard) assignment is preferred,
+each mutation can be assigned to the compartment with the highest probability,
+or the compartment with probability higher than a specified threshold (e.g., 0.6 or 0.7).
