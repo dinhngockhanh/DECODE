@@ -19,8 +19,7 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 r_dir <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    # "/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
-    "/Users/yanjiechen/Documents/Github/DECODE/R"
+    "/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
 r_files <- list.files( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
     r_dir,
     pattern = "[.]r$|[.]R$", full.names = TRUE
@@ -52,12 +51,9 @@ containing the reference and alternative read counts for each mutation, respecti
 #     system.file("extdata", "mutation_table.csv", package = "DECODE")
 # )
 mutation_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    # read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table.csv")
-    read.csv("/Users/yanjiechen/Documents/Github/DECODE/inst/extdata/mutation_table.csv")
+    read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table.csv")
 head(mutation_table)
 ```
-
-**NOTE FOR YANJIE: INCLUDE COLUMN Mutation_ID AS 1ST COLUMN.**
 
 Since DECODE operates on the mutational SFS, decomposition should be limited to mutations sharing the same copy-number state,
 in which case mutation clusters correspond directly to distinct subclones.
@@ -70,8 +66,7 @@ e.g., from [ASCAT](https://github.com/VanLoo-lab/ascat).
 #     system.file("extdata", "copy_number_segments.txt", package = "DECODE")
 # )
 cn_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    # read.delim("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt")
-    read.delim("/Users/yanjiechen/Documents/Github/DECODE/inst/extdata/copy_number_segments.txt")
+    read.delim("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt")
 head(cn_table)
 ```
 
@@ -217,7 +212,7 @@ Bottom left: comparison of Generalized Information Criteria (GIC) between differ
 The fit with the lowest GIC is selected as the final result, and denoted with purple GIC bar
 and purple box around the corresponding SFS fits.
 
-**NOTE FOR YANJIE: CHECK WHY THE TEXTS IN HEATMAP ARE NOT DISPLAYING.**
+**NOTE FOR YANJIE: CHANGE "Inference A" TEXT TO HORIZONTAL AND "Inference B" TEXT TO VERTICAL.**
 
 # 4. Extract key biological parameters {#section-4}
 
@@ -334,15 +329,14 @@ Once results from GRITIC or other CNA timing algorithms have been ascertained,
 the multiplicities can be assigned for each mutation.
 Here we use a pre-annotated mutation table as an example.
 
-**NOTE FOR YANJIE: FOR mutation_table_with_multiplicity.csv, START FROM mutation_table.csv THEN ADD COLUMNS nMajor, nMinor and multiplicity. DO NOT ADD COLUMN normalized_VAF.**
+**NOTE FOR YANJIE: KEEP ALL ROWS IN mutation_table.csv. ALSO CHANGE multiplicity TO Multiplicity.**
 
 ```{r build-assignment-table-1}
 # mutation_table_with_multiplicity <- read.csv( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
 #     system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE")
 # )
 mutation_table_with_multiplicity <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    # read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
-    read.csv("/Users/yanjiechen/Documents/Github/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
+    read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
 head(mutation_table_with_multiplicity)
 ```
 
@@ -377,8 +371,6 @@ The user can change to a different subsample with argument `mode`
 (which accepts `"inference_A"`, `"inference_B"` or `"validation"`)
 and a different fit by changing arguments `with_tail` (`"TRUE"` or `"FALSE"`) and `N_clusters`
 (any integer cluster count that DECODE considered).
-
-**NOTE FOR YANJIE: Change DECODE_plot_SFS() to default mode = "inference_A", with_tail = NA, N_clusters = NULL**
 
 ```{r mutation-assignment}
 mutation_assignment <- DECODE_mutation_assignment(
