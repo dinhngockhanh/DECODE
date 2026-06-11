@@ -19,7 +19,8 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 r_dir <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    "/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+    # "/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
+    "/Users/yanjiechen/Documents/Github/DECODE/R"
 r_files <- list.files( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
     r_dir,
     pattern = "[.]r$|[.]R$", full.names = TRUE
@@ -51,7 +52,8 @@ containing the reference and alternative read counts for each mutation, respecti
 #     system.file("extdata", "mutation_table.csv", package = "DECODE")
 # )
 mutation_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table.csv")
+    # read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table.csv")
+    read.csv("/Users/yanjiechen/Documents/Github/DECODE/inst/extdata/mutation_table.csv")
 head(mutation_table)
 ```
 
@@ -66,7 +68,8 @@ e.g., from [ASCAT](https://github.com/VanLoo-lab/ascat).
 #     system.file("extdata", "copy_number_segments.txt", package = "DECODE")
 # )
 cn_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    read.delim("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt")
+    # read.delim("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt")
+    read.delim("/Users/yanjiechen/Documents/Github/DECODE/inst/extdata/copy_number_segments.txt")
 head(cn_table)
 ```
 
@@ -336,7 +339,11 @@ Here we use a pre-annotated mutation table as an example.
 #     system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE")
 # )
 mutation_table_with_multiplicity <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
+    #read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
+    read.csv("/Users/yanjiechen/Documents/Github/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
+mutation_table_with_multiplicity <- mutation_table_with_multiplicity[
+    !is.na(mutation_table_with_multiplicity$nMajor) & !is.na(mutation_table_with_multiplicity$nMinor) & !is.na(mutation_table_with_multiplicity$Multiplicity),
+]
 head(mutation_table_with_multiplicity)
 ```
 
@@ -358,7 +365,7 @@ mutation_table_with_multiplicity$total_cn <- with(
 mutation_table_with_multiplicity$normalized_VAF <- with(
     mutation_table_with_multiplicity,
     VAF * purity / (2 * purity + 2 * (1 - purity)) /
-        ((multiplicity * purity) / (total_cn * purity + 2 * (1 - purity)))
+        ((Multiplicity * purity) / (total_cn * purity + 2 * (1 - purity)))
 )
 head(mutation_table_with_multiplicity)
 ```
