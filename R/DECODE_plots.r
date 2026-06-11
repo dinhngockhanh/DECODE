@@ -335,8 +335,8 @@ DECODE_plot_SFS <- function(DECODE_result,
                             filename = NULL,
                             filetype = "png",
                             width = 30, height = 15, units = "in", res = 150,
-                            with_tail = "best",
-                            N_clusters = "best",
+                            with_tail = NA,
+                            N_clusters = NULL,
                             mode = "inference_A",
                             DECODE_linewidth = 5,
                             text_xlab = "Variant Allele Frequency",
@@ -361,11 +361,11 @@ DECODE_plot_SFS <- function(DECODE_result,
     )
     vec_freq <- DECODE_result$SFS_frequencies
     SFS_totalsteps <- length(vec_freq)
-    mutation_table <- DECODE_result$mutational_table
+    mutation_table <- DECODE_result$mutation_table
     max_total_read <- DECODE_result$max_total_read
     #---Retrieve requested DECODE fit
-    if (with_tail == "best") with_tail <- DECODE_result$best_with_tail
-    if (N_clusters == "best") N_clusters <- DECODE_result$best_N_clusters
+    if (is.na(with_tail)) with_tail <- DECODE_result$best_with_tail
+    if (is.null(N_clusters)) N_clusters <- DECODE_result$best_N_clusters
     SFS_fit <- DECODE_result[[paste0("fits_", ifelse(with_tail, "with", "without"), "_tail")]]$all_fits[[paste0(N_clusters, "_clusters")]]
     #---Retrieve requested data
     SFS_data <- DECODE_result[[paste0("SFS_data_", mode)]]
@@ -506,7 +506,7 @@ DECODE_plot_readcounts <- function(DECODE_result,
     suppressPackageStartupMessages(library(ggplot2))
     suppressPackageStartupMessages(library(shadowtext))
     suppressPackageStartupMessages(library(reshape2))
-    mutation_table <- DECODE_result$mutational_table
+    mutation_table <- DECODE_result$mutation_table
     readcount_distribution <- DECODE_result$readcount_distribution
     min_variant_read_inference_A <- max(DECODE_result$min_variant_read_inference_A, min(mutation_table$Alt_count))
     min_total_read_inference_A <- max(DECODE_result$min_total_read_inference_A, min(mutation_table$Tot_count))
