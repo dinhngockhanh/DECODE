@@ -21,8 +21,8 @@ UP
 </p>
 <p align="center">
   <small><em>
-    Left: Clonal evolution's connection to the SFS. 
-    Right: Schematic overview of DECODE's algorithm.
+    Left: clonal evolution's connection to the SFS. 
+    Right: schematic overview of DECODE's algorithm.
   </em></small>
 </p>
 
