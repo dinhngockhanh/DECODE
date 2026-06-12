@@ -219,6 +219,7 @@ Relevant biological parameters can be extracted or estimated from the output arg
 We first find details regarding DECODE's best fit,
 i.e., whether the tail can be detected, the number of clusters,
 and the corresponding parameter posterior distribution.
+Typically, the marginal means of the posterior distribution are sufficient for downstream analyses.
 
 ```{r extract-best-fit}
 with_tail <- DECODE_result$best_with_tail
@@ -227,6 +228,8 @@ fit_key <- ifelse(with_tail, "fits_with_tail", "fits_without_tail")
 parameters <- DECODE_result[[fit_key]]$all_fits[[paste0(N_clusters, "_clusters")]]$parameters
 cat("DECODE's tail status:                ", with_tail, "\nDECODE's cluster count:              ", N_clusters, "\n")
 head(parameters)
+mean_parameters <- colMeans(parameters)
+mean_parameters
 ```
 
 ## 4a. Sample purity and subclonal Cancer Cell Fractions (CCFs) {#section-4a}
@@ -245,12 +248,8 @@ $$\mathrm{CCF} \approx \frac{2\cdot\mathrm{VAF}}{\rho}$$
 The subclonal CCFs, unnormalized for purity, are hence twice the cluster VAFs, averaged among DECODE's estimates.
 
 ```{r extract-ccf}
-cluster_VAFs <- vapply(
-    seq_len(N_clusters),
-    function(i) mean(parameters[[paste0("Cluster_", i, "_freq")]]),
-    numeric(1)
-)
-cluster_CCFs <- 2 * cluster_VAFs
+cluster_VAFs <- as.numeric(mean_parameters[paste0("Cluster_", 1:N_clusters, "_freq")])
+cluster_CCFs <- as.numeric(2 * cluster_VAFs)
 data.frame(
     Compartment = paste0("Cluster ", seq_len(N_clusters)),
     VAF = cluster_VAFs,
@@ -288,18 +287,18 @@ can be estimated by averaging among DECODE's estimates.
 mutation_burdens <- data.frame(
     Compartment = c(ifelse(with_tail, "Tail", c()), paste0("Cluster ", seq_len(N_clusters))),
     CCF = c(ifelse(with_tail, c(NA), c()), cluster_CCFs),
-    nMut_inference_A = c(
-        ifelse(with_tail, round(mean(parameters[["Tail_Nmut_A"]])), c()),
-        vapply(seq_len(N_clusters), function(i) round(mean(parameters[[paste0("Cluster_", i, "_Nmut_A")]])), numeric(1))
-    ),
-    nMut_inference_B = c(
-        ifelse(with_tail, round(mean(parameters[["Tail_Nmut_B"]])), c()),
-        vapply(seq_len(N_clusters), function(i) round(mean(parameters[[paste0("Cluster_", i, "_Nmut_B")]])), numeric(1))
-    ),
-    nMut_validation = c(
-        ifelse(with_tail, round(mean(parameters[["Tail_Nmut_validation"]])), c()),
-        vapply(seq_len(N_clusters), function(i) round(mean(parameters[[paste0("Cluster_", i, "_Nmut_validation")]])), numeric(1))
-    )
+    nMut_inference_A = as.numeric(c(
+        ifelse(with_tail, round(mean_parameters["Tail_Nmut_A"]), c()),
+        round(mean_parameters[paste0("Cluster_", 1:N_clusters, "_Nmut_A")])
+    )),
+    nMut_inference_B = as.numeric(c(
+        ifelse(with_tail, round(mean_parameters["Tail_Nmut_B"]), c()),
+        round(mean_parameters[paste0("Cluster_", 1:N_clusters, "_Nmut_B")])
+    )),
+    nMut_validation = as.numeric(c(
+        ifelse(with_tail, round(mean_parameters["Tail_Nmut_validation"]), c()),
+        round(mean_parameters[paste0("Cluster_", 1:N_clusters, "_Nmut_validation")])
+    ))
 )
 mutation_burdens
 ```
@@ -364,9 +363,10 @@ head(mutation_table_with_multiplicity)
 ```
 
 Function `DECODE_mutation_assignment()` calculates the probability that each mutation belongs to a specific DECODE compartment,
-given the mutation's normalized VAF.
+given the mutation's `normalized_VAF`.
 This is sometimes referred to as the probabilistic or soft subclonal mutation assignment.
-By default, `DECODE_mutation_assignment()` uses the best DECODE fit for the inference A subsample to calculate the probabilities.
+By default, `DECODE_mutation_assignment()` employs the final DECODE decomposition of the inference A subsample 
+to calculate the probabilities, since this subsample is closest in shape to the unfiltered SFS.
 The user can change to a different subsample with argument `mode` 
 (which accepts `"inference_A"`, `"inference_B"` or `"validation"`)
 and a different fit by changing arguments `with_tail` (`"TRUE"` or `"FALSE"`) and `N_clusters`
@@ -382,8 +382,8 @@ head(mutation_assignment)
 
 The columns `prob_tail`, `prob_cluster_1`, `prob_cluster_2`, ...
 contain the probabilities that each mutation belongs to the tail or each cluster, respectively.
-The mutations in VAF bins that DECODE did not decompose, e.g., due to the lack of data in the input diploid mutation table,
-are assigned `NA` probabilities.
+The mutations in SFS bins that DECODE did not decompose, e.g., due to the lack of data in the input diploid mutation table,
+may be assigned `NA` probabilities.
 
 If the deterministic (or hard) assignment is preferred,
 each mutation can be assigned to the compartment with the highest probability,

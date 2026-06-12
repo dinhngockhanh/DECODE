@@ -641,7 +641,8 @@ existing DECODE result to select this fit by setting
 output argument <code>DECODE_result</code>.</p>
 <p>We first find details regarding DECODE’s best fit, i.e., whether the
 tail can be detected, the number of clusters, and the corresponding
-parameter posterior distribution.</p>
+parameter posterior distribution. Typically, the marginal means of the
+posterior distribution are sufficient for downstream analyses.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>with_tail <span class="ot">&lt;-</span> DECODE_result<span class="sc">$</span>best_with_tail</span>
 <span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>N_clusters <span class="ot">&lt;-</span> DECODE_result<span class="sc">$</span>best_N_clusters</span>
 <span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>fit_key <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(with_tail, <span class="st">&quot;fits_with_tail&quot;</span>, <span class="st">&quot;fits_without_tail&quot;</span>)</span>
@@ -677,7 +678,19 @@ parameter posterior distribution.</p>
 <span id="cb9-33"><a href="#cb9-33" tabindex="-1"></a><span class="co">#&gt; 3         879.6651         879.6539                  879.6628</span></span>
 <span id="cb9-34"><a href="#cb9-34" tabindex="-1"></a><span class="co">#&gt; 4         878.8470         878.8358                  878.8447</span></span>
 <span id="cb9-35"><a href="#cb9-35" tabindex="-1"></a><span class="co">#&gt; 5         879.6651         879.6539                  879.6628</span></span>
-<span id="cb9-36"><a href="#cb9-36" tabindex="-1"></a><span class="co">#&gt; 6         879.6651         879.6539                  879.6628</span></span></code></pre></div>
+<span id="cb9-36"><a href="#cb9-36" tabindex="-1"></a><span class="co">#&gt; 6         879.6651         879.6539                  879.6628</span></span>
+<span id="cb9-37"><a href="#cb9-37" tabindex="-1"></a>mean_parameters <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(parameters)</span>
+<span id="cb9-38"><a href="#cb9-38" tabindex="-1"></a>mean_parameters</span>
+<span id="cb9-39"><a href="#cb9-39" tabindex="-1"></a><span class="co">#&gt;                Tail_power           Tail_Nmut_exact               Tail_Nmut_A </span></span>
+<span id="cb9-40"><a href="#cb9-40" tabindex="-1"></a><span class="co">#&gt;              1.202477e+00              1.076935e+04              2.718410e+03 </span></span>
+<span id="cb9-41"><a href="#cb9-41" tabindex="-1"></a><span class="co">#&gt;               Tail_Nmut_B      Tail_Nmut_validation            Cluster_1_freq </span></span>
+<span id="cb9-42"><a href="#cb9-42" tabindex="-1"></a><span class="co">#&gt;              2.139109e+03              2.389169e+03              4.351274e-01 </span></span>
+<span id="cb9-43"><a href="#cb9-43" tabindex="-1"></a><span class="co">#&gt;      Cluster_1_Nmut_exact          Cluster_1_Nmut_A          Cluster_1_Nmut_B </span></span>
+<span id="cb9-44"><a href="#cb9-44" tabindex="-1"></a><span class="co">#&gt;              4.269294e+03              4.251090e+03              4.251090e+03 </span></span>
+<span id="cb9-45"><a href="#cb9-45" tabindex="-1"></a><span class="co">#&gt; Cluster_1_Nmut_validation            Cluster_2_freq      Cluster_2_Nmut_exact </span></span>
+<span id="cb9-46"><a href="#cb9-46" tabindex="-1"></a><span class="co">#&gt;              4.251090e+03              2.994771e-01              8.830122e+02 </span></span>
+<span id="cb9-47"><a href="#cb9-47" tabindex="-1"></a><span class="co">#&gt;          Cluster_2_Nmut_A          Cluster_2_Nmut_B Cluster_2_Nmut_validation </span></span>
+<span id="cb9-48"><a href="#cb9-48" tabindex="-1"></a><span class="co">#&gt;              8.792466e+02              8.792354e+02              8.792443e+02</span></span></code></pre></div>
 <div id="section-4a" class="section level2">
 <h2>4a. Sample purity and subclonal Cancer Cell Fractions (CCFs)</h2>
 <p>DECODE estimates the clusters’ mean VAFs (reported in columns
@@ -696,20 +709,16 @@ the formula simplifies considerably:</p>
 \frac{2\cdot\mathrm{VAF}}{\rho}\]</span></p>
 <p>The subclonal CCFs, unnormalized for purity, are hence twice the
 cluster VAFs, averaged among DECODE’s estimates.</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>cluster_VAFs <span class="ot">&lt;-</span> <span class="fu">vapply</span>(</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>    <span class="fu">seq_len</span>(N_clusters),</span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>    <span class="cf">function</span>(i) <span class="fu">mean</span>(parameters[[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, i, <span class="st">&quot;_freq&quot;</span>)]]),</span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>    <span class="fu">numeric</span>(<span class="dv">1</span>)</span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>)</span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>cluster_CCFs <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">*</span> cluster_VAFs</span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>    <span class="at">Compartment =</span> <span class="fu">paste0</span>(<span class="st">&quot;Cluster &quot;</span>, <span class="fu">seq_len</span>(N_clusters)),</span>
-<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>    <span class="at">VAF =</span> cluster_VAFs,</span>
-<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>    <span class="at">CCF =</span> cluster_CCFs</span>
-<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>)</span>
-<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt;   Compartment       VAF       CCF</span></span>
-<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="co">#&gt; 1   Cluster 1 0.4351274 0.8702548</span></span>
-<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="co">#&gt; 2   Cluster 2 0.2994771 0.5989541</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>cluster_VAFs <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(mean_parameters[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, <span class="dv">1</span><span class="sc">:</span>N_clusters, <span class="st">&quot;_freq&quot;</span>)])</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>cluster_CCFs <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="dv">2</span> <span class="sc">*</span> cluster_VAFs)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>    <span class="at">Compartment =</span> <span class="fu">paste0</span>(<span class="st">&quot;Cluster &quot;</span>, <span class="fu">seq_len</span>(N_clusters)),</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>    <span class="at">VAF =</span> cluster_VAFs,</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>    <span class="at">CCF =</span> cluster_CCFs</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>)</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt;   Compartment       VAF       CCF</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; 1   Cluster 1 0.4351274 0.8702548</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; 2   Cluster 2 0.2994771 0.5989541</span></span></code></pre></div>
 <p>DECODE automatically orders the clusters in decreasing VAFs.
 Therefore, the sample purity equals the unnormalized CCF of cluster 1.
 Optionally, the subclonal CCFs can then be normalized by dividing by
@@ -760,18 +769,18 @@ averaging among DECODE’s estimates.</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>mutation_burdens <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
 <span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>    <span class="at">Compartment =</span> <span class="fu">c</span>(<span class="fu">ifelse</span>(with_tail, <span class="st">&quot;Tail&quot;</span>, <span class="fu">c</span>()), <span class="fu">paste0</span>(<span class="st">&quot;Cluster &quot;</span>, <span class="fu">seq_len</span>(N_clusters))),</span>
 <span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>    <span class="at">CCF =</span> <span class="fu">c</span>(<span class="fu">ifelse</span>(with_tail, <span class="fu">c</span>(<span class="cn">NA</span>), <span class="fu">c</span>()), cluster_CCFs),</span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>    <span class="at">nMut_inference_A =</span> <span class="fu">c</span>(</span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>        <span class="fu">ifelse</span>(with_tail, <span class="fu">round</span>(<span class="fu">mean</span>(parameters[[<span class="st">&quot;Tail_Nmut_A&quot;</span>]])), <span class="fu">c</span>()),</span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>        <span class="fu">vapply</span>(<span class="fu">seq_len</span>(N_clusters), <span class="cf">function</span>(i) <span class="fu">round</span>(<span class="fu">mean</span>(parameters[[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, i, <span class="st">&quot;_Nmut_A&quot;</span>)]])), <span class="fu">numeric</span>(<span class="dv">1</span>))</span>
-<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>    ),</span>
-<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>    <span class="at">nMut_inference_B =</span> <span class="fu">c</span>(</span>
-<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>        <span class="fu">ifelse</span>(with_tail, <span class="fu">round</span>(<span class="fu">mean</span>(parameters[[<span class="st">&quot;Tail_Nmut_B&quot;</span>]])), <span class="fu">c</span>()),</span>
-<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>        <span class="fu">vapply</span>(<span class="fu">seq_len</span>(N_clusters), <span class="cf">function</span>(i) <span class="fu">round</span>(<span class="fu">mean</span>(parameters[[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, i, <span class="st">&quot;_Nmut_B&quot;</span>)]])), <span class="fu">numeric</span>(<span class="dv">1</span>))</span>
-<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>    ),</span>
-<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>    <span class="at">nMut_validation =</span> <span class="fu">c</span>(</span>
-<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>        <span class="fu">ifelse</span>(with_tail, <span class="fu">round</span>(<span class="fu">mean</span>(parameters[[<span class="st">&quot;Tail_Nmut_validation&quot;</span>]])), <span class="fu">c</span>()),</span>
-<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>        <span class="fu">vapply</span>(<span class="fu">seq_len</span>(N_clusters), <span class="cf">function</span>(i) <span class="fu">round</span>(<span class="fu">mean</span>(parameters[[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, i, <span class="st">&quot;_Nmut_validation&quot;</span>)]])), <span class="fu">numeric</span>(<span class="dv">1</span>))</span>
-<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>    )</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>    <span class="at">nMut_inference_A =</span> <span class="fu">as.numeric</span>(<span class="fu">c</span>(</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>        <span class="fu">ifelse</span>(with_tail, <span class="fu">round</span>(mean_parameters[<span class="st">&quot;Tail_Nmut_A&quot;</span>]), <span class="fu">c</span>()),</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>        <span class="fu">round</span>(mean_parameters[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, <span class="dv">1</span><span class="sc">:</span>N_clusters, <span class="st">&quot;_Nmut_A&quot;</span>)])</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>    )),</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>    <span class="at">nMut_inference_B =</span> <span class="fu">as.numeric</span>(<span class="fu">c</span>(</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>        <span class="fu">ifelse</span>(with_tail, <span class="fu">round</span>(mean_parameters[<span class="st">&quot;Tail_Nmut_B&quot;</span>]), <span class="fu">c</span>()),</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>        <span class="fu">round</span>(mean_parameters[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, <span class="dv">1</span><span class="sc">:</span>N_clusters, <span class="st">&quot;_Nmut_B&quot;</span>)])</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>    )),</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>    <span class="at">nMut_validation =</span> <span class="fu">as.numeric</span>(<span class="fu">c</span>(</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>        <span class="fu">ifelse</span>(with_tail, <span class="fu">round</span>(mean_parameters[<span class="st">&quot;Tail_Nmut_validation&quot;</span>]), <span class="fu">c</span>()),</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>        <span class="fu">round</span>(mean_parameters[<span class="fu">paste0</span>(<span class="st">&quot;Cluster_&quot;</span>, <span class="dv">1</span><span class="sc">:</span>N_clusters, <span class="st">&quot;_Nmut_validation&quot;</span>)])</span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>    ))</span>
 <span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>)</span>
 <span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>mutation_burdens</span>
 <span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt;   Compartment       CCF nMut_inference_A nMut_inference_B nMut_validation</span></span>
@@ -863,16 +872,17 @@ numerator can be adjusted accordingly.</p>
 <span id="cb15-27"><a href="#cb15-27" tabindex="-1"></a><span class="co">#&gt; 6            2 0.36538462        3     0.26218674</span></span></code></pre></div>
 <p>Function <code>DECODE_mutation_assignment()</code> calculates the
 probability that each mutation belongs to a specific DECODE compartment,
-given the mutation’s normalized VAF. This is sometimes referred to as
-the probabilistic or soft subclonal mutation assignment. By default,
-<code>DECODE_mutation_assignment()</code> uses the best DECODE fit for
-the inference A subsample to calculate the probabilities. The user can
-change to a different subsample with argument <code>mode</code> (which
-accepts <code>&quot;inference_A&quot;</code>, <code>&quot;inference_B&quot;</code> or
-<code>&quot;validation&quot;</code>) and a different fit by changing arguments
-<code>with_tail</code> (<code>&quot;TRUE&quot;</code> or <code>&quot;FALSE&quot;</code>) and
-<code>N_clusters</code> (any integer cluster count that DECODE
-considered).</p>
+given the mutation’s <code>normalized_VAF</code>. This is sometimes
+referred to as the probabilistic or soft subclonal mutation assignment.
+By default, <code>DECODE_mutation_assignment()</code> employs the final
+DECODE decomposition of the inference A subsample to calculate the
+probabilities, since this subsample is closest in shape to the
+unfiltered SFS. The user can change to a different subsample with
+argument <code>mode</code> (which accepts <code>&quot;inference_A&quot;</code>,
+<code>&quot;inference_B&quot;</code> or <code>&quot;validation&quot;</code>) and a different
+fit by changing arguments <code>with_tail</code> (<code>&quot;TRUE&quot;</code> or
+<code>&quot;FALSE&quot;</code>) and <code>N_clusters</code> (any integer cluster
+count that DECODE considered).</p>
 <div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>mutation_assignment <span class="ot">&lt;-</span> <span class="fu">DECODE_mutation_assignment</span>(</span>
 <span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>    <span class="at">DECODE_result =</span> DECODE_result,</span>
 <span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>    <span class="at">mutation_table =</span> mutation_table_with_multiplicity</span>
@@ -904,8 +914,8 @@ considered).</p>
 <p>The columns <code>prob_tail</code>, <code>prob_cluster_1</code>,
 <code>prob_cluster_2</code>, … contain the probabilities that each
 mutation belongs to the tail or each cluster, respectively. The
-mutations in VAF bins that DECODE did not decompose, e.g., due to the
-lack of data in the input diploid mutation table, are assigned
+mutations in SFS bins that DECODE did not decompose, e.g., due to the
+lack of data in the input diploid mutation table, may be assigned
 <code>NA</code> probabilities.</p>
 <p>If the deterministic (or hard) assignment is preferred, each mutation
 can be assigned to the compartment with the highest probability, or the
