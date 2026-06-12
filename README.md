@@ -21,7 +21,7 @@ UP
 </p>
 <p align="center">
   <small><em>
-    Left: connection between clonal evolution and the Site Frequency Spectrum (SFS). 
+    Left: Clonal evolution's connection to the Site Frequency Spectrum (SFS). 
     Right: Schematic overview of DECODE's algorithm.
   </em></small>
 </p>
