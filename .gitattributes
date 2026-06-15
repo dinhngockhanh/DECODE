@@ -1,0 +1,4 @@
+# Exclude generated vignette/docs HTML from language statistics
+*.html linguist-documentation
+vignettes/** linguist-generated
+docs/** linguist-documentation

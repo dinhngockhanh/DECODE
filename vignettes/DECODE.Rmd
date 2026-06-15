@@ -18,14 +18,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-r_dir <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    "/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R"
-r_files <- list.files( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    r_dir,
-    pattern = "[.]r$|[.]R$", full.names = TRUE
-)
-invisible(lapply(r_files, source)) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-# library(DECODE) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
+library(DECODE)
 set.seed(1)
 ```
 
@@ -47,11 +40,9 @@ DECODE requires a mutation table with columns `Ref_count` and `Alt_count`,
 containing the reference and alternative read counts for each mutation, respectively.
 
 ```{r show-mutation-table}
-# mutation_table <- read.csv( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
-#     system.file("extdata", "mutation_table.csv", package = "DECODE")
-# )
-mutation_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table.csv")
+mutation_table <- read.csv(
+    system.file("extdata", "mutation_table.csv", package = "DECODE")
+)
 head(mutation_table)
 ```
 
@@ -62,11 +53,9 @@ To extract only diploid mutations, we first load the table containing allele-spe
 e.g., from [ASCAT](https://github.com/VanLoo-lab/ascat).
 
 ```{r show-cn-segments}
-# cn_table <- read.delim( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
-#     system.file("extdata", "copy_number_segments.txt", package = "DECODE")
-# )
-cn_table <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    read.delim("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt")
+cn_table <- read.delim(
+    system.file("extdata", "copy_number_segments.txt", package = "DECODE")
+)
 head(cn_table)
 ```
 
@@ -327,11 +316,9 @@ the multiplicities can be assigned for each mutation.
 Here we use a pre-annotated mutation table as an example.
 
 ```{r build-assignment-table-1}
-# mutation_table_with_multiplicity <- read.csv( # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< UNCOMMENT WHEN DECODE IS PUBLIC
-#     system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE")
-# )
-mutation_table_with_multiplicity <- # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE WHEN DECODE IS PUBLIC
-    read.csv("/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv")
+mutation_table_with_multiplicity <- read.csv(
+    system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE")
+)
 mutation_table_with_multiplicity <- mutation_table_with_multiplicity[which(
     !is.na(mutation_table_with_multiplicity$nMajor) &
         !is.na(mutation_table_with_multiplicity$nMinor) &

@@ -341,15 +341,8 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>r_dir <span class="ot">&lt;-</span> <span class="co"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; REMOVE WHEN DECODE IS PUBLIC</span></span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>    <span class="st">&quot;/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/R&quot;</span></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>r_files <span class="ot">&lt;-</span> <span class="fu">list.files</span>( <span class="co"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; REMOVE WHEN DECODE IS PUBLIC</span></span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>    r_dir,</span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="st">&quot;[.]r$|[.]R$&quot;</span>, <span class="at">full.names =</span> <span class="cn">TRUE</span></span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>)</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="fu">invisible</span>(<span class="fu">lapply</span>(r_files, source)) <span class="co"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; REMOVE WHEN DECODE IS PUBLIC</span></span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co"># library(DECODE) # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; UNCOMMENT WHEN DECODE IS PUBLIC</span></span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(DECODE)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span></code></pre></div>
 <p>DECODE (<strong>De</strong>ciphering <strong>C</strong>ancer
 <strong>O</strong>rigin from <strong>D</strong>NA
 <strong>E</strong>volution) decomposes mutations from a bulk
@@ -374,38 +367,34 @@ compartments</li>
 <p>DECODE requires a mutation table with columns <code>Ref_count</code>
 and <code>Alt_count</code>, containing the reference and alternative
 read counts for each mutation, respectively.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># mutation_table &lt;- read.csv( # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; UNCOMMENT WHEN DECODE IS PUBLIC</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#     system.file(&quot;extdata&quot;, &quot;mutation_table.csv&quot;, package = &quot;DECODE&quot;)</span></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co"># )</span></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>mutation_table <span class="ot">&lt;-</span> <span class="co"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; REMOVE WHEN DECODE IS PUBLIC</span></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>    <span class="fu">read.csv</span>(<span class="st">&quot;/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table.csv&quot;</span>)</span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">head</span>(mutation_table)</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt;   Mutation_ID Chromosome Position Ref_count Alt_count</span></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; 1  mutation_1       chr1   117291        72        33</span></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; 2  mutation_2       chr1   481356       122        45</span></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; 3  mutation_3       chr1   949803       163        12</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; 4  mutation_4       chr1  1102170       122        34</span></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; 5  mutation_5       chr1  1530100       162        11</span></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; 6  mutation_6       chr1  1564250        99        57</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>mutation_table <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>    <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;mutation_table.csv&quot;</span>, <span class="at">package =</span> <span class="st">&quot;DECODE&quot;</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">head</span>(mutation_table)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt;   Mutation_ID Chromosome Position Ref_count Alt_count</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt; 1  mutation_1       chr1   117291        72        33</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt; 2  mutation_2       chr1   481356       122        45</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; 3  mutation_3       chr1   949803       163        12</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; 4  mutation_4       chr1  1102170       122        34</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; 5  mutation_5       chr1  1530100       162        11</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; 6  mutation_6       chr1  1564250        99        57</span></span></code></pre></div>
 <p>Since DECODE operates on the mutational SFS, decomposition should be
 limited to mutations sharing the same copy-number state, in which case
 mutation clusters correspond directly to distinct subclones. In
 practice, DECODE works best for samples that are mainly diploid. To
 extract only diploid mutations, we first load the table containing
 allele-specific copy number segments, e.g., from <a href="https://github.com/VanLoo-lab/ascat">ASCAT</a>.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># cn_table &lt;- read.delim( # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; UNCOMMENT WHEN DECODE IS PUBLIC</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="co">#     system.file(&quot;extdata&quot;, &quot;copy_number_segments.txt&quot;, package = &quot;DECODE&quot;)</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co"># )</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>cn_table <span class="ot">&lt;-</span> <span class="co"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; REMOVE WHEN DECODE IS PUBLIC</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>    <span class="fu">read.delim</span>(<span class="st">&quot;/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/copy_number_segments.txt&quot;</span>)</span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="fu">head</span>(cn_table)</span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;   chr  startpos    endpos nMajor nMinor</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; 1   1     61735  10427928      2      1</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; 2   1  10428257  10521313      2      1</span></span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; 3   1  10521990  26613862      1      1</span></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; 4   1  26614190  27193445      2      0</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; 5   1  27193722 151886189      2      1</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; 6   1 151886412 152106520      1      1</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>cn_table <span class="ot">&lt;-</span> <span class="fu">read.delim</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>    <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;copy_number_segments.txt&quot;</span>, <span class="at">package =</span> <span class="st">&quot;DECODE&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">head</span>(cn_table)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt;   chr  startpos    endpos nMajor nMinor</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; 1   1     61735  10427928      2      1</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; 2   1  10428257  10521313      2      1</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; 3   1  10521990  26613862      1      1</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; 4   1  26614190  27193445      2      0</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; 5   1  27193722 151886189      2      1</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; 6   1 151886412 152106520      1      1</span></span></code></pre></div>
 <p>We can then assign allele-specific copy numbers to each mutation.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>cn_table<span class="sc">$</span>chr <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>, cn_table<span class="sc">$</span>chr)</span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>mutation_table<span class="sc">$</span>nMajor <span class="ot">&lt;-</span> <span class="cn">NA_integer_</span></span>
@@ -807,31 +796,29 @@ multiplicities, which can be performed with <a href="https://github.com/VanLoo-l
 <p>Once results from GRITIC or other CNA timing algorithms have been
 ascertained, the multiplicities can be assigned for each mutation. Here
 we use a pre-annotated mutation table as an example.</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># mutation_table_with_multiplicity &lt;- read.csv( # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; UNCOMMENT WHEN DECODE IS PUBLIC</span></span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="co">#     system.file(&quot;extdata&quot;, &quot;mutation_table_with_multiplicity.csv&quot;, package = &quot;DECODE&quot;)</span></span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="co"># )</span></span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>mutation_table_with_multiplicity <span class="ot">&lt;-</span> <span class="co"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; REMOVE WHEN DECODE IS PUBLIC</span></span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="fu">read.csv</span>(<span class="st">&quot;/Users/kndinh/RESEARCH AND EVERYTHING/Projects/GITHUB/DECODE/inst/extdata/mutation_table_with_multiplicity.csv&quot;</span>)</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>mutation_table_with_multiplicity <span class="ot">&lt;-</span> mutation_table_with_multiplicity[<span class="fu">which</span>(</span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(mutation_table_with_multiplicity<span class="sc">$</span>nMajor) <span class="sc">&amp;</span></span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>        <span class="sc">!</span><span class="fu">is.na</span>(mutation_table_with_multiplicity<span class="sc">$</span>nMinor) <span class="sc">&amp;</span></span>
-<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>        <span class="sc">!</span><span class="fu">is.na</span>(mutation_table_with_multiplicity<span class="sc">$</span>Multiplicity)</span>
-<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>), ]</span>
-<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="fu">head</span>(mutation_table_with_multiplicity)</span>
-<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co">#&gt;   Mutation_ID Chromosome Position Ref_count Alt_count nMajor nMinor</span></span>
-<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt; 1  mutation_1       chr1   117291        72        33      2      1</span></span>
-<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt; 2  mutation_2       chr1   481356       122        45      2      1</span></span>
-<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; 3  mutation_3       chr1   949803       163        12      2      1</span></span>
-<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a><span class="co">#&gt; 4  mutation_4       chr1  1102170       122        34      2      1</span></span>
-<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="co">#&gt; 5  mutation_5       chr1  1530100       162        11      2      1</span></span>
-<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a><span class="co">#&gt; 6  mutation_6       chr1  1564250        99        57      2      1</span></span>
-<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a><span class="co">#&gt;   Multiplicity</span></span>
-<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a><span class="co">#&gt; 1            1</span></span>
-<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="co">#&gt; 2            1</span></span>
-<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a><span class="co">#&gt; 3            2</span></span>
-<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a><span class="co">#&gt; 4            1</span></span>
-<span id="cb14-24"><a href="#cb14-24" tabindex="-1"></a><span class="co">#&gt; 5            1</span></span>
-<span id="cb14-25"><a href="#cb14-25" tabindex="-1"></a><span class="co">#&gt; 6            2</span></span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>mutation_table_with_multiplicity <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>    <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;mutation_table_with_multiplicity.csv&quot;</span>, <span class="at">package =</span> <span class="st">&quot;DECODE&quot;</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>)</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>mutation_table_with_multiplicity <span class="ot">&lt;-</span> mutation_table_with_multiplicity[<span class="fu">which</span>(</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(mutation_table_with_multiplicity<span class="sc">$</span>nMajor) <span class="sc">&amp;</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>        <span class="sc">!</span><span class="fu">is.na</span>(mutation_table_with_multiplicity<span class="sc">$</span>nMinor) <span class="sc">&amp;</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>        <span class="sc">!</span><span class="fu">is.na</span>(mutation_table_with_multiplicity<span class="sc">$</span>Multiplicity)</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>), ]</span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="fu">head</span>(mutation_table_with_multiplicity)</span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="co">#&gt;   Mutation_ID Chromosome Position Ref_count Alt_count nMajor nMinor</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="co">#&gt; 1  mutation_1       chr1   117291        72        33      2      1</span></span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co">#&gt; 2  mutation_2       chr1   481356       122        45      2      1</span></span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt; 3  mutation_3       chr1   949803       163        12      2      1</span></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt; 4  mutation_4       chr1  1102170       122        34      2      1</span></span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; 5  mutation_5       chr1  1530100       162        11      2      1</span></span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a><span class="co">#&gt; 6  mutation_6       chr1  1564250        99        57      2      1</span></span>
+<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="co">#&gt;   Multiplicity</span></span>
+<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a><span class="co">#&gt; 1            1</span></span>
+<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a><span class="co">#&gt; 2            1</span></span>
+<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a><span class="co">#&gt; 3            2</span></span>
+<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="co">#&gt; 4            1</span></span>
+<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a><span class="co">#&gt; 5            1</span></span>
+<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a><span class="co">#&gt; 6            2</span></span></code></pre></div>
 <p>The <a href="https://doi.org/10.1038/s41592-020-01013-2">relationship
 between a mutation’s VAF and its CCF</a> can be rearranged to calculate
 each mutation’s normalized VAF, i.e., the VAF if the mutation were
