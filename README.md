@@ -20,6 +20,9 @@ Clonal mutations form a cluster at high VAFs, and each subclone contributes a lo
 Furthermore, regardless of whether the tumor evolves neutrally or undergoes selective sweeps, neutral mutations that accumulate as cells divide generate a characteristic power-law tail in the SFS.
 By decomposing this spectrum and recovering the number and sizes of subclones present, DECODE estimates intra-tumor heterogeneity (ITH) and the ongoing tumor evolution.
 
+DECODE is based on [our mathematical framework for the SFS](https://doi.org/10.1214/19-STS7561), which corrects for sample-specific sequencing coverage and mutation calling biases.
+It implements [ABC-SMC-DRF](https://doi.org/10.1007/s11222-025-10748-x), our likelihood-free inference method available as an [R library](https://github.com/dinhngockhanh/abcsmcrf), which integrates random forests into the framework of sequential Monte Carlo to accurately and efficiently infer the parameter posterior distribution.
+
 <p align="center">
   <img src="Fig_schematics.jpg" alt="DECODE methodology" width="100%">
 </p>
@@ -30,5 +33,3 @@ By decomposing this spectrum and recovering the number and sizes of subclones pr
   </em></small>
 </p>
 
-DECODE is based on [our mathematical framework for the SFS](https://doi.org/10.1214/19-STS7561), which corrects for sample-specific sequencing coverage and mutation calling biases.
-It implements [ABC-SMC-DRF](https://doi.org/10.1007/s11222-025-10748-x), our likelihood-free inference method available as an [R library](https://github.com/dinhngockhanh/abcsmcrf), which integrates random forests and sequential Monte Carlo to accurately and efficiently infer the parameter posterior distribution.
