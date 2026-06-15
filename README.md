@@ -45,3 +45,9 @@ DECODE compares the GIC densities based on an increasing sequence of cluster cou
 It selects the more complex result as the better model if its GIC is lower, and continues adding more clusters (**step 6**).
 Otherwise, it selects the model with the lower cluster count (**step 7**) as the most parsimonious decomposition (**step 8**).
 DECODE performs this pipeline to fit the data with and without a neutral tail, then select the better model by GIC.
+
+##  References
+
+1.  Dinh KN, Jaksik R, Kimmel M, Lambert A, Tavaré S. Statistical inference for the evolutionary history of cancer genomes. Statistical Science 35(1):129 (2020). https://doi.org/10.1214/19-STS7561
+2.  Dinh KN, Liu C, Xiang Z, Liu Z, Tavaré S. Approximate Bayesian computation sequential Monte Carlo via random forests. Statistics and Computing 35, 219 (2025). https://doi.org/10.1007/s11222-025-10748-x
+
