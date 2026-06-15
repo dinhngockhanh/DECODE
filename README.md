@@ -30,4 +30,5 @@ By decomposing this spectrum and recovering the number and sizes of subclones pr
   </em></small>
 </p>
 
-DECODE is based on [our mathematical framework for the SFS](https://doi.org/10.1214/19-STS7561), 
+DECODE is based on [our mathematical framework for the SFS](https://doi.org/10.1214/19-STS7561), which corrects for sample-specific sequencing coverage and mutation calling biases.
+It implements [ABC-SMC-DRF](https://doi.org/10.1007/s11222-025-10748-x), an [R library](https://github.com/dinhngockhanh/abcsmcrf)
