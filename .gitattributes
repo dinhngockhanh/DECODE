@@ -1,4 +1,4 @@
 # Exclude generated vignette/docs HTML from language statistics
-*.html linguist-documentation
+*.html linguist-generated
 vignettes/** linguist-generated
-docs/** linguist-documentation
+docs/** linguist-generated
