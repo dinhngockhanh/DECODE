@@ -44,4 +44,4 @@ The accuracy of the prediction, balanced against the model's complexity as deter
 DECODE compares the GIC densities based on an increasing sequence of cluster counts.
 It selects the more complex result as the better model if its GIC is lower, and continues adding more clusters (**step 6**).
 Otherwise, it selects the model with the lower cluster count (**step 7**) as the most parsimonious decomposition (**step 8**).
-DECODE fits the data with and without a neutral tail, then selects the better model by GIC.
+DECODE performs this pipeline to fit the data with and without a neutral tail, then select the better model by GIC.
