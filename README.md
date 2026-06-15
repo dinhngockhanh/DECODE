@@ -28,7 +28,7 @@ It implements [ABC-SMC-DRF](https://doi.org/10.1007/s11222-025-10748-x), our gen
 </p>
 <p align="center">
   <small><em>
-    A: clonal evolution's connection to the SFS. 
+    A: correspondence between clonal evolution and the SFS. 
     B: schematic overview of DECODE's algorithm.
   </em></small>
 </p>
