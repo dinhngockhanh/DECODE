@@ -33,3 +33,5 @@ It implements [ABC-SMC-DRF](https://doi.org/10.1007/s11222-025-10748-x), our lik
   </em></small>
 </p>
 
+Given a DNA-sequencing sample, DECODE first selects thresholds $(L,M)$ for three different data subsamples, termed \textit{inference A}, \textit{inference B} and \textit{validation} (\textit{\textbf{step 1}}, Fig. \ref{fig:schematics}B).
+The variant read count threshold is different in each subset, so the SFS from each filtered subsample assumes a different shape (\textit{\textbf{step 2}}, Fig. \ref{fig:schematics}B).
