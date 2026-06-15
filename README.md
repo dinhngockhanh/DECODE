@@ -30,4 +30,4 @@ By decomposing this spectrum and recovering the number and sizes of subclones pr
   </em></small>
 </p>
 
-DOWN
+DECODE is based on [our mathematical framework for the SFS](https://doi.org/10.1214/19-STS7561), 
