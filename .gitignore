@@ -2,10 +2,11 @@ data/
 .DS_Store
 vignettes/.DS_Store
 R/.DS_Store
-vignettes/Previous results/
 
-vignettes_prompt/DECODE_cache/
+# knitr / vignette build artifacts
+vignettes/*_cache/
+vignettes/*_files/
 
-Archive/
-vignettes_prompt/
-
+# RStudio
+.Rproj.user/
+*.Rproj

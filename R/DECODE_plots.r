@@ -1,10 +1,34 @@
+#' Plot DECODE model selection diagnostics
+#'
+#' Creates a composite figure summarizing mutation threshold selection,
+#' model-selection criterion values, and SFS fits for all tail and cluster-count
+#' configurations considered by \code{\link{DECODE}}.
+#'
+#' @param DECODE_result Object returned by \code{\link{DECODE}}.
+#' @param filename Character path prefix for saving the plot. If \code{NULL}
+#'   (default), the plot object is returned instead of being saved.
+#' @param filetype Output format when \code{filename} is supplied: \code{"png"}
+#'   (default), \code{"jpg"}, \code{"svg"}, \code{"tiff"}, \code{"eps"}, or
+#'   \code{"pdf"}.
+#' @param max_variant_read Maximum variant read count shown in the read-count
+#'   heatmap (\code{50} by default).
+#' @param max_total_read Maximum total read count shown in the read-count
+#'   heatmap (\code{150} by default).
+#' @param width Plot width when saving to file (\code{30} by default).
+#' @param height Plot height when saving to file (\code{15} by default).
+#' @param units Units for \code{width} and \code{height} (\code{"in"} by default).
+#' @param res Resolution in dpi when saving raster formats (\code{150} by default).
+#' @param data_marker_colors Named character vector of colors for empirical SFS
+#'   markers in the fit panels. Defaults to black for \code{"Data"}.
+#' @return If \code{filename} is \code{NULL}, a \code{grid} object. Otherwise
+#'   the plot is written to disk and nothing is returned invisibly.
+#' @export
 DECODE_plot_model_selection <- function(DECODE_result,
                                         filename = NULL,
                                         filetype = "png",
                                         max_variant_read = 50,
                                         max_total_read = 150,
                                         width = 30, height = 15, units = "in", res = 150,
-                                        SFS_limit = TRUE,
                                         data_marker_colors = NULL) {
     suppressPackageStartupMessages(library(grid))
     suppressPackageStartupMessages(library(gridExtra))
@@ -331,6 +355,44 @@ DECODE_plot_criteria <- function(DECODE_result,
     return(p)
 }
 
+#' Plot empirical and fitted Site Frequency Spectra
+#'
+#' Compares the empirical SFS against the DECODE deconvolution for a chosen
+#' subsample and model configuration.
+#'
+#' @param DECODE_result Object returned by \code{\link{DECODE}}.
+#' @param filename Character path prefix for saving the plot. If \code{NULL}
+#'   (default), a \code{ggplot} object is returned.
+#' @param filetype Output format when \code{filename} is supplied: \code{"png"}
+#'   (default), \code{"jpg"}, \code{"svg"}, \code{"tiff"}, \code{"eps"}, or
+#'   \code{"pdf"}.
+#' @param width Plot width when saving to file (\code{30} by default).
+#' @param height Plot height when saving to file (\code{15} by default).
+#' @param units Units for \code{width} and \code{height} (\code{"in"} by default).
+#' @param res Resolution in dpi when saving raster formats (\code{150} by default).
+#' @param with_tail Logical indicating whether to plot a fit with
+#'   (\code{TRUE}) or without (\code{FALSE}) a neutral tail. If \code{NA}
+#'   (default), the best overall fit from \code{\link{DECODE}} is used.
+#' @param N_clusters Integer cluster count for the fit to plot. If \code{NULL}
+#'   (default), the best cluster count from \code{\link{DECODE}} is used.
+#' @param mode Subsample to display: \code{"inference_A"} (default),
+#'   \code{"inference_B"}, or \code{"validation"}.
+#' @param DECODE_linewidth Line width for fitted component curves (\code{5} by default).
+#' @param text_xlab X-axis label; \code{NULL} suppresses the axis label.
+#' @param color_xlab Color of the x-axis label (\code{"black"} by default).
+#' @param text_ylab Y-axis label; \code{NULL} suppresses the y-axis label and ticks.
+#' @param notation Logical; include title, legend, and axis annotations
+#'   (\code{TRUE} by default).
+#' @param x_min Lower x-axis limit. If \code{NULL} (default), chosen automatically.
+#' @param x_max Upper x-axis limit. If \code{NULL} (default), chosen automatically.
+#' @param data_marker_colors Named character vector of colors for empirical SFS
+#'   bars. Defaults to black for \code{"Data"}. If \code{mutation_table} contains
+#'   a \code{Marker} column, one color per marker can be supplied.
+#' @param error_bar Logical; draw uncertainty ribbons around the fitted SFS
+#'   (\code{TRUE} by default).
+#' @return If \code{filename} is \code{NULL}, a \code{ggplot} object. Otherwise
+#'   the plot is written to disk and nothing is returned invisibly.
+#' @export
 DECODE_plot_SFS <- function(DECODE_result,
                             filename = NULL,
                             filetype = "png",

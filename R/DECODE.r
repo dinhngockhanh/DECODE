@@ -1,3 +1,80 @@
+#' Decompose a mutation Site Frequency Spectrum with DECODE
+#'
+#' Runs DECODE on a mutation table to infer a neutral tail and mutation clusters
+#' from Variant Allele Frequencies (VAFs), with corrections for sequencing
+#' coverage and mutation-calling biases.
+#'
+#' @param sample_id Character label for the sample (empty string by default).
+#' @param mutation_table Data frame of mutations with columns \code{Ref_count}
+#'   and \code{Alt_count} (non-negative integers). Mutations should share the
+#'   same copy-number background (typically diploid).
+#' @param criterion Model-selection criterion; \code{"GIC"} (default) or
+#'   \code{"BIC"}.
+#' @param criterion_penalty_scale Numeric scale applied to the complexity penalty
+#'   term in the model-selection criterion (\code{0.0015} by default).
+#' @param criterion_tail_weight Numeric weight applied to tail-related parameters
+#'   when counting model complexity (\code{0.3} by default).
+#' @param criterion_Nsamples Integer number of posterior samples used to evaluate
+#'   the model-selection criterion (\code{1000} by default).
+#' @param wilcoxon_pvalue_threshold Numeric p-value threshold for Wilcoxon tests
+#'   used in parsimonious model selection (\code{0.01} by default). Within each
+#'   tail configuration, consecutive cluster counts are compared: if adding a
+#'   cluster does not significantly lower the criterion (p-value exceeds this
+#'   threshold), the fit with fewer clusters is retained. When \code{neutral_tail
+#'   = NA}, fits with and without a neutral tail are compared similarly: if the
+#'   p-value exceeds this threshold, the fit with tail is selected.
+#' @param neutral_tail Logical indicating whether to include a neutral tail
+#'   (\code{TRUE} or \code{FALSE}), or \code{NA} (default) to compare both and
+#'   select automatically.
+#' @param N_clusters Integer cluster count to fit. If \code{NULL} (default),
+#'   DECODE searches over \code{N_clusters_min}:\code{N_clusters_max}.
+#' @param N_clusters_min Minimum cluster count to consider (\code{1} by default).
+#' @param N_clusters_max Maximum cluster count to consider (\code{5} by default).
+#' @param neutral_power_min Lower bound on the neutral-tail power parameter
+#'   (\code{0.9} by default).
+#' @param neutral_power_max Upper bound on the neutral-tail power parameter
+#'   (\code{5} by default).
+#' @param cluster_VAF_min Lower bound on cluster mean VAFs (\code{0.01} by default).
+#' @param cluster_VAF_max Upper bound on cluster mean VAFs (\code{1} by default).
+#' @param max_total_read Maximum total read count retained when filtering
+#'   mutations. Defaults to the maximum \code{Tot_count} in \code{mutation_table}.
+#' @param read_distribution_freq_min Minimum cumulative mutation frequency (percent)
+#'   used when building the read-count distribution heatmap (\code{10} by default).
+#' @param allele_count Integer allele count used in SFS convolution
+#'   (\code{1000} by default).
+#' @param SFS_bincount Number of VAF bins in the Site Frequency Spectrum
+#'   (\code{100} by default).
+#' @param ABCSMCDRF_nParticles Integer vector of particle counts for each
+#'   ABC-SMC-DRF iteration (\code{rep(1000, 10)} by default). The vector length
+#'   sets the number of iterations.
+#' @param min_variant_read_inference_A Minimum variant read count for the
+#'   inference A subsample. If \code{NULL} (default), chosen automatically.
+#' @param min_variant_read_inference_B Minimum variant read count for the
+#'   inference B subsample. If \code{NULL} (default), chosen automatically.
+#' @param min_variant_read_validation Minimum variant read count for the
+#'   validation subsample. If \code{NULL} (default), chosen automatically.
+#' @param inference_retained_freq Target cumulative mutation frequency (percent)
+#'   when choosing total-read thresholds (\code{95} by default).
+#' @param compute_parallel Logical; run ABC-SMC-DRF in parallel
+#'   (\code{FALSE} by default).
+#' @param n_cores Number of cores for parallel computation. If \code{NULL}
+#'   (default), determined automatically when \code{compute_parallel = TRUE}.
+#' @return A list containing DECODE settings, filtered SFS data for inference A,
+#'   inference B and validation subsamples, fitted models
+#'   (\code{fits_with_tail} and/or \code{fits_without_tail}), and the selected
+#'   configuration (\code{best_with_tail}, \code{best_N_clusters}). See the package
+#'   vignette for details on extracting biological parameters.
+#' @export
+#' @examples
+#' \dontrun{
+#' mutation_table <- read.csv(system.file("extdata", "mutation_table.csv",
+#'     package = "DECODE"))
+#' mutation_table <- mutation_table[
+#'     !is.na(mutation_table$Ref_count) & mutation_table$Ref_count > 0 &
+#'         !is.na(mutation_table$Alt_count) & mutation_table$Alt_count > 0,
+#' ]
+#' DECODE_result <- DECODE(sample_id = "Example", mutation_table = mutation_table)
+#' }
 DECODE <- function(sample_id = "",
                    mutation_table,
                    criterion = "GIC",
