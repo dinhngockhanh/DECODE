@@ -35,7 +35,7 @@ It implements [ABC-SMC-DRF](https://doi.org/10.1007/s11222-025-10748-x), our gen
 
 Given a DNA-sequencing sample, DECODE first selects thresholds $(L,M)$ for three different data subsamples, termed "inference A", "inference B" and "validation" (**step 1**).
 The variant read count threshold is different in each subset, so the SFS from each filtered subsample assumes a different shape (**step 2**).
-For a given cluster count $H$, DECODE applies [ABC-SMC-DRF](https://github.com/dinhngockhanh/abcsmcrf) to infer the parameters $\theta_H=\left(\alpha,p_1,\dots,p_H,\omega_0,\omega_1,\dots,\omega_H\right)$, which characterize the exponent of the tail, each cluster's mean VAF, and the mutation count in each component.
+For a given cluster count $H$, DECODE applies ABC-SMC-DRF to infer the parameters $\theta_H=\left(\alpha,p_1,\dots,p_H,\omega_0,\omega_1,\dots,\omega_H\right)$, which characterize the exponent of the tail, each cluster's mean VAF, and the mutation count in each component.
 ABC-SMC-DRF is modified to maintain cluster ordering, where cluster 1 is truncal and cluster $H$ corresponds to the rarest subclone.
 DECODE thus finds the distribution of $\theta_H$ such that the predicted SFS best matches the empirical SFS from "inference A" and "inference B" subsamples (**step 3**).
 
