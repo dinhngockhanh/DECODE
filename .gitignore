@@ -6,6 +6,7 @@ R/.DS_Store
 # knitr / vignette build artifacts
 vignettes/*_cache/
 vignettes/*_files/
+vignettes/Previous results/
 
 # RStudio
 .Rproj.user/
