@@ -1,0 +1,10 @@
+^Fig_schematics\.jpg$
+^\.gitattributes$
+^\.gitignore$
+^.*\.Rproj$
+^\.Rproj\.user$
+^R/simulation\.r$
+^vignettes/.*_cache$
+^vignettes/.*_files$
+^Archive$
+^vignettes_prompt$

@@ -1,3 +1,5 @@
+#' Assign mutations to DECODE SFS components
+#'
 #' Infer the probability for each mutation to belong to a SFS component
 #' as inferred by DECODE.
 #'
