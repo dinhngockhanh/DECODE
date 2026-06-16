@@ -40,9 +40,7 @@ DECODE requires a mutation table with columns `Ref_count` and `Alt_count`,
 containing the reference and alternative read counts for each mutation, respectively.
 
 ```{r show-mutation-table}
-mutation_table <- read.csv(
-    system.file("extdata", "mutation_table.csv", package = "DECODE")
-)
+mutation_table <- read.csv(system.file("extdata", "mutation_table.csv", package = "DECODE"))
 head(mutation_table)
 ```
 
@@ -53,9 +51,7 @@ To extract only diploid mutations, we first load the table containing allele-spe
 e.g., from [ASCAT](https://github.com/VanLoo-lab/ascat).
 
 ```{r show-cn-segments}
-cn_table <- read.delim(
-    system.file("extdata", "copy_number_segments.txt", package = "DECODE")
-)
+cn_table <- read.delim(system.file("extdata", "copy_number_segments.txt", package = "DECODE"))
 head(cn_table)
 ```
 
@@ -316,9 +312,7 @@ the multiplicities can be assigned for each mutation.
 Here we use a pre-annotated mutation table as an example.
 
 ```{r build-assignment-table-1}
-mutation_table_with_multiplicity <- read.csv(
-    system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE")
-)
+mutation_table_with_multiplicity <- read.csv(system.file("extdata", "mutation_table_with_multiplicity.csv", package = "DECODE"))
 mutation_table_with_multiplicity <- mutation_table_with_multiplicity[which(
     !is.na(mutation_table_with_multiplicity$nMajor) &
         !is.na(mutation_table_with_multiplicity$nMinor) &
