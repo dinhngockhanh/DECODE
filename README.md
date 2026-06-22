@@ -2,7 +2,7 @@
 
 ##  Installation
 
-DECODE (**De**ciphering **C**ancer **O**rigin from **D**NA **E**volution) is an algorithm to decompose genomic variants into the neutral tail and mutation clusters based on their Variant Allele Frequencies (VAFs), with corrections for sample-specific DNA-sequencing coverage distribution and mutation calling biases in the Site Frequency Spectrum (SFS).
+[DECODE (**De**ciphering **C**ancer **O**rigin from **D**NA **E**volution)](https://doi.org/10.64898/2026.06.15.732415) is an algorithm to decompose genomic variants into the neutral tail and mutation clusters based on their Variant Allele Frequencies (VAFs), with corrections for sample-specific DNA-sequencing coverage distribution and mutation calling biases in the Site Frequency Spectrum (SFS).
 
 The DECODE library can be installed with
 
@@ -48,5 +48,6 @@ DECODE performs this pipeline to fit the data with and without a neutral tail, t
 
 ##  References
 
-1.  Dinh KN, Jaksik R, Kimmel M, Lambert A, Tavaré S. [Statistical inference for the evolutionary history of cancer genomes](https://doi.org/10.1214/19-STS7561). Statistical Science 35(1):129 (2020).
-2.  Dinh KN, Liu C, Xiang Z, Liu Z, Tavaré S. [Approximate Bayesian computation sequential Monte Carlo via random forests](https://doi.org/10.1007/s11222-025-10748-x). Statistics and Computing 35, 219 (2025). 
+1.  Chen Y, Jaksik R, Terranova P, El Baghdadi S, Koval A, Kurpas MK, Tavaré S, Kimmel M, Dinh KN. [Accurate detection of tumor clonality and ongoing expansion mode from genomic data](https://doi.org/10.64898/2026.06.15.732415). bioRxiv (2026). 
+2.  Dinh KN, Jaksik R, Kimmel M, Lambert A, Tavaré S. [Statistical inference for the evolutionary history of cancer genomes](https://doi.org/10.1214/19-STS7561). Statistical Science 35(1):129 (2020).
+3.  Dinh KN, Liu C, Xiang Z, Liu Z, Tavaré S. [Approximate Bayesian computation sequential Monte Carlo via random forests](https://doi.org/10.1007/s11222-025-10748-x). Statistics and Computing 35, 219 (2025). 
